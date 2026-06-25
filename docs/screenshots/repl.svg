@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 838.4000000000001 526" width="838.4000000000001" height="526" role="img" aria-label="› icopilot   (interactive REPL)">
+  <defs>
+    <linearGradient id="bar" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="1" stop-color="#262626"/>
+    </linearGradient>
+  </defs>
+  <rect width="838.4000000000001" height="526" rx="8" ry="8" fill="#1e1e1e"/>
+  <rect width="838.4000000000001" height="28" rx="8" ry="8" fill="url(#bar)"/>
+  <circle cx="16" cy="14" r="6" fill="#ff5f57"/>
+  <circle cx="36" cy="14" r="6" fill="#febc2e"/>
+  <circle cx="56" cy="14" r="6" fill="#28c840"/>
+  <text x="419.20000000000005" y="19" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#bdbdbd">› icopilot   (interactive REPL)</text>
+  <text y="64" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="82" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">iCopilot  v0.1.0  -  model: gpt-4o-mini</tspan></text>
+  <text y="100" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">Type /help for commands. @file to inject a file. Ctrl-C to interrupt.</tspan></text>
+  <text y="118" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="136" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1"> ASK  › Refactor @src/api/github-models.ts to add caching</tspan></text>
+  <text y="154" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  injected 1 file ref: src/api/github-models.ts</tspan></text>
+  <text y="172" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="190" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">● I'll add an in-memory LRU keyed by (model, messages).</tspan></text>
+  <text y="208" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="226" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1"> SHELL </tspan></text>
+  <text y="244" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  Run the test suite to confirm the cache hit path.</tspan></text>
+  <text y="262" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  $ npm test</tspan></text>
+  <text y="280" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  cwd: E:\AI\icli</tspan></text>
+  <text y="298" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  ? Run this command? (y/N)</tspan></text>
+  <text y="316" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="334" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1"> WRITE  src/api/cache.ts</tspan></text>
+  <text y="352" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">--- empty</tspan></text>
+  <text y="370" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">+++ proposed</tspan></text>
+  <text y="388" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">@@ -0,0 +1,12 @@</tspan></text>
+  <text y="406" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">+export class LRU&lt;K, V&gt; {</tspan></text>
+  <text y="424" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">+  constructor(private max = 128) {}</tspan></text>
+  <text y="442" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">+  // …</tspan></text>
+  <text y="460" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">+}</tspan></text>
+  <text y="478" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="496" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">⚠  context 78% full — run /compact to free space.</tspan></text>
+</svg>

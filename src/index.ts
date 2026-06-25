@@ -1,6 +1,9 @@
+import './util/perf.js';
+import { markFirstPrompt } from './util/perf.js';
 import { Command } from 'commander';
 import { runInteractive } from './modes/interactive.js';
 import { runOneShot } from './modes/oneshot.js';
+import { runTui } from './modes/tui.js';
 import { config } from './config.js';
 import { theme } from './ui/theme.js';
 import { logger } from './logger.js';
@@ -58,7 +61,17 @@ async function run(opts: any): Promise<void> {
   }
 
   if (opts.prompt) {
+    markFirstPrompt('startup');
     await runOneShot(opts.prompt, { model: opts.model, plan: !!opts.plan });
+    return;
+  }
+  markFirstPrompt('startup');
+  if (opts.tui) {
+    try {
+      await runTui(opts.plan ? 'plan' : 'ask');
+    } catch (err) {
+      throw err;
+    }
     return;
   }
   await runInteractive(opts.plan ? 'plan' : 'ask');
@@ -71,6 +84,7 @@ program
   .option('-p, --prompt <text>', 'one-shot mode: run a single prompt and exit')
   .option('-m, --model <name>', 'model id (default: gpt-4o-mini)')
   .option('--plan', 'start in Plan Mode')
+  .option('--tui', 'start the experimental full-screen TUI')
   .option('--cwd <path>', 'set working directory')
   .option('-v, --verbose', 'enable verbose debug logging')
   .option('--sandbox', 'enable sandbox policy enforcement')
@@ -78,6 +92,7 @@ program
   .option('--no-color', 'disable colored output')
   .option('--theme <name>', 'auto, light, dark, or none')
   .option('--policy <file>', 'policy file path')
+  .option('--perf-trace', 'print cold-start timing to stderr')
   .action(async (opts) => {
     try {
       await run(opts);

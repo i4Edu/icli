@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { config } from '../config.js';
-import { encode } from 'gpt-tokenizer';
+import { countTokensSync } from '../util/tokens.js';
 
 export type Mode = 'ask' | 'plan';
 
@@ -124,7 +124,7 @@ export class Session {
             : '';
       if (c) {
         try {
-          total += encode(c).length;
+          total += countTokensSync(c);
         } catch {
           total += Math.ceil(c.length / 4);
         }

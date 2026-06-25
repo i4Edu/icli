@@ -4,6 +4,10 @@ A terminal-native, agentic CLI assistant — fully replicating and enhancing
 the modern GitHub Copilot CLI experience, powered exclusively by the
 **GitHub Models API**.
 
+<p align="center">
+  <img src="./docs/screenshots/repl.svg" alt="iCopilot REPL with streaming response, shell proposal, and file write" width="820">
+</p>
+
 ## Features
 
 - 🗣️  **Interactive REPL** with live, streaming markdown responses
@@ -59,6 +63,10 @@ icopilot --verbose --log-level debug       # structured logs to stderr
 icopilot --theme light                     # light / dark / none
 ```
 
+<p align="center">
+  <img src="./docs/screenshots/help.svg" alt="icopilot --help" width="820">
+</p>
+
 See [`docs/config.md`](./docs/config.md) for the full config-file format,
 [`docs/sessions.md`](./docs/sessions.md) for session/memory usage, and
 [`docs/mcp.md`](./docs/mcp.md) for MCP server integration.
@@ -76,6 +84,25 @@ Inside the REPL:
 > /export md
 > /exit
 ```
+
+### When something goes wrong
+
+Errors are classified and re-rendered with actionable hints. For example,
+running without a token:
+
+<p align="center">
+  <img src="./docs/screenshots/missing-token.svg" alt="Friendly missing-token error" width="820">
+</p>
+
+### Version
+
+<p align="center">
+  <img src="./docs/screenshots/version.svg" alt="icopilot --version" width="520">
+</p>
+
+> **About the screenshots.** They are deterministic SVG renderings of the
+> actual binary's output (ANSI colors preserved). Regenerate them after any
+> UX change with `npm run screenshots`.
 
 ## Architecture
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 838.4000000000001 454" width="838.4000000000001" height="454" role="img" aria-label="› icopilot --help">
+  <defs>
+    <linearGradient id="bar" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#3a3a3a"/>
+      <stop offset="1" stop-color="#262626"/>
+    </linearGradient>
+  </defs>
+  <rect width="838.4000000000001" height="454" rx="8" ry="8" fill="#1e1e1e"/>
+  <rect width="838.4000000000001" height="28" rx="8" ry="8" fill="url(#bar)"/>
+  <circle cx="16" cy="14" r="6" fill="#ff5f57"/>
+  <circle cx="36" cy="14" r="6" fill="#febc2e"/>
+  <circle cx="56" cy="14" r="6" fill="#28c840"/>
+  <text x="419.20000000000005" y="19" text-anchor="middle" font-family="ui-sans-serif,system-ui,sans-serif" font-size="12" fill="#bdbdbd">› icopilot --help</text>
+  <text y="64" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">$ icopilot --help</tspan></text>
+  <text y="82" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">Usage: icopilot [options]</tspan></text>
+  <text y="100" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="118" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">iCopilot — terminal-native agentic CLI powered by GitHub Models</tspan></text>
+  <text y="136" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+  <text y="154" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">Options:</tspan></text>
+  <text y="172" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  -V, --version        output the version number</tspan></text>
+  <text y="190" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  -p, --prompt &lt;text&gt;  one-shot mode: run a single prompt and exit</tspan></text>
+  <text y="208" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  -m, --model &lt;name&gt;   model id (default: gpt-4o-mini)</tspan></text>
+  <text y="226" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --plan               start in Plan Mode</tspan></text>
+  <text y="244" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --tui                start the experimental full-screen TUI</tspan></text>
+  <text y="262" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --cwd &lt;path&gt;         set working directory</tspan></text>
+  <text y="280" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  -v, --verbose        enable verbose debug logging</tspan></text>
+  <text y="298" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --sandbox            enable sandbox policy enforcement</tspan></text>
+  <text y="316" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --log-level &lt;level&gt;  debug, info, warn, or error</tspan></text>
+  <text y="334" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --no-color           disable colored output</tspan></text>
+  <text y="352" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --theme &lt;name&gt;       auto, light, dark, or none</tspan></text>
+  <text y="370" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --policy &lt;file&gt;      policy file path</tspan></text>
+  <text y="388" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  --perf-trace         print cold-start timing to stderr</tspan></text>
+  <text y="406" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan x="16.00" font-weight="normal" font-style="normal" fill="#dcdcdc" opacity="1">  -h, --help           display help for command</tspan></text>
+  <text y="424" font-family="ui-monospace,Consolas,Menlo,monospace" font-size="13" xml:space="preserve"><tspan> </tspan></text>
+</svg>

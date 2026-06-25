@@ -97,7 +97,7 @@ export async function draftIssue(session: Session, signal?: AbortSignal, title?:
     });
     const issueTitle = title || extractTitle(md);
     const body = stripTitle(md).trim() || md.trim();
-    process.stdout.write('\n' + renderMarkdownString(md) + '\n');
+    process.stdout.write('\n' + (await renderMarkdownString(md)) + '\n');
 
     await offerClipboard(md);
     await offerGhIssue(issueTitle, body);

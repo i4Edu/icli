@@ -139,7 +139,7 @@ export async function prDescription(session: Session, signal?: AbortSignal) {
         md += t;
       },
     });
-    process.stdout.write('\n' + renderMarkdownString(md) + '\n');
+    process.stdout.write('\n' + (await renderMarkdownString(md)) + '\n');
   } catch (e: any) {
     process.stdout.write(theme.err(`/pr failed: ${e?.message}\n`));
   }

@@ -7,6 +7,8 @@ import { showDiff, commitFromStaged, prDescription } from './git.js';
 import { compactSession } from '../context/compactor.js';
 import { pickSession, exportSession } from '../session/manager.js';
 import { reviewStaged, draftIssue, scaffoldBranch } from './git-extra.js';
+import { indexCommand } from './index-cmd.js';
+import { routeCommand } from './route-cmd.js';
 
 export interface SlashContext {
   session: Session;
@@ -38,6 +40,8 @@ ${theme.brand('Slash commands')}
   /review                    review staged changes
   /issue [title]             draft a GitHub issue from current context
   /branch <topic>            create a conventional feature/fix branch
+  /index build|status|search workspace embeddings index
+  /route get|set|list        multi-model routing profile
   /exit, /quit               quit iCopilot
 
 ${theme.brand('Inline')}
@@ -147,6 +151,12 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       return done();
     case 'branch':
       await scaffoldBranch(s, ctx.abort.signal, arg);
+      return done();
+    case 'index':
+      await indexCommand(rest);
+      return done();
+    case 'route':
+      process.stdout.write(routeCommand(arg));
       return done();
     case 'exit':
     case 'quit':

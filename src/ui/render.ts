@@ -1,12 +1,16 @@
-import { marked } from 'marked';
-import TerminalRenderer from 'marked-terminal';
 import { theme } from './theme.js';
+import { lazy } from '../util/lazy.js';
 
 let markdownConfigured = false;
 
-// TODO: lazy-load marked/marked-terminal when cold-start budget matters.
-export function ensureMarkdown(): void {
-  if (markdownConfigured) return;
+const loadMarked = lazy(async () => import('marked'));
+const loadTerminalRenderer = lazy(async () => (await import('marked-terminal')).default);
+
+export async function ensureMarkdown(): Promise<{ parse: (md: string) => string }> {
+  const [{ marked }, TerminalRenderer] = await Promise.all([loadMarked(), loadTerminalRenderer()]);
+  if (markdownConfigured) {
+    return { parse: (md: string) => marked.parse(md) as string };
+  }
   marked.setOptions({
     // @ts-expect-error — marked-terminal's renderer is compatible at runtime.
     renderer: new TerminalRenderer({
@@ -17,6 +21,7 @@ export function ensureMarkdown(): void {
     }),
   });
   markdownConfigured = true;
+  return { parse: (md: string) => marked.parse(md) as string };
 }
 
 /** Streaming sink: prints raw tokens with mild styling for low-latency feel. */
@@ -32,11 +37,11 @@ export class StreamSink {
     return this.buf;
   }
   /** Render captured markdown buffer as styled terminal output. */
-  renderMarkdown(): void {
+  async renderMarkdown(): Promise<void> {
     if (!this.buf.trim()) return;
     try {
-      ensureMarkdown();
-      const rendered = (marked.parse(this.buf) as string).trimEnd();
+      const markdown = await ensureMarkdown();
+      const rendered = markdown.parse(this.buf).trimEnd();
       // Clear streamed area is not portable; instead, print a divider + render
       process.stdout.write(theme.dim('─'.repeat(60)) + '\n');
       process.stdout.write(rendered + '\n');
@@ -49,10 +54,10 @@ export class StreamSink {
   }
 }
 
-export function renderMarkdownString(md: string): string {
+export async function renderMarkdownString(md: string): Promise<string> {
   try {
-    ensureMarkdown();
-    return (marked.parse(md) as string).trimEnd();
+    const markdown = await ensureMarkdown();
+    return markdown.parse(md).trimEnd();
   } catch {
     return md;
   }

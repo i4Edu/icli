@@ -28,6 +28,14 @@ vi.mock('../../src/commands/git-extra.js', () => ({
   scaffoldBranch: vi.fn(),
 }));
 
+vi.mock('../../src/commands/index-cmd.js', () => ({
+  indexCommand: vi.fn(),
+}));
+
+vi.mock('../../src/commands/route-cmd.js', () => ({
+  routeCommand: vi.fn(() => 'routing profile: fixed\n'),
+}));
+
 let tmpDir: string;
 let originalCwd: string;
 let stdoutSpy: ReturnType<typeof vi.spyOn>;

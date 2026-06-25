@@ -20,7 +20,15 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "typecheck": "tsc -p . --noEmit",
-    "prepare": "tsc -p ."
+    "prepare": "tsc -p .",
+    "release": "node scripts/release.mjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
+    "changelog": "node scripts/changelog.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "test:smoke": "vitest run tests/smoke --config vitest.smoke.config.ts",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "engines": {
     "node": ">=18.17.0"
@@ -52,5 +60,17 @@
     "prettier": "^3.3.3",
     "typescript": "^5.5.4",
     "vitest": "^1.6.0"
+  },
+  "license": "MIT",
+  "files": [
+    "bin",
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": ""
   }
 }
