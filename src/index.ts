@@ -67,11 +67,7 @@ async function run(opts: any): Promise<void> {
   }
   markFirstPrompt('startup');
   if (opts.tui) {
-    try {
-      await runTui(opts.plan ? 'plan' : 'ask');
-    } catch (err) {
-      throw err;
-    }
+    await runTui(opts.plan ? 'plan' : 'ask');
     return;
   }
   await runInteractive(opts.plan ? 'plan' : 'ask');

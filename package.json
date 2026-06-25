@@ -28,7 +28,8 @@
     "changelog": "node scripts/changelog.mjs",
     "smoke": "node scripts/smoke.mjs",
     "test:smoke": "vitest run tests/smoke --config vitest.smoke.config.ts",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "perf:cold-start": "node scripts/cold-start.mjs"
   },
   "engines": {
     "node": ">=18.17.0"

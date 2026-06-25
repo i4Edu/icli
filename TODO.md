@@ -77,12 +77,26 @@
 - ✅ `~/.icopilot/mcp.json` and `.mcp.json` discovery
 - ✅ Namespaced MCP tools (`mcp__<server>__<tool>`)
 
-## Future / exploratory
+## Phase 9 — Performance (v0.7)
 
-- ⬜ TUI mode (ink) with chat / diff / files panes
-- ⬜ Voice input via local STT
-- ⬜ Workspace embeddings index
-- ⬜ Multi-model routing
-- ⬜ Team mode over WebRTC
-- ⬜ Plugin marketplace
-- 🟡 Cold-start performance budget (`< 150 ms`)
+- ✅ Lazy-load `marked`, `marked-terminal`, `gpt-tokenizer`
+- ✅ Worker-thread token counting for inputs ≥ 200 KB
+- ✅ Incremental fenced-code highlighting in the streaming sink
+- ✅ `npm run perf:cold-start` benchmark harness; documented baselines in `docs/performance.md`
+
+## Phase 10 — Release engineering (v1.0)
+
+- ✅ `docs/api.md` — public API freeze with stability tiers
+- ✅ `docs/recipes.md`, `docs/index.md`, `docs/release.md`
+- ✅ `scripts/release.mjs` + `scripts/changelog.mjs` + `.github/workflows/release.yml`
+- ✅ `tests/smoke/cli.smoke.test.ts` + `scripts/smoke.mjs`
+- ✅ LICENSE (MIT), `.npmignore`, `package.json` `files` allowlist
+- ✅ Real SVG screenshots in README (`scripts/screenshots.mjs`)
+
+## Phase 11 — Beyond 1.0 (opt-in / extension points)
+
+- ✅ Opt-in TUI mode (`--tui`, no extra deps)
+- ✅ Multi-model routing (`/route`, `src/routing/*`)
+- ✅ Workspace embeddings index (`/index`, `src/index/*`)
+- ✅ Extension-point interfaces for voice (`SpeechProvider`), team mode (`TeamTransport`), and plugin catalog (`PluginCatalog`)
+- 📚 Reference architectures for each extension live in `docs/future.md`

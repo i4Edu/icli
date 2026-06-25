@@ -24,25 +24,61 @@ export async function ensureMarkdown(): Promise<{ parse: (md: string) => string 
   return { parse: (md: string) => marked.parse(md) as string };
 }
 
-/** Streaming sink: prints raw tokens with mild styling for low-latency feel. */
+/** Streaming sink: prints raw tokens with mild styling for low-latency feel.
+ *  Tracks fenced ``` code blocks across token boundaries and renders the
+ *  inside of a fence in `theme.hl` so the user can visually distinguish code
+ *  from prose during streaming, without waiting for the full markdown render. */
 export class StreamSink {
   private buf = '';
+  private inCode = false;
+  private lineBuf = '';
+
   write(token: string) {
     this.buf += token;
-    process.stdout.write(token);
+    for (const ch of token) {
+      this.lineBuf += ch;
+      if (ch === '\n') {
+        this.flushLine();
+      }
+    }
   }
+
+  private flushLine() {
+    const line = this.lineBuf;
+    this.lineBuf = '';
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith('```')) {
+      // toggle on the fence boundary; print fence dimmed
+      this.inCode = !this.inCode;
+      process.stdout.write(theme.dim(line));
+      return;
+    }
+    if (this.inCode) {
+      process.stdout.write(theme.hl(line));
+      return;
+    }
+    process.stdout.write(line);
+  }
+
   /** After completion, optionally re-render fenced markdown for a polished view. */
   finalize(): string {
+    if (this.lineBuf) {
+      // flush any trailing partial line
+      const tail = this.lineBuf;
+      this.lineBuf = '';
+      if (this.inCode) process.stdout.write(theme.hl(tail));
+      else process.stdout.write(tail);
+    }
     process.stdout.write('\n');
     return this.buf;
   }
+
   /** Render captured markdown buffer as styled terminal output. */
   async renderMarkdown(): Promise<void> {
     if (!this.buf.trim()) return;
     try {
       const markdown = await ensureMarkdown();
       const rendered = markdown.parse(this.buf).trimEnd();
-      // Clear streamed area is not portable; instead, print a divider + render
       process.stdout.write(theme.dim('─'.repeat(60)) + '\n');
       process.stdout.write(rendered + '\n');
     } catch {

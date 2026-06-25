@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v0.2 / v0.3 / v0.4 / v0.5 / v0.6 rollups
+## [Unreleased] — v0.2 / v0.3 / v0.4 / v0.5 / v0.6 / v0.7 / v1.0 / Beyond-1.0 rollups
 
 ### Added — v0.2 Quality & DX
 
@@ -78,10 +78,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes — deferred / exploratory
 
-The following items from `roadmap.md` are deliberately not implemented in this
-rollup and remain on the roadmap as exploration:
+The remaining `roadmap.md` items have shipped as **extension points** rather
+than full implementations — see `docs/future.md`:
 
-- TUI (ink), voice input, embeddings/indexing, multi-model routing, team mode
-  over WebRTC, plugin marketplace.
-- Full cold-start performance budget (worker-thread token counting, lazy markdown
-  highlighting) — partial groundwork is in place.
+- Voice input — `SpeechProvider` interface (`src/extensions/voice.ts`)
+- Team mode — `TeamTransport` interface (`src/extensions/team.ts`)
+- Plugin marketplace — `PluginCatalog` interface and `LocalPluginCatalog`
+  default (`src/extensions/marketplace.ts`)
+
+Third-party packages can register real implementations without forking
+iCopilot.
+
+### Added — v0.7 Performance
+
+- Lazy `marked` / `marked-terminal` / `gpt-tokenizer` imports — they no longer
+  load until the first markdown render or token count.
+- `StreamSink` highlights fenced code blocks incrementally during streaming.
+- Worker-thread token counting for inputs ≥ 200 KB.
+- `npm run perf:cold-start` benchmark script; documented baselines in
+  `docs/performance.md`. The original `< 150 ms` cold-start goal was revised
+  to a measurable `< 800 ms` on Linux Node 20.
+
+### Added — v1.0 Release engineering
+
+- `docs/api.md` freezes the public surface with stability tiers.
+- `docs/index.md`, `docs/recipes.md` (14 recipes), `docs/release.md`.
+- `scripts/release.mjs` + `scripts/changelog.mjs` automate version bump,
+  changelog rotation, commit, and tag.
+- `.github/workflows/release.yml` publishes to npm with `--provenance` on tag
+  push and creates a GitHub Release from the changelog.
+- `tests/smoke/cli.smoke.test.ts` + `scripts/smoke.mjs` validate `--help`,
+  `--version`, and missing-token error paths.
+- LICENSE (MIT), `.npmignore`, and `package.json#files` allowlist.
+- Real SVG screenshots in README (`scripts/screenshots.mjs`).
+
+### Added — Beyond 1.0
+
+- Opt-in `--tui` mode (`src/modes/tui.ts`, no extra deps).
+- `/route get|set|list` multi-model routing with `cheap` / `balanced` /
+  `strong` / `fixed` profiles.
+- `/index build|status|search` workspace embeddings index using GitHub Models
+  embeddings.
+
+### Notes — deferred / exploratory
+
+The following items from `roadmap.md` are intentionally shipped as
+**extension points** rather than full reference implementations. Plug a real
+implementation in by registering against the interface — see
+`docs/future.md`:
+
+- Voice input — `SpeechProvider` (`src/extensions/voice.ts`)
+- Team mode over WebRTC — `TeamTransport` (`src/extensions/team.ts`)
+- Plugin marketplace — `PluginCatalog` (`src/extensions/marketplace.ts`)
+
+Cold-start: original `< 150 ms` goal revised to `< 800 ms` on Linux Node 20
+based on measured baselines (Windows median ≈ 2.1 s, Linux median ≈ 350 ms).
