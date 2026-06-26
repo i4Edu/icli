@@ -100,3 +100,16 @@
 - ✅ Workspace embeddings index (`/index`, `src/index/*`)
 - ✅ Extension-point interfaces for voice (`SpeechProvider`), team mode (`TeamTransport`), and plugin catalog (`PluginCatalog`)
 - 📚 Reference architectures for each extension live in `docs/future.md`
+
+## Phase 12 — Productivity & Reach (v1.1)
+
+- ⬜ `/undo` & `/redo` — file-write transaction journal (`src/session/undo-journal.ts`)
+- ⬜ `/cost` — running token + USD cost estimator (`src/util/cost.ts`)
+- ⬜ `web_fetch` tool — sandboxed HTTP GET with host allowlist (`src/tools/web.ts`)
+- ⬜ `/snippets` — saved prompt templates (`src/snippets/*`)
+- ⬜ `/profile` — named config profiles (`src/config-profile.ts`)
+- ⬜ Shell completion script generator (`scripts/gen-completions.mjs`)
+- ⬜ `/stats` — local usage counters (`src/stats/*`)
+- ⬜ `/explain <path>` — quick file/folder summary
+- ⬜ `/lint` — auto-detect & run project linters
+- ⬜ `/bookmark` — bookmark/recall conversation positions (`src/session/bookmarks.ts`)

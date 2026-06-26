@@ -124,6 +124,30 @@ The exploration extension points are intentionally minimal: a third party can `i
 
 ---
 
+## v1.1 — Productivity & Reach ⬜
+
+Ten focused enhancements that broaden the day-to-day surface area of
+iCopilot without changing its core philosophy (terminal-first, GitHub
+Models only, opt-in everything).
+
+- ⬜ **`/undo` & `/redo`** — transaction journal of file writes (`src/session/undo-journal.ts`); restore previous bytes on demand
+- ⬜ **`/cost`** — running token + estimated USD cost per session, with per-model rate table (`src/util/cost.ts`)
+- ⬜ **`web_fetch` tool** — sandboxed HTTP GET tool with host allow/deny list (`src/tools/web.ts`)
+- ⬜ **`/snippets`** — save / list / insert reusable prompt templates from `~/.icopilot/snippets/` (`src/snippets/*`)
+- ⬜ **`/profile`** — named config profiles (model + theme + sandbox preset) (`src/config-profile.ts`)
+- ⬜ **Shell completions** — generated bash / zsh / pwsh completion scripts (`scripts/gen-completions.mjs`)
+- ⬜ **`/stats`** — local-only usage counters (tokens, tool calls, commands) persisted under `~/.icopilot/stats.json`
+- ⬜ **`/explain <path>`** — quick one-shot file/folder summary using the cheap routed model
+- ⬜ **`/lint`** — auto-detect project linters (`eslint`, `ruff`, `golangci-lint`…) and run them in the sandbox
+- ⬜ **`/bookmark`** — bookmark a message in history; `/bookmark go <name>` rewinds context to that point
+
+Each item is implemented as a self-contained module with its own
+Vitest unit tests; integration is performed by editing the slash
+dispatcher (`src/commands/slash.ts`) and the tool registry
+(`src/tools/registry.ts`) once per feature.
+
+---
+
 ## Non-goals
 
 To keep iCopilot focused:

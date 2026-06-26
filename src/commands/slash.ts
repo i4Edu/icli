@@ -9,6 +9,14 @@ import { pickSession, exportSession } from '../session/manager.js';
 import { reviewStaged, draftIssue, scaffoldBranch } from './git-extra.js';
 import { indexCommand } from './index-cmd.js';
 import { routeCommand } from './route-cmd.js';
+import { undoCommand } from './undo-cmd.js';
+import { costCommand } from './cost-cmd.js';
+import { snippetsCommand } from './snippets-cmd.js';
+import { profileCommand } from './profile-cmd.js';
+import { statsCommand } from './stats-cmd.js';
+import { buildExplain } from './explain-cmd.js';
+import { lintCommand } from './lint-cmd.js';
+import { bookmarkCommand } from './bookmark-cmd.js';
 
 export interface SlashContext {
   session: Session;
@@ -42,6 +50,14 @@ ${theme.brand('Slash commands')}
   /branch <topic>            create a conventional feature/fix branch
   /index build|status|search workspace embeddings index
   /route get|set|list        multi-model routing profile
+  /undo [status], /redo       undo or redo approved file writes
+  /cost                       estimate current session token cost
+  /snippets, /snippet         manage reusable prompt snippets
+  /profile, /profiles         manage saved CLI profiles
+  /stats [show|reset|path]    show or reset local usage stats
+  /explain <path>             build an explanation prompt for a file/folder
+  /lint                       detect available repository linters
+  /bookmark, /bookmarks       manage session rewind bookmarks
   /exit, /quit               quit iCopilot
 
 ${theme.brand('Inline')}
@@ -158,6 +174,50 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'route':
       process.stdout.write(routeCommand(arg));
       return done();
+    case 'undo':
+      process.stdout.write(await undoCommand(arg.toLowerCase() === 'status' ? 'status' : 'undo'));
+      return done();
+    case 'redo':
+      process.stdout.write(await undoCommand('redo'));
+      return done();
+    case 'cost':
+      process.stdout.write(costCommand(s));
+      return done();
+    case 'snippets':
+    case 'snippet':
+      process.stdout.write(await snippetsCommand(rest));
+      return done();
+    case 'profile':
+    case 'profiles':
+      process.stdout.write(await profileCommand(rest));
+      return done();
+    case 'stats':
+      process.stdout.write(statsCommand(arg || undefined));
+      return done();
+    case 'explain': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /explain <path>\n'));
+        return done();
+      }
+      const payload = buildExplain(arg, s.state.cwd);
+      process.stdout.write(`${theme.brand('Explain prompt')} ${theme.dim(payload.path)}\n\n${payload.prompt}\n`);
+      return done();
+    }
+    case 'lint':
+      process.stdout.write(lintCommand(s.state.cwd));
+      return done();
+    case 'bookmark':
+    case 'bookmarks': {
+      const result = bookmarkCommand(s, rest);
+      process.stdout.write(result.message.endsWith('\n') ? result.message : `${result.message}\n`);
+      if (result.rewindTo !== undefined) {
+        s.state.messages.length = Math.min(s.state.messages.length, result.rewindTo + 1);
+        const save = (s as unknown as { save?: () => void }).save;
+        if (typeof save === 'function') save.call(s);
+        process.stdout.write(theme.ok(`✔ rewound to message ${result.rewindTo}\n`));
+      }
+      return done();
+    }
     case 'exit':
     case 'quit':
       ctx.exit();

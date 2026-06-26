@@ -4,6 +4,7 @@ import { proposeWrite, proposeWriteBatch, readFileSafe } from './file-ops.js';
 import { applyPatchTool } from './apply-patch.js';
 import { grepTool } from './grep.js';
 import { globTool } from './glob.js';
+import { webFetchTool, WEB_FETCH_SCHEMA } from './web.js';
 
 type McpTools = {
   schemas: ChatCompletionTool[];
@@ -140,6 +141,7 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
       },
     },
   },
+  WEB_FETCH_SCHEMA,
 ];
 
 export async function getAllToolSchemas(): Promise<ChatCompletionTool[]> {
@@ -211,6 +213,8 @@ async function dispatchBuiltIn(
         cwd: args.cwd ? String(args.cwd) : undefined,
         ignore: Array.isArray(args.ignore) ? args.ignore.map(String) : undefined,
       });
+    case 'web_fetch':
+      return webFetchTool(args as any);
     default:
       return undefined;
   }
