@@ -24,6 +24,7 @@ type StdoutWrite = typeof process.stdout.write;
 
 export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void> {
   const session = new Session({ mode: initialMode });
+  await session.initializeGitContext();
   const metrics = new MetricsCollector();
   const originalWrite = process.stdout.write.bind(process.stdout) as StdoutWrite;
   const writeRaw = (text: string) => {

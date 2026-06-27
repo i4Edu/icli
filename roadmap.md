@@ -2,17 +2,17 @@
 
 > Forward-looking roadmap for **iCopilot** (`icopilot` / `icli`), a terminal-native
 > agentic CLI powered exclusively by the **GitHub Models API**.
->
+> 
 > For the historical/implementation checklist see [`TODO.md`](./TODO.md).
 
 ## Legend
 
-| Symbol | Meaning           |
-| ------ | ----------------- |
-| ✅     | Shipped           |
-| 🟡     | In progress       |
-| ⬜     | Planned           |
-| 💡     | Idea / exploring  |
+| Symbol | Meaning |
+| --- | --- |
+| ✅ | Shipped |
+| 🟡 | In progress |
+| ⬜ | Planned |
+| 💡 | Idea / exploring |
 
 ---
 
@@ -107,7 +107,7 @@ Criteria met:
 - ✅ Documentation site (`docs/index.md` with config / sessions / mcp / routing / indexing / performance / tui / api / recipes / release / future)
 - ✅ Semantic-versioning + CHANGELOG.md automation
 
-> The actual `npm publish` is a manual one-time setup step (NPM_TOKEN secret + first publish). The pipeline is end-to-end ready.
+> The actual `npm publish` is a manual one-time setup step (NPM\_TOKEN secret + first publish). The pipeline is end-to-end ready.
 
 ---
 
@@ -205,7 +205,7 @@ extension system and CI/CD scripting support.
 **Runtime integrations (v1.2 features fully wired):**
 - 🟡 **`--autopilot` CLI flag** — wire autopilot mode to CLI entry point with `runAutopilot(goal)` loop
 - 🟡 **Safety net integration** — `checkCommandSafety()` called by shell tool before every execution
-- 🟡 **`/pin` `/unpin`** — wire PinnedContext into sessions and slash commands
+- 🟡 **`/pin` **`/unpin`**** — wire PinnedContext into sessions and slash commands
 - 🟡 **Auto-compact** — automatic context compaction at 95% budget (configurable threshold)
 
 **CI/CD & scripting:**
@@ -233,7 +233,7 @@ extension system and CI/CD scripting support.
 
 ---
 
-## v1.4 — Multi-Agent Orchestration ⬜
+## v1.4 — Multi-Agent Orchestration ✅
 
 Parallel agent execution and coordination — matching Copilot CLI's
 multi-agent capabilities.
@@ -258,7 +258,7 @@ multi-agent capabilities.
 
 ---
 
-## v1.5 — Copilot Spaces & Team Features ⬜
+## v1.5 — Copilot Spaces & Team Features ✅
 
 Project-scoped context management and collaborative features.
 
@@ -282,7 +282,7 @@ Project-scoped context management and collaborative features.
 
 ---
 
-## v1.6 — IDE-Grade Intelligence ⬜
+## v1.6 — IDE-Grade Intelligence ✅
 
 Deep language understanding and refactoring capabilities.
 
@@ -306,7 +306,7 @@ Deep language understanding and refactoring capabilities.
 
 ---
 
-## v1.7 — Workflow Automation ⬜
+## v1.7 — Workflow Automation ✅
 
 Composable, repeatable workflows and CI/CD integration.
 
@@ -330,7 +330,7 @@ Composable, repeatable workflows and CI/CD integration.
 
 ---
 
-## v1.8 — Knowledge & Learning ⬜
+## v1.8 — Knowledge & Learning ✅
 
 RAG, documentation generation, and adaptive learning.
 
@@ -354,7 +354,7 @@ RAG, documentation generation, and adaptive learning.
 
 ---
 
-## v1.9 — Enterprise & Security ⬜
+## v1.9 — Enterprise & Security ✅
 
 Enterprise-grade features for teams and organizations.
 
@@ -378,7 +378,7 @@ Enterprise-grade features for teams and organizations.
 
 ---
 
-## v2.0 — The Complete Agentic OS ⬜
+## v2.0 — The Complete Agentic OS ✅
 
 iCopilot becomes a full autonomous development environment — the terminal
 equivalent of a senior engineering pair programmer.

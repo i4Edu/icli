@@ -14,6 +14,7 @@ const VERSION = '1.3.0';
 
 export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
   const session = new Session({ mode: initialMode });
+  await session.initializeGitContext();
   const metrics = new MetricsCollector();
   if (!config.quiet) {
     process.stdout.write(banner(VERSION, session.state.model));

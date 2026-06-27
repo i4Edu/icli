@@ -119,6 +119,9 @@ export async function runAutopilot(
       cwd: opts.cwd,
       mode: 'ask',
     });
+  if (!opts.session) {
+    await session.initializeGitContext();
+  }
 
   const previousMode = session.state.mode;
   const previousPrompt = session.state.systemPrompt;

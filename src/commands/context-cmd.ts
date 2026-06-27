@@ -1,14 +1,17 @@
 import { config } from '../config.js';
+import { renderGitContextBlock } from '../context/git-context.js';
 import { PinnedContext } from '../context/pinned.js';
 import { ASK_SYSTEM, PLAN_SYSTEM } from './prompts.js';
 import { loadMemoryBlock } from '../context/memory.js';
+import { loadConventionPromptContext } from '../knowledge/conventions.js';
+import { loadStylePromptContext } from '../knowledge/style-learner.js';
 import type { Session } from '../session/session.js';
 import { theme } from '../ui/theme.js';
 import { countTokensSync } from '../util/tokens.js';
 
 export interface ContextSource {
   name: string;
-  type: 'system' | 'file' | 'memory' | 'pinned' | 'skill' | 'history';
+  type: 'system' | 'file' | 'memory' | 'pinned' | 'git' | 'skill' | 'history';
   tokens: number;
   percentage: number;
 }
@@ -25,7 +28,10 @@ const FILE_REF_HEADER = '### Referenced files';
 export function buildContextBreakdown(session: Session): ContextBreakdown {
   const systemPrompt = session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM);
   const memoryBlock = loadMemoryBlock(session.state.cwd) ?? '';
+  const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
+  const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
   const pinnedBlock = PinnedContext.fromJSON(session.state.pinned).render();
+  const gitBlock = renderGitContextBlock(session.state.gitContext ?? []);
 
   let historyTokens = 0;
   let fileTokens = 0;
@@ -63,9 +69,12 @@ export function buildContextBreakdown(session: Session): ContextBreakdown {
 
   const sources: ContextSource[] = [
     source('System prompt', 'system', safeCountTokens(systemPrompt)),
+    source('Style profile', 'system', safeCountTokens(styleBlock)),
+    source('Conventions', 'system', safeCountTokens(conventionBlock)),
     source('File references', 'file', fileTokens),
     source('Memory', 'memory', safeCountTokens(memoryBlock)),
     source('Pinned files', 'pinned', safeCountTokens(pinnedBlock)),
+    source('Git context', 'git', safeCountTokens(gitBlock)),
     source('Conversation history', 'history', historyTokens),
     source('Tool results', 'history', toolTokens),
   ];
@@ -200,10 +209,12 @@ function trimSuggestion(entry: ContextSource): string {
       return 'remove large @file injections from the next prompt';
     case 'Pinned files':
       return 'unpin files you no longer need';
+    case 'Git context':
+      return 'trim the auto-injected git diff context';
     case 'Tool results':
       return 'compact the session to collapse verbose tool output';
     case 'Memory':
-      return 'trim .icopilot/memory.md to the essentials';
+      return 'trim .icopilot/memory.md or .icopilot/team-memory.md to the essentials';
     case 'System prompt':
       return 'fixed overhead; optimize other sources first';
     default:
@@ -221,6 +232,8 @@ function colorForType(type: ContextSource['type']): (text: string) => string {
       return theme.ok;
     case 'pinned':
       return theme.warn;
+    case 'git':
+      return theme.assistant;
     case 'skill':
       return theme.assistant;
     case 'history':

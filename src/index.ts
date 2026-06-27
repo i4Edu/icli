@@ -6,27 +6,30 @@ import { runInteractive } from './modes/interactive.js';
 import { runAutopilot } from './modes/autopilot.js';
 import { runOneShot } from './modes/oneshot.js';
 import { runTui } from './modes/tui.js';
-import { config } from './config.js';
+import { config, setProvider } from './config.js';
+import { DEFAULT_API_PORT, getGlobalAPIServer, stopGlobalAPIServer } from './server/api-server.js';
 import { theme } from './ui/theme.js';
 import { logger } from './logger.js';
+import { hookCommand } from './hooks/precommit.js';
+import { Marketplace } from './plugins/marketplace.js';
 
 function friendlyError(err: any): string {
   const message = String(err?.message || err);
   const status = err?.status ?? err?.response?.status;
   if (/GITHUB_TOKEN|ICOPILOT_TOKEN/i.test(message)) {
     return (
-      'GITHUB_TOKEN is not set.\n' +
-      '  Run `gh auth status`, then set `$env:GITHUB_TOKEN = gh auth token`, or add `token` to ~/.icopilotrc.json.'
+      `Authentication is not configured for provider "${config.provider}".\n` +
+      '  Set the provider-specific API key env var, ICOPILOT_TOKEN, or add `token` to ~/.icopilotrc.json.'
     );
   }
   if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|fetch failed|network/i.test(message)) {
-    return `Cannot reach ${config.endpoint} — check your network or ICOPILOT_ENDPOINT.`;
+    return `Cannot reach ${config.endpoint} — check your network, --base-url, or ICOPILOT_ENDPOINT.`;
   }
   if (status === 401 || status === 403) {
-    return 'Authentication failed. Check GITHUB_TOKEN has models:read scope.';
+    return `Authentication failed for provider "${config.provider}". Check its API key/token.`;
   }
   if (status === 404) {
-    return `Model ${config.defaultModel} not found on GitHub Models endpoint. Try /model gpt-4o-mini.`;
+    return `Model ${config.defaultModel} was not found at ${config.endpoint}. Try --model with a supported provider model.`;
   }
   return `fatal: ${logger.redact(message)}`;
 }
@@ -48,6 +51,12 @@ export function applyCliOptions(opts: any): void {
   if (opts.json) config.jsonOutput = true;
   if (opts.quiet) config.quiet = true;
   if (opts.yes || opts.noConfirm) config.autoApprove = true;
+  if (opts.local && !opts.provider) setProvider('ollama', { persist: false });
+  if (opts.provider) setProvider(opts.provider, { persist: false });
+  if (opts.baseUrl) {
+    config.endpoint = opts.baseUrl;
+    if (!opts.provider && !process.env.ICOPILOT_TOKEN) config.token = undefined;
+  }
 
   if (opts.cwd) {
     try {
@@ -64,8 +73,26 @@ export function applyCliOptions(opts: any): void {
 export async function run(opts: any): Promise<void> {
   applyCliOptions(opts);
 
-  if (!config.token) {
-    throw new Error('GITHUB_TOKEN is not set.');
+  if (opts.serve !== undefined) {
+    const port = normalizeServePort(opts.serve);
+    const server = getGlobalAPIServer();
+    const actualPort = await server.start(port);
+    const shutdown = async () => {
+      process.off('SIGINT', onSigint);
+      process.off('SIGTERM', onSigterm);
+      await stopGlobalAPIServer().catch(() => undefined);
+      process.exit(0);
+    };
+    const onSigint = () => {
+      void shutdown();
+    };
+    const onSigterm = () => {
+      void shutdown();
+    };
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+    process.stdout.write(theme.ok(`API server listening on http://127.0.0.1:${actualPort}\n`));
+    return;
   }
 
   if (opts.prompt) {
@@ -89,12 +116,18 @@ export async function run(opts: any): Promise<void> {
 }
 
 export function createProgram(): Command {
-  return new Command()
+  const program = new Command()
     .name('icopilot')
     .description('iCopilot — terminal-native agentic CLI powered by GitHub Models')
-    .version('1.3.0')
+    .version('2.0.0')
     .option('-p, --prompt <text>', 'one-shot mode: run a single prompt and exit')
     .option('-m, --model <name>', 'model id (default: gpt-4o-mini)')
+    .option('--local', 'use the default local OpenAI-compatible provider (ollama)')
+    .option(
+      '--provider <name>',
+      'model provider name (github, ollama, vllm, lmstudio, openai, anthropic, or a custom provider)',
+    )
+    .option('--base-url <url>', 'override the provider base URL for OpenAI-compatible endpoints')
     .option('--plan', 'start in Plan Mode')
     .option('--autopilot', 'run prompt in autopilot mode')
     .option('--tui', 'start the experimental full-screen TUI')
@@ -110,15 +143,63 @@ export function createProgram(): Command {
     .option('-q, --quiet', 'suppress banners and decorative terminal output')
     .option('-y, --yes', 'auto-approve non-critical tool confirmations')
     .option('--no-confirm', 'alias for --yes')
-    .option('--perf-trace', 'print cold-start timing to stderr')
-    .action(async (opts) => {
+    .option('--serve [port]', 'start the HTTP API server')
+    .option('--perf-trace', 'print cold-start timing to stderr');
+
+  program
+    .command('install <plugin>')
+    .description('install a marketplace plugin')
+    .action(async (plugin: string) => {
+      applyCliOptions(program.opts());
       try {
-        await run(opts);
+        const installed = await new Marketplace().install(plugin);
+        process.stdout.write(
+          theme.ok(`✔ installed ${installed.name}`) + ` ${theme.dim(`v${installed.version}`)}\n`,
+        );
       } catch (err) {
         process.stderr.write(theme.err(friendlyError(err)) + '\n');
         process.exit(1);
       }
     });
+
+  program
+    .command('hook [subcommand] [args...]')
+    .description('manage the git pre-commit hook')
+    .action(async (subcommand: string | undefined, args: string[] | undefined) => {
+      try {
+        const result = await hookCommand(
+          [subcommand, ...(args ?? [])].filter(
+            (value): value is string => typeof value === 'string',
+          ),
+          config.cwd,
+        );
+        process.stdout.write(result.output);
+        if (result.exitCode !== 0) process.exit(result.exitCode);
+      } catch (err) {
+        process.stderr.write(theme.err(friendlyError(err)) + '\n');
+        process.exit(1);
+      }
+    });
+
+  program.action(async (opts) => {
+    try {
+      await run(opts);
+    } catch (err) {
+      process.stderr.write(theme.err(friendlyError(err)) + '\n');
+      process.exit(1);
+    }
+  });
+
+  return program;
+}
+
+function normalizeServePort(value: unknown): number {
+  if (value === true || value === undefined) return DEFAULT_API_PORT;
+  const port = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`Invalid --serve port: ${String(value)}`);
+  }
+  return port;
 }
 
 export async function main(argv = process.argv): Promise<void> {

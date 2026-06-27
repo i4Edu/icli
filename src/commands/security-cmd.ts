@@ -114,20 +114,24 @@ function listCandidateFiles(cwd: string): string[] {
     .slice(0, MAX_FILES);
 }
 
-export function scanForSecrets(cwd: string): SecurityFinding[] {
+export function scanFilesForSecrets(cwd: string, relativePaths: string[]): SecurityFinding[] {
   if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) return [];
 
   const findings: SecurityFinding[] = [];
 
-  for (const filePath of listCandidateFiles(cwd)) {
-    const relativePath = path.relative(cwd, filePath);
+  for (const relativePath of relativePaths) {
+    const normalizedRelativePath = path.normalize(relativePath);
+    const filePath = path.join(cwd, normalizedRelativePath);
+    if (!isScannableFile(filePath) || !fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+      continue;
+    }
     const lines = readLines(filePath);
 
     lines.forEach((lineText, index) => {
       for (const pattern of SECURITY_PATTERNS) {
         if (pattern.regex.test(lineText)) {
           findings.push({
-            file: relativePath,
+            file: normalizedRelativePath,
             line: index + 1,
             pattern: pattern.name,
             severity: pattern.severity,
@@ -139,6 +143,13 @@ export function scanForSecrets(cwd: string): SecurityFinding[] {
   }
 
   return findings;
+}
+
+export function scanForSecrets(cwd: string): SecurityFinding[] {
+  return scanFilesForSecrets(
+    cwd,
+    listCandidateFiles(cwd).map((filePath) => path.relative(cwd, filePath)),
+  );
 }
 
 function severityColor(severity: Severity): (text: string) => string {

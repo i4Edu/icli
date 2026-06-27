@@ -32,6 +32,17 @@ describe('CI scripting flags', () => {
     expect(config.jsonOutput).toBe(true);
     expect(config.quiet).toBe(true);
     expect(config.autoApprove).toBe(true);
+  }, 60_000);
+
+  it('switches to the default local provider when --local is used', async () => {
+    const { applyCliOptions } = await import('../../src/index.js');
+    const { config } = await import('../../src/config.js');
+
+    applyCliOptions({ local: true });
+
+    expect(config.provider).toBe('ollama');
+    expect(config.endpoint).toBe('http://127.0.0.1:11434/v1');
+    expect(config.defaultModel).toBe('llama3.2');
   }, 20_000);
 
   it('suppresses the interactive banner when quiet mode is enabled', async () => {

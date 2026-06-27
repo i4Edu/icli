@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { getCustomAgent, loadCustomAgents, type CustomAgentDef } from '../agents/custom-agents.js';
 import { theme } from '../ui/theme.js';
 
 export type AgentType = 'explore' | 'task' | 'review' | 'plan';
@@ -11,7 +12,7 @@ export interface AgentConfig {
 }
 
 export interface AgentResult {
-  type: AgentType;
+  type: string;
   output: string;
   tokensUsed: number;
   durationMs: number;
@@ -70,15 +71,20 @@ export function agentCommand(args: string[], cwd: string): string {
   const [subcommand, ...rest] = args;
 
   if (!subcommand) return usage();
-  if (subcommand.toLowerCase() === 'list') return listAgents();
+  if (subcommand.toLowerCase() === 'list') return listAgents(cwd);
 
-  if (!isAgentType(subcommand)) {
+  loadCustomAgents(cwd);
+  const customAgent = getCustomAgent(subcommand);
+
+  if (!isAgentType(subcommand) && !customAgent) {
     return `${theme.warn(`unknown agent subcommand: ${subcommand}`)}\n${usage()}`;
   }
 
   const startedAt = Date.now();
-  const query = normalizeQuery(subcommand, rest);
-  const prompt = buildAgentPrompt(subcommand, query, cwd);
+  const query = normalizeQuery(subcommand, rest, customAgent);
+  const prompt = customAgent
+    ? buildCustomAgentPrompt(customAgent, query, cwd)
+    : buildAgentPrompt(subcommand as AgentType, query, cwd);
   const result: AgentResult = {
     type: subcommand,
     output: prompt,
@@ -95,27 +101,42 @@ function usage(): string {
     '  /agent task <command-description>  delegate task execution',
     '  /agent review [target]             delegate code review (default: staged changes)',
     '  /agent plan <goal>                 delegate planning',
+    '  /agent <custom-agent> [task]       run a project custom agent from .icopilot/agents',
     '  /agent list                        show available agents',
     '',
   ].join('\n');
 }
 
-function listAgents(): string {
-  const lines = (Object.keys(BUILT_IN_AGENT_CONFIGS) as AgentType[]).map((type) => {
+function listAgents(cwd: string): string {
+  const builtInLines = (Object.keys(BUILT_IN_AGENT_CONFIGS) as AgentType[]).map((type) => {
     const config = getAgentConfig(type);
     return `  ${theme.ok(type)}  ${theme.dim(`- ${config.systemPrompt}`)}`;
   });
-  return `${theme.brand('Available agents')}\n${lines.join('\n')}\n`;
+  const customAgents = loadCustomAgents(cwd);
+  const customLines = customAgents.length
+    ? customAgents.map((agent) => `  ${theme.ok(agent.name)}  ${theme.dim(`- ${agent.description}`)}`)
+    : [`  ${theme.dim('none found in .icopilot/agents/')}`];
+
+  return [
+    theme.brand('Available agents'),
+    theme.brand('Built-in'),
+    builtInLines.join('\n'),
+    '',
+    theme.brand('Custom'),
+    customLines.join('\n'),
+    '',
+  ].join('\n');
 }
 
 function isAgentType(value: string): value is AgentType {
   return value === 'explore' || value === 'task' || value === 'review' || value === 'plan';
 }
 
-function normalizeQuery(type: AgentType, args: string[]): string {
+function normalizeQuery(type: string, args: string[], customAgent?: CustomAgentDef): string {
   const query = args.join(' ').trim();
   if (query) return query;
-  return defaultQuery(type);
+  if (customAgent) return `Complete the next task as the "${customAgent.name}" agent.`;
+  return defaultQuery(type as AgentType);
 }
 
 function defaultQuery(type: AgentType): string {
@@ -133,4 +154,26 @@ function defaultQuery(type: AgentType): string {
 
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.trim().length / 4));
+}
+
+function buildCustomAgentPrompt(agent: CustomAgentDef, query: string, cwd: string): string {
+  const metadata = [
+    agent.model ? `- Preferred model: ${agent.model}` : undefined,
+    agent.temperature !== undefined ? `- Temperature: ${agent.temperature}` : undefined,
+    agent.maxTokens !== undefined ? `- Max tokens: ${agent.maxTokens}` : undefined,
+    agent.tools?.length ? `- Allowed tools: ${agent.tools.join(', ')}` : undefined,
+  ].filter(Boolean);
+
+  return [
+    agent.systemPrompt,
+    '',
+    'Project context:',
+    `- Current working directory: ${cwd}`,
+    `- Project folder name: ${path.basename(cwd) || cwd}`,
+    `- Agent type: ${agent.name}`,
+    ...(metadata as string[]),
+    '',
+    'Task:',
+    query.trim(),
+  ].join('\n');
 }

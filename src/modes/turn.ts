@@ -6,10 +6,15 @@ import { StreamSink } from '../ui/render.js';
 import { theme } from '../ui/theme.js';
 import { ASK_SYSTEM, PLAN_SYSTEM } from '../commands/prompts.js';
 import { parseFileRefs, renderFileRefBlock } from '../context/file-refs.js';
+import { renderGitContextBlock } from '../context/git-context.js';
 import { loadMemoryBlock } from '../context/memory.js';
 import { PinnedContext } from '../context/pinned.js';
+import { loadCorrectionPromptContext } from '../knowledge/corrections.js';
+import { loadConventionPromptContext } from '../knowledge/conventions.js';
+import { loadStylePromptContext } from '../knowledge/style-learner.js';
 import type { MetricsCollector } from '../commands/metrics-cmd.js';
 import { config } from '../config.js';
+import { loadProjectContentFilter, summarizeFilterResult } from '../security/content-filter.js';
 import { countTokensSync } from '../util/tokens.js';
 
 const MAX_TOOL_HOPS = 6;
@@ -31,6 +36,8 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   let assistantTokens = 0;
   const refs = parseFileRefs(userInput);
   const refBlock = renderFileRefBlock(refs);
+  const promptInput = refBlock ? `${userInput}\n\n${refBlock}` : userInput;
+  const filterResult = loadProjectContentFilter(session.state.cwd).filter(promptInput);
 
   if (refs.length && !config.quiet && !config.jsonOutput) {
     process.stdout.write(
@@ -42,14 +49,31 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
     );
   }
 
+  if (filterResult.blocked) {
+    const blockedRules = [
+      ...new Set(
+        filterResult.matches
+          .filter((match) => match.action === 'block')
+          .map((match) => match.name),
+      ),
+    ];
+    throw new Error(
+      `prompt blocked by content filter (${summarizeFilterResult(filterResult)}): ${blockedRules.join(', ')}`,
+    );
+  }
+
+  if ((filterResult.changed || filterResult.warnings > 0) && !config.quiet && !config.jsonOutput) {
+    process.stdout.write(theme.warn(`  content filter applied: ${summarizeFilterResult(filterResult)}\n`));
+  }
+
   const sys: ChatCompletionMessageParam = {
     role: 'system',
-    content: buildSystemPrompt(session),
+    content: buildSystemPrompt(session, filterResult.filtered),
   };
 
   const userMsg: ChatCompletionMessageParam = {
     role: 'user',
-    content: refBlock ? `${userInput}\n\n${refBlock}` : userInput,
+    content: filterResult.filtered,
   };
   session.push(userMsg);
 
@@ -139,10 +163,14 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   }
 }
 
-export function buildSystemPrompt(session: Session): string {
+export function buildSystemPrompt(session: Session, context = ''): string {
   const pinnedBlock = PinnedContext.fromJSON(session.state.pinned).render();
+  const gitBlock = renderGitContextBlock(session.state.gitContext ?? []);
+  const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
+  const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
+  const correctionsBlock = loadCorrectionPromptContext(context) ?? '';
   const basePrompt = session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM);
-  return [loadMemoryBlock(session.state.cwd) ?? '', basePrompt, pinnedBlock]
+  return [loadMemoryBlock(session.state.cwd) ?? '', basePrompt, correctionsBlock, styleBlock, conventionBlock, pinnedBlock, gitBlock]
     .filter((part) => part.trim().length > 0)
     .join('\n\n');
 }

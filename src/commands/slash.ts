@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { config } from '../config.js';
+import { config, setProvider } from '../config.js';
+import { providerRegistry } from '../providers/custom-provider.js';
+import { isLocalProviderName, localModelProvider } from '../providers/local-model.js';
 import { Session } from '../session/session.js';
 import { theme } from '../ui/theme.js';
 import { showDiff, commitFromStaged, prDescription } from './git.js';
@@ -14,6 +16,8 @@ import { undoCommand } from './undo-cmd.js';
 import { costCommand } from './cost-cmd.js';
 import { snippetsCommand } from './snippets-cmd.js';
 import { profileCommand } from './profile-cmd.js';
+import { styleCommand } from './style-cmd.js';
+import { conventionsCommand } from './conventions-cmd.js';
 import { statsCommand } from './stats-cmd.js';
 import { buildExplain } from './explain-cmd.js';
 import { lintCommand } from './lint-cmd.js';
@@ -26,12 +30,14 @@ import { refactorCommand } from './refactor-cmd.js';
 import { suggestCommand } from './suggest-cmd.js';
 import { buildSummary } from './summary-cmd.js';
 import { compareCommand } from './compare-cmd.js';
+import { ragCommand } from './rag-cmd.js';
 import { gitLogCommand } from './git-log-cmd.js';
 import { envCommand } from './env-cmd.js';
 import { TodoList, todoCommand } from './todo-cmd.js';
 import { tokensCommand } from './tokens-cmd.js';
 import { stashCommand } from './stash-cmd.js';
 import { buildChangelogPrompt } from './changelog-cmd.js';
+import { releaseCommand } from './release-cmd.js';
 import { buildFixPrompt } from './fix-cmd.js';
 import { securityCommand } from './security-cmd.js';
 import { formatInitResult, initProject } from './init-cmd.js';
@@ -41,19 +47,88 @@ import { MetricsCollector, metricsCommand } from './metrics-cmd.js';
 import { reviewDiff } from './diff-review-cmd.js';
 import { formatDiagnostics, runDiagnostics } from './doctor-cmd.js';
 import { explainShellCommand } from './explain-shell-cmd.js';
+import { codegenCommand } from './codegen-cmd.js';
 import { buildGeneratePrompt } from './generate-cmd.js';
+import { actionsCommand } from './actions-cmd.js';
 import { buildMultiConfig, formatMultiResponses } from './multi-cmd.js';
 import { agentCommand } from './agent-cmd.js';
+import { TDDAgent, type TDDSpec, type TDDResult } from '../agents/tdd-agent.js';
 import { exploreCommand } from './explore-cmd.js';
 import { skillCommand } from './skill-cmd.js';
+import { docCommand } from './doc-cmd.js';
+import { triggerCommand as runTriggerCommand } from './trigger-cmd.js';
 import { backgroundTaskManager } from '../modes/background.js';
 import { runAutopilot } from '../modes/autopilot.js';
+import { WorkflowEngine, type ValidationError, type WorkflowDef } from '../workflows/engine.js';
+import {
+  BUILTIN_WORKFLOWS,
+  createWorkflowTemplate,
+  getBuiltinWorkflow,
+  renderWorkflowYaml,
+} from '../workflows/builtins.js';
 import { taskCommand } from './task-cmd.js';
 import { watchCommand } from './watch-cmd.js';
+import { CorrectionMemory } from '../knowledge/corrections.js';
 import { memoryCommand } from './memory-cmd.js';
+import { teamMemoryCommand } from './team-memory-cmd.js';
 import { contextCommand } from './context-cmd.js';
+import { repoCommand } from './repo-cmd.js';
 import { shareCommand } from '../session/share.js';
+import { CloudSession, type CloudSessionRecord } from '../session/cloud-session.js';
+import {
+  createHandoff,
+  exportHandoffFile,
+  importHandoffFile,
+  previewHandoff,
+  receiveHandoff,
+} from '../session/handoff.js';
 import { extensionCommand } from '../extensions/loader.js';
+import { pluginCommand } from '../plugins/marketplace.js';
+import { spaceCommand } from './space-cmd.js';
+import { diagramCommand } from './diagram-cmd.js';
+import { readmeCommand } from './readme-cmd.js';
+import { ErrorWatcher, suggestFix, type ParsedError } from '../intelligence/error-watch.js';
+import { findReferences, goToDefinition, type Location } from '../intelligence/navigation.js';
+import { ContainerSandbox } from '../sandbox/container.js';
+import { analyzeStackTrace, formatForLLM, parseStackTrace } from '../intelligence/stack-trace.js';
+import {
+  ParallelAgentRunner,
+  type AgentTask,
+  type AgentResult,
+} from '../agents/parallel-runner.js';
+import {
+  GoalDrivenAgent,
+  type Goal,
+  type GoalPlan,
+  type GoalResult,
+} from '../agents/goal-driven.js';
+import { ProxyManager } from '../security/proxy.js';
+import {
+  formatFilterRules,
+  formatFilterTestResult,
+  loadProjectContentFilter,
+  parseFilterAction,
+  parseFilterPattern,
+  removeProjectFilterRule,
+  saveProjectFilterRule,
+} from '../security/content-filter.js';
+import {
+  getFileTriggerManager,
+  type FileTrigger,
+  type FileTriggerManager,
+} from '../workflows/file-trigger.js';
+import { RoleManager, defaultRolesConfigPath } from '../security/roles.js';
+import {
+  RetentionManager,
+  formatPolicies as formatRetentionPolicies,
+  formatPreview as formatRetentionPreview,
+  formatResult as formatRetentionResult,
+  type RetentionPolicy,
+  type RetentionTarget,
+} from '../security/retention.js';
+import { AuditLogger, auditLogPath, type AuditEntry, type AuditStats } from '../security/audit.js';
+import { BridgeServer, DEFAULT_BRIDGE_PORT } from '../bridge/ide-bridge.js';
+import { DEFAULT_API_PORT, getGlobalAPIServer } from '../server/api-server.js';
 
 export interface SlashContext {
   session: Session;
@@ -75,7 +150,11 @@ const HELP = `
 ${theme.brand('Slash commands')}
   /help                      show this help
   /clear, /new               wipe conversation history
-  /model <name>              switch GitHub Models model (e.g. gpt-4o)
+  /model <name>              switch the active model (e.g. gpt-4o-mini, llama3.2)
+  /provider                  show current model provider
+  /provider list             list configured providers
+  /provider set <name>       switch model provider (github, ollama, vllm, lmstudio, ...)
+  /provider test             test the active provider connection
   /cwd <path>                change repository context
   /diff                      show git diff (unstaged, then staged)
   /git-log                   show recent git commits
@@ -86,10 +165,21 @@ ${theme.brand('Slash commands')}
   /history                   browse recent conversation history
   /compact                   summarize conversation, free token space
   /sessions                  list and resume saved sessions
+  /cloud create [name]      create and connect a cloud session
+  /cloud connect <id>       connect to a cloud session
+  /cloud list               list cloud sessions
+  /cloud destroy <id>       destroy a cloud session
+  /cloud sync               sync local session state to the cloud
   /export [md|json] [path]   export current session transcript/state
   /share                     share session bundles and clipboard exports
+  /handoff export [path]     export resumable handoff bundle
+  /handoff import <path>     import a handoff bundle into a new session
+  /handoff preview <path>    inspect a handoff bundle without importing
   /plan                      toggle Plan Mode
   /autopilot [goal]          toggle autopilot or run a goal immediately
+  /goal <description>        plan, implement, test, and verify a goal in the background
+  /goal status               show the current or most recent goal run
+  /goal abort                abort the active goal run
   /commit                    generate semantic commit from staged diff
   /pr                        draft PR description (branch vs default)
   /review                    review staged changes
@@ -97,30 +187,45 @@ ${theme.brand('Slash commands')}
   /issue [title]             draft a GitHub issue from current context
   /branch <topic>            create a conventional feature/fix branch
   /index build|status|search workspace embeddings index
+  /rag index|search|stats     manage local TF-IDF RAG index
   /search <query>            semantic search over indexed workspace code
+  /goto <symbol>             find a symbol definition with regex navigation
+  /refs <symbol>             find symbol references with regex navigation
   /route get|set|list        multi-model routing profile
   /undo [status], /redo       undo or redo approved file writes
   /cost                       estimate current session token cost
   /snippets, /snippet         manage reusable prompt snippets
   /profile, /profiles         manage saved CLI profiles
+  /role [set <name>|list]     show or change the active role
+  /style [learn|reset]        learn or inspect project coding style
+  /conventions [subcommand]   manage project coding conventions
   /stats [show|reset|path]    show or reset local usage stats
+  /audit [search|stats|export] inspect tool execution audit trail
   /explain <path>             build an explanation prompt for a file/folder
   /suggest <request>          suggest a shell command for a task
   /summary                    build a project architecture summary prompt
   /compare <file-a> <file-b>  compare two files with diff + AI prompt
   /env [--full|--check VAR]   show current environment context
   /template [name] [--apply]  scaffold a built-in project template
+  /readme [preview|update]    scaffold or refresh README.md from project analysis
   /changelog [range|--last]   build a changelog prompt from git commits
+  /release <type>|preview     automate version bump, changelog, tag, publish
   /fix <error>                build an AI troubleshooting prompt for an error
+  /heal [--max <n>]           run build, apply safe auto-fixes, and retry
   /lint                       detect available repository linters
   /test                       detect available repository test frameworks
+  /tdd <description>|status   start or inspect the latest TDD cycle
   /doctor                     diagnose local iCopilot setup
   /todo                       track session todos
   /task, /tasks               inspect background tasks
   /deps                       inspect project dependencies
   /init [--force]             create .icopilot project configuration
   /security                   scan for common secrets and credential leaks
+  /proxy                      show, set, clear, or test proxy configuration
+  /filter [list|add|remove|test] manage prompt content filter rules
+  /retention                  inspect or enforce retention policies
   /refactor <subcommand>      build an AI refactor prompt
+  /stacktrace <trace>         analyze a stack trace and diagnose root cause
   /metrics                    show session performance metrics
   /bookmark, /bookmarks       manage session rewind bookmarks
   /alias [list|set|remove]    manage custom command aliases
@@ -128,12 +233,28 @@ ${theme.brand('Slash commands')}
   /stash                      stash conversation state for later
   /explain-shell <cmd>        explain a shell command step by step
   /generate <goal>            generate a shell command for a goal
+  /actions <desc>|list|validate generate or inspect GitHub Actions workflows
+  /codegen <description>      generate a module scaffold plus test file
   /multi <models> <prompt>    query multiple models in parallel
-  /agent <type> [query]       build a specialized agent delegation prompt
+  /agent <name> [query]       build a built-in or custom agent delegation prompt
+  /parallel <spec>            run multiple agent tasks concurrently
   /explore <question>         explore codebase with AI agent
+  /trigger <subcommand>       manage file-change triggers
   /watch <pattern> <cmd>      file watcher configuration
+  /bridge <subcommand>        manage IDE bridge websocket server
+  /error-watch <action>       watch build errors and suggest fixes
   /memory                     manage persistent project memory
+  /corrections                manage remembered user corrections
+  /team-memory                manage shared team memory
+  /repo                       manage multi-repo orchestration
+  /space                      manage project spaces
+  /doc <file> [symbol]        generate docs for a file or symbol
+  /diagram [type]             generate Mermaid architecture diagrams
   /extension [list|info|reload] inspect local extensions
+  /serve <subcommand>         manage HTTP API server
+  /sandbox <run|shell|status|cleanup> use Docker sandbox helpers
+  /plugin [subcommand]        search and manage marketplace plugins
+  /workflow [subcommand]      manage workflow definitions
   /exit, /quit               quit iCopilot
 
 ${theme.brand('Inline')}
@@ -141,15 +262,53 @@ ${theme.brand('Inline')}
   Ctrl-C                     interrupt streaming (does not exit)
 `;
 
+const errorWatcher = new ErrorWatcher();
+
+interface GoalRunState {
+  goal: Goal;
+  plan: GoalPlan;
+  agent: GoalDrivenAgent;
+  startedAt: string;
+  abortController: AbortController;
+  promise: Promise<GoalResult>;
+  result?: GoalResult;
+  error?: string;
+}
+
+let activeGoalRun: GoalRunState | null = null;
+let lastGoalRun: GoalRunState | null = null;
+const ideBridgeServer = new BridgeServer();
+const apiServer = getGlobalAPIServer();
+const sandboxByCwd = new Map<string, ContainerSandbox>();
+let lastTddResult: TDDResult | null = null;
+
+errorWatcher.onError((error) => {
+  process.stdout.write(
+    `${theme.warn(`[error-watch] ${formatParsedError(error)}`)}\n${theme.dim(`${suggestFix(error)}\n`)}\n`,
+  );
+});
+
 export async function handleSlash(line: string, ctx: SlashContext): Promise<SlashResult> {
   const trimmed = line.trim();
   if (!trimmed.startsWith('/')) return { handled: false, consumed: false };
 
-  const [cmd, ...rest] = trimmed.slice(1).split(/\s+/);
-  const arg = rest.join(' ').trim();
+  const spaceIndex = trimmed.indexOf(' ');
+  const cmd = (spaceIndex === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIndex)).trim();
+  const arg = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1).trim();
+  const rest = arg ? arg.split(/\s+/) : [];
   const s = ctx.session;
+  const roleManager = getRoleManager(s.state.cwd);
+  const normalizedCommand = cmd.toLowerCase();
 
-  switch (cmd.toLowerCase()) {
+  if (normalizedCommand !== 'help' && normalizedCommand !== 'role') {
+    const access = roleManager.checkAccess(`command:${normalizedCommand}`);
+    if (!access.allowed) {
+      process.stdout.write(theme.err(`${access.reason}\n`));
+      return done();
+    }
+  }
+
+  switch (normalizedCommand) {
     case 'help':
       process.stdout.write(HELP);
       return done();
@@ -166,6 +325,43 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
         process.stdout.write(theme.ok(`✔ model → ${arg}\n`));
       }
       return done();
+    case 'provider': {
+      if (!arg) {
+        process.stdout.write(renderCurrentProvider(s.state.model));
+        return done();
+      }
+
+      const [subcommand = '', ...providerArgs] = rest;
+      if (subcommand === 'list') {
+        process.stdout.write(renderProviderList());
+        return done();
+      }
+      if (subcommand === 'set') {
+        const target = providerArgs[0]?.trim().toLowerCase();
+        if (!target) {
+          process.stdout.write(theme.warn('usage: /provider set <name>\n'));
+          return done();
+        }
+        try {
+          setProvider(target);
+          if (config.provider === target) {
+            s.setModel(config.defaultModel);
+          }
+        } catch (error: any) {
+          process.stdout.write(theme.err(`${error?.message || error}\n`));
+          return done();
+        }
+        process.stdout.write(theme.ok(`✔ provider → ${config.provider} (${config.endpoint})\n`));
+        return done();
+      }
+      if (subcommand === 'test') {
+        process.stdout.write(await testActiveProvider(s.state.model));
+        return done();
+      }
+
+      process.stdout.write(theme.warn('usage: /provider [list|set <name>|test]\n'));
+      return done();
+    }
     case 'cwd':
       if (!arg) {
         process.stdout.write(theme.dim(`cwd: ${s.state.cwd}\n`));
@@ -225,16 +421,16 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       }
 
       const target = path.resolve(s.state.cwd, arg);
-      const removedFile = pinned.list().find((file) => path.normalize(file.path) === path.normalize(target));
+      const removedFile = pinned
+        .list()
+        .find((file) => path.normalize(file.path) === path.normalize(target));
       if (!pinned.remove(target)) {
         process.stdout.write(theme.warn(`not pinned: ${target}\n`));
         return done();
       }
 
       s.setPinned(pinned.toJSON());
-      process.stdout.write(
-        theme.ok(`✔ unpinned ${target} (${removedFile?.tokens ?? 0} tokens)\n`),
-      );
+      process.stdout.write(theme.ok(`✔ unpinned ${target} (${removedFile?.tokens ?? 0} tokens)\n`));
       return done();
     }
     case 'tokens':
@@ -256,6 +452,74 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       }
       return done();
     }
+    case 'cloud': {
+      const cloud = new CloudSession({
+        endpoint: config.endpoint,
+        apiKey: config.token,
+      });
+      const [subcommand = '', ...subArgs] = rest;
+      const action = subcommand.toLowerCase();
+
+      if (!action) {
+        process.stdout.write(formatCloudUsage(cloud.getConnectedSessionId()));
+        return done();
+      }
+
+      if (action === 'create') {
+        const name = subArgs.join(' ').trim() || undefined;
+        const created = await cloud.create({ name });
+        await cloud.sync(created.id, s);
+        process.stdout.write(theme.ok(`✔ cloud session ${created.id} created and synced\n`));
+        return done();
+      }
+
+      if (action === 'connect') {
+        const targetId = subArgs[0]?.trim();
+        if (!targetId) {
+          process.stdout.write(theme.warn('usage: /cloud connect <id>\n'));
+          return done();
+        }
+        const connected = await cloud.connect(targetId);
+        process.stdout.write(theme.ok(`✔ connected cloud session ${connected.id}\n`));
+        return done();
+      }
+
+      if (action === 'list') {
+        process.stdout.write(formatCloudSessions(await cloud.list()));
+        return done();
+      }
+
+      if (action === 'destroy') {
+        const targetId = subArgs[0]?.trim();
+        if (!targetId) {
+          process.stdout.write(theme.warn('usage: /cloud destroy <id>\n'));
+          return done();
+        }
+        const destroyed = await cloud.destroy(targetId);
+        process.stdout.write(
+          destroyed
+            ? theme.ok(`✔ destroyed cloud session ${targetId}\n`)
+            : theme.warn(`cloud session not found: ${targetId}\n`),
+        );
+        return done();
+      }
+
+      if (action === 'sync') {
+        const connectedId = cloud.getConnectedSessionId();
+        if (!connectedId) {
+          process.stdout.write(
+            theme.warn('No cloud session connected. Use /cloud create or /cloud connect <id>.\n'),
+          );
+          return done();
+        }
+        const synced = await cloud.sync(connectedId, s);
+        process.stdout.write(theme.ok(`✔ synced cloud session ${synced.id}\n`));
+        return done();
+      }
+
+      process.stdout.write(formatCloudUsage(cloud.getConnectedSessionId()));
+      return done();
+    }
     case 'export': {
       const [formatArg, ...pathParts] = rest;
       const format = formatArg === 'json' ? 'json' : 'md';
@@ -270,6 +534,54 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'share':
       process.stdout.write(shareCommand(rest, s));
       return done();
+    case 'handoff': {
+      const [subcommand = '', ...subArgs] = rest;
+      const action = subcommand.toLowerCase();
+      if (!action) {
+        process.stdout.write(
+          'usage: /handoff export [path]\n' +
+            '       /handoff import <path>\n' +
+            '       /handoff preview <path>\n',
+        );
+        return done();
+      }
+
+      if (action === 'export') {
+        const outputPath = subArgs.join(' ').trim() || undefined;
+        const bundle = createHandoff(s);
+        const written = exportHandoffFile(bundle, outputPath);
+        process.stdout.write(theme.ok(`✔ exported handoff ${written}\n`));
+        return done();
+      }
+
+      if (action === 'preview') {
+        const target = subArgs.join(' ').trim();
+        if (!target) {
+          process.stdout.write(theme.warn('usage: /handoff preview <path>\n'));
+          return done();
+        }
+        const bundle = importHandoffFile(path.resolve(s.state.cwd, target));
+        process.stdout.write(previewHandoff(bundle));
+        return done();
+      }
+
+      if (action === 'import') {
+        const target = subArgs.join(' ').trim();
+        if (!target) {
+          process.stdout.write(theme.warn('usage: /handoff import <path>\n'));
+          return done();
+        }
+        const bundle = importHandoffFile(path.resolve(s.state.cwd, target));
+        const imported = receiveHandoff(bundle);
+        Object.assign(ctx.session, imported);
+        config.cwd = imported.state.cwd;
+        process.stdout.write(theme.ok(`✔ imported handoff as ${imported.state.id}\n`));
+        return done();
+      }
+
+      process.stdout.write(theme.warn(`unknown handoff subcommand: ${action}\n`));
+      return done();
+    }
     case 'plan': {
       const next = s.state.mode === 'plan' ? 'ask' : 'plan';
       s.setMode(next);
@@ -285,6 +597,116 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       }
       await runAutopilot(arg, { session: s, signal: ctx.abort.signal });
       return done();
+    case 'goal': {
+      const action = (rest[0] ?? '').toLowerCase();
+      if (!arg) {
+        process.stdout.write(
+          theme.warn('usage: /goal <description> | /goal status | /goal abort\n'),
+        );
+        return done();
+      }
+      if (action === 'status') {
+        process.stdout.write(formatGoalRunStatus(activeGoalRun ?? lastGoalRun));
+        return done();
+      }
+      if (action === 'abort') {
+        if (!activeGoalRun) {
+          process.stdout.write(theme.warn('No active goal run.\n'));
+          return done();
+        }
+        activeGoalRun.abortController.abort();
+        process.stdout.write(theme.ok(`✔ aborting goal: ${activeGoalRun.goal.description}\n`));
+        return done();
+      }
+      if (activeGoalRun) {
+        process.stdout.write(
+          theme.warn(
+            `goal already running: ${activeGoalRun.goal.description} (use /goal status)\n`,
+          ),
+        );
+        return done();
+      }
+
+      const goal: Goal = { description: arg };
+      const controller = new AbortController();
+      const agent = new GoalDrivenAgent({
+        session: s,
+        signal: controller.signal,
+      });
+      const plan = agent.plan(goal);
+      const goalRun: GoalRunState = {
+        goal,
+        plan,
+        agent,
+        startedAt: new Date().toISOString(),
+        abortController: controller,
+        promise: Promise.resolve({
+          goal,
+          plan,
+          success: false,
+          attempts: 0,
+          summary: '',
+          aborted: false,
+          stepResults: [],
+          verification: {
+            ok: false,
+            score: 0,
+            issues: [],
+            attempts: 0,
+          },
+        }),
+      };
+
+      goalRun.promise = agent
+        .execute(plan)
+        .then((result) => {
+          goalRun.result = result;
+          lastGoalRun = goalRun;
+          if (activeGoalRun === goalRun) {
+            activeGoalRun = null;
+          }
+          process.stdout.write(`\n${formatGoalCompletion(result)}`);
+          return result;
+        })
+        .catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          goalRun.error = message;
+          const progress = agent.getProgress();
+          const fallback =
+            progress.result ??
+            ({
+              goal,
+              plan,
+              success: false,
+              attempts: progress.currentAttempt,
+              summary: message,
+              aborted: progress.phase === 'aborted',
+              stepResults: [],
+              verification: progress.verification ?? {
+                ok: false,
+                score: 0,
+                issues: [message],
+                attempts: progress.currentAttempt,
+              },
+            } satisfies GoalResult);
+          goalRun.result = fallback;
+          lastGoalRun = goalRun;
+          if (activeGoalRun === goalRun) {
+            activeGoalRun = null;
+          }
+          process.stdout.write(theme.err(`\ngoal failed: ${message}\n`));
+          return fallback;
+        });
+
+      activeGoalRun = goalRun;
+      lastGoalRun = goalRun;
+      process.stdout.write(
+        theme.ok(
+          `✔ goal started (${plan.steps.length} steps, ~${plan.estimatedTokens} tokens). Use /goal status or /goal abort.\n`,
+        ),
+      );
+      return done();
+    }
     case 'commit':
       await commitFromStaged(s, ctx.abort.signal);
       return done();
@@ -306,9 +728,38 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'index':
       await indexCommand(rest);
       return done();
+    case 'rag':
+      process.stdout.write(await ragCommand(rest, s.state.cwd));
+      return done();
     case 'search':
       process.stdout.write(await searchCommand(rest, s.state.cwd));
       return done();
+    case 'goto': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /goto <symbol>\n'));
+        return done();
+      }
+      const definition = goToDefinition(arg, s.state.cwd);
+      if (!definition) {
+        process.stdout.write(theme.warn(`definition not found: ${arg}\n`));
+        return done();
+      }
+      process.stdout.write(formatNavigationResult('Definition', arg, [definition]));
+      return done();
+    }
+    case 'refs': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /refs <symbol>\n'));
+        return done();
+      }
+      const references = findReferences(arg, s.state.cwd);
+      if (references.length === 0) {
+        process.stdout.write(theme.warn(`no references found: ${arg}\n`));
+        return done();
+      }
+      process.stdout.write(formatNavigationResult('References', arg, references));
+      return done();
+    }
     case 'route':
       process.stdout.write(routeCommand(arg));
       return done();
@@ -329,9 +780,64 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'profiles':
       process.stdout.write(await profileCommand(rest));
       return done();
+    case 'role':
+      process.stdout.write(handleRoleCommand(rest, roleManager));
+      return done();
+    case 'style':
+      process.stdout.write(await styleCommand(rest, s.state.cwd));
+      return done();
+    case 'conventions':
+      process.stdout.write(conventionsCommand(rest, s.state.cwd));
+      return done();
     case 'stats':
       process.stdout.write(statsCommand(arg || undefined));
       return done();
+    case 'audit': {
+      const audit = new AuditLogger();
+      const [subcommand = '', ...subArgs] = rest;
+      const action = subcommand.toLowerCase();
+      if (!action) {
+        process.stdout.write(formatAuditEntries(audit.getRecent()));
+        return done();
+      }
+      if (action === 'search') {
+        const query = subArgs.join(' ').trim();
+        if (!query) {
+          process.stdout.write(theme.warn('usage: /audit search <query>\n'));
+          return done();
+        }
+        const matches = searchAuditEntries(audit.query(), query);
+        process.stdout.write(
+          formatAuditEntries(matches.slice(-20).reverse(), `Audit search: ${query}`),
+        );
+        return done();
+      }
+      if (action === 'stats') {
+        process.stdout.write(formatAuditStats(audit.getStats()));
+        return done();
+      }
+      if (action === 'export') {
+        const requested = subArgs.join(' ').trim();
+        const target = requested
+          ? path.resolve(s.state.cwd, requested)
+          : path.join(s.state.cwd, 'audit-export.log');
+        const format = target.toLowerCase().endsWith('.json') ? 'json' : 'jsonl';
+        const written = audit.export(target, format);
+        process.stdout.write(theme.ok(`✔ exported audit log ${written}\n`));
+        return done();
+      }
+      process.stdout.write(
+        [
+          theme.warn('usage: /audit'),
+          '       /audit search <query>',
+          '       /audit stats',
+          '       /audit export [path]',
+          `       log: ${auditLogPath()}`,
+          '',
+        ].join('\n'),
+      );
+      return done();
+    }
     case 'metrics':
       process.stdout.write(metricsCommand(ctx.metrics ?? new MetricsCollector()));
       return done();
@@ -365,6 +871,9 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'template':
       process.stdout.write(templateCommand(rest));
       return done();
+    case 'readme':
+      process.stdout.write(readmeCommand(rest, s.state.cwd));
+      return done();
     case 'changelog': {
       const payload = await buildChangelogPrompt(rest, s.state.cwd);
       const label =
@@ -374,9 +883,26 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       );
       return done();
     }
+    case 'release':
+      process.stdout.write(await releaseCommand(rest, s.state.cwd));
+      return done();
     case 'fix': {
       const payload = buildFixPrompt(arg);
       process.stdout.write(`${theme.brand('Fix prompt')}\n\n${payload.prompt}\n`);
+      return done();
+    }
+    case 'heal': {
+      const parsed = parseHealArgs(rest);
+      if ('error' in parsed) {
+        process.stdout.write(theme.warn(`${parsed.error}\n`));
+        return done();
+      }
+
+      const { SelfHealingBuilder } = await import('../agents/self-heal.js');
+      const builder = new SelfHealingBuilder(s.state.cwd);
+      process.stdout.write(theme.dim(`healing build in ${s.state.cwd}\n`));
+      const result = await builder.healAndRetry(parsed.maxAttempts);
+      process.stdout.write(formatHealResult(result));
       return done();
     }
     case 'lint':
@@ -384,6 +910,18 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       return done();
     case 'test':
       process.stdout.write(testCommand(s.state.cwd));
+      return done();
+    case 'tdd':
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /tdd <description>\n       /tdd status\n'));
+        return done();
+      }
+      if (arg.toLowerCase() === 'status') {
+        process.stdout.write(formatTddStatus(lastTddResult));
+        return done();
+      }
+      lastTddResult = new TDDAgent(s.state.cwd).fullCycle(buildTddSpec(arg));
+      process.stdout.write(formatTddCycle(lastTddResult));
       return done();
     case 'doctor':
       process.stdout.write(formatDiagnostics(runDiagnostics()));
@@ -413,9 +951,42 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'security':
       process.stdout.write(securityCommand(s.state.cwd));
       return done();
+    case 'proxy':
+      process.stdout.write(await proxyCommand(rest));
+      return done();
+    case 'filter':
+      process.stdout.write(handleFilterSlashCommand(s.state.cwd, arg, rest));
+      return done();
+    case 'retention':
+      process.stdout.write(retentionCommand(rest));
+      return done();
     case 'refactor':
       process.stdout.write(refactorCommand(rest, s.state.cwd));
       return done();
+    case 'stacktrace': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /stacktrace <stack-trace text>\n'));
+        return done();
+      }
+      const trace = parseStackTrace(arg);
+      const analysis = analyzeStackTrace(trace);
+      process.stdout.write(formatStackTraceSummary(trace, analysis));
+      const prompt = [
+        'You are diagnosing a stack trace for a developer.',
+        'Use the structured analysis first, then the raw trace.',
+        'Explain the most likely root cause, identify the best user-code frame to inspect next, and suggest 2-3 fixes ranked by likelihood.',
+        'Keep the answer practical and specific to the failing code path.',
+        '',
+        `Error type: ${trace.type}`,
+        `Error message: ${trace.error}`,
+        '',
+        formatForLLM(analysis),
+        '',
+        'Raw stack trace:',
+        trace.raw,
+      ].join('\n');
+      return done(false, prompt);
+    }
     case 'bookmark':
     case 'bookmarks': {
       const result = bookmarkCommand(s, rest);
@@ -458,6 +1029,12 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       );
       return done();
     }
+    case 'actions':
+      process.stdout.write(actionsCommand(rest, s.state.cwd));
+      return done();
+    case 'codegen':
+      process.stdout.write(codegenCommand(rest, s.state.cwd));
+      return done();
     case 'multi': {
       const cfg = buildMultiConfig(rest);
       if ('error' in cfg) {
@@ -472,6 +1049,44 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'agent':
       process.stdout.write(agentCommand(rest, s.state.cwd));
       return done();
+    case 'parallel': {
+      const spec = parseParallelSpec(arg);
+      if ('error' in spec) {
+        process.stdout.write(theme.warn(`${spec.error}\n`));
+        return done();
+      }
+
+      const runner = new ParallelAgentRunner({
+        model: s.state.model,
+        concurrencyLimit: spec.concurrencyLimit,
+        timeoutMs: spec.timeoutMs,
+        onProgress: (event) => {
+          if (event.status === 'started') {
+            process.stdout.write(
+              theme.dim(
+                `→ ${event.name} [${String(event.type)}] ${event.completed}/${event.total}\n`,
+              ),
+            );
+            return;
+          }
+          if (event.status === 'success' || event.status === 'error') {
+            const marker = event.status === 'success' ? theme.ok('✔') : theme.err('✖');
+            const duration = event.result ? formatDuration(event.result.duration) : '0ms';
+            process.stdout.write(`${marker} ${event.name} ${theme.dim(`(${duration})`)}\n`);
+          }
+        },
+      });
+
+      process.stdout.write(
+        theme.dim(
+          `running ${spec.agents.length} parallel agent${spec.agents.length === 1 ? '' : 's'} ` +
+            `(concurrency=${runner.concurrencyLimit}, timeout=${runner.timeoutMs}ms)\n`,
+        ),
+      );
+      const results = await runner.runParallel(spec.agents);
+      process.stdout.write(formatParallelResults(results));
+      return done();
+    }
     case 'explore': {
       if (!arg) {
         process.stdout.write(exploreCommand(rest, s.state.cwd));
@@ -480,15 +1095,77 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(theme.dim(`exploring ${s.state.cwd}\n`));
       return done(false, exploreCommand(rest, s.state.cwd));
     }
+    case 'trigger':
+    case 'triggers':
+      process.stdout.write(await runTriggerCommand(rest, s.state.cwd));
+      return done();
     case 'watch':
       process.stdout.write(watchCommand(rest));
+      return done();
+    case 'bridge':
+      process.stdout.write(await bridgeCommand(rest));
+      return done();
+    case 'error-watch':
+      process.stdout.write(errorWatchCommand(rest));
       return done();
     case 'memory':
       process.stdout.write(memoryCommand(rest, s.state.cwd));
       return done();
+    case 'corrections':
+      process.stdout.write(correctionsCommand(rest));
+      return done();
+    case 'team-memory':
+      process.stdout.write(teamMemoryCommand(rest, s.state.cwd));
+      return done();
+    case 'repo':
+      process.stdout.write(
+        await repoCommand(rest, {
+          cwd: s.state.cwd,
+          onSwitch: (repo) => {
+            config.cwd = repo.path;
+            s.setCwd(repo.path);
+          },
+        }),
+      );
+      return done();
+    case 'space':
+      process.stdout.write(
+        spaceCommand(rest, {
+          cwd: s.state.cwd,
+          onSwitch: (space) => {
+            config.cwd = space.rootPath;
+            s.setCwd(space.rootPath);
+            if (space.config.model) {
+              s.setModel(space.config.model);
+            }
+            s.setSystemPrompt(space.config.systemPrompt);
+          },
+        }),
+      );
+      return done();
+    case 'doc':
+      process.stdout.write(docCommand(rest, s.state.cwd));
+      return done();
+    case 'diagram':
+      process.stdout.write(diagramCommand(rest, s.state.cwd));
+      return done();
     case 'extension':
     case 'extensions':
       process.stdout.write(extensionCommand(rest, s.state.cwd));
+      return done();
+    case 'sandbox':
+      process.stdout.write(await sandboxCommand(rest, s.state.cwd));
+      return done();
+    case 'serve':
+      process.stdout.write(await serveCommand(rest));
+      return done();
+    case 'plugin':
+    case 'plugins':
+      process.stdout.write(await pluginCommand(rest));
+      return done();
+    case 'workflow':
+    case 'workflows':
+      process.stdout.write(await workflowCommand(rest, s.state.cwd));
       return done();
     case 'exit':
     case 'quit':
@@ -504,6 +1181,478 @@ function done(consumed = true, forwardInput?: string): SlashResult {
   return { handled: true, consumed, forwardInput };
 }
 
+function handleRoleCommand(rest: string[], roleManager: RoleManager): string {
+  const [subcommand = '', ...subArgs] = rest;
+  if (!subcommand) {
+    const current = roleManager.getCurrentRole();
+    return `${theme.brand('Current role')} ${theme.hl(current.name)}\n  permissions: ${current.permissions.join(', ')}\n`;
+  }
+
+  if (subcommand === 'list') {
+    const currentRole = roleManager.getCurrentRole().name;
+    const lines = [
+      theme.brand('Roles'),
+      ...roleManager.listRoles().map((role) => {
+        const marker = role.name === currentRole ? theme.ok('●') : theme.dim('○');
+        return `  ${marker} ${role.name} ${theme.dim(role.permissions.join(', '))}`;
+      }),
+      '',
+    ];
+    return lines.join('\n');
+  }
+
+  if (subcommand === 'set') {
+    const target = subArgs.join(' ').trim();
+    if (!target) return `${theme.warn('usage: /role set <name>\n')}`;
+    try {
+      roleManager.setRole(target);
+      return theme.ok(`✔ role → ${roleManager.getCurrentRole().name}\n`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return theme.err(`${message}\n`);
+    }
+  }
+
+  return theme.warn('usage: /role\n       /role list\n       /role set <name>\n');
+}
+
+function getRoleManager(cwd: string): RoleManager {
+  const roleManager = new RoleManager(defaultRolesConfigPath(cwd));
+  roleManager.loadRoles();
+  return roleManager;
+}
+
+function correctionsCommand(args: string[]): string {
+  const memory = new CorrectionMemory();
+  memory.load();
+
+  const [subcommand = 'list', ...rest] = args;
+  const action = subcommand.toLowerCase();
+
+  if (action === 'list') {
+    return formatCorrections(memory.list());
+  }
+
+  if (action === 'add') {
+    const raw = rest.join(' ').trim();
+    const separator = raw.indexOf('->');
+    if (!raw || separator === -1) return correctionsUsage();
+
+    const wrongBehavior = raw.slice(0, separator).trim();
+    const correctBehavior = raw.slice(separator + 2).trim();
+    if (!wrongBehavior || !correctBehavior) return correctionsUsage();
+
+    memory.add({
+      pattern: wrongBehavior,
+      wrongBehavior,
+      correctBehavior,
+      category: 'general',
+    });
+    memory.save();
+    return `${theme.ok('Remembered correction')} ${theme.dim('Do NOT')} ${wrongBehavior} ${theme.dim('→')} ${correctBehavior}\n`;
+  }
+
+  if (action === 'remove') {
+    const id = rest.join(' ').trim();
+    if (!id) return correctionsUsage();
+    const before = memory.list().length;
+    memory.remove(id);
+    const after = memory.list().length;
+    if (before === after) return `${theme.warn(`No correction found for id ${id}.`)}\n`;
+    memory.save();
+    return `${theme.ok('Removed correction')} ${theme.hl(id)}\n`;
+  }
+
+  if (action === 'clear') {
+    const entries = memory.list();
+    for (const entry of entries) memory.remove(entry.id);
+    memory.save();
+    return `${theme.ok(`Cleared ${entries.length} correction${entries.length === 1 ? '' : 's'}.`)}\n`;
+  }
+
+  return correctionsUsage();
+}
+
+function formatCorrections(entries: ReturnType<CorrectionMemory['list']>): string {
+  if (entries.length === 0) {
+    return `${theme.brand('Corrections')}\n  ${theme.dim('No remembered corrections.')}\n`;
+  }
+
+  const lines = entries.map((entry) => {
+    const details = `${entry.category}, used ${entry.frequency}x`;
+    return `  ${theme.hl(entry.id)} ${theme.dim(`(${details})`)}\n    Do NOT ${entry.wrongBehavior}\n    Instead: ${entry.correctBehavior}`;
+  });
+
+  return `${theme.brand('Corrections')}\n${lines.join('\n')}\n`;
+}
+
+function correctionsUsage(): string {
+  return 'Usage: /corrections\n       /corrections add <wrong> -> <correct>\n       /corrections remove <id>\n       /corrections clear\n';
+}
+
+function handleFilterSlashCommand(cwd: string, arg: string, rest: string[]): string {
+  const [subcommand = 'list'] = rest;
+  const action = subcommand.toLowerCase();
+
+  try {
+    if (action === 'list') {
+      return formatFilterRules(loadProjectContentFilter(cwd), cwd);
+    }
+
+    if (action === 'add') {
+      const [, name, patternSource, actionSource] = rest;
+      if (!name || !patternSource || !actionSource) {
+        return `${theme.warn('usage: /filter add <name> <pattern> <action>\n')}`;
+      }
+      const filterAction = parseFilterAction(actionSource);
+      if (!filterAction) {
+        return `${theme.warn('filter action must be redact, warn, or block\n')}`;
+      }
+
+      const savedRule = saveProjectFilterRule(cwd, {
+        name,
+        pattern: parseFilterPattern(patternSource),
+        type: 'custom',
+        action: filterAction,
+      });
+
+      return theme.ok(
+        `✔ filter rule saved: ${savedRule.name} (${savedRule.type}/${savedRule.action}) /${savedRule.pattern.source}/${savedRule.pattern.flags}\n`,
+      );
+    }
+
+    if (action === 'remove') {
+      const [, name] = rest;
+      if (!name) {
+        return `${theme.warn('usage: /filter remove <name>\n')}`;
+      }
+      const removed = removeProjectFilterRule(cwd, name);
+      if (!removed.removed) {
+        return `${theme.warn(`filter rule not found: ${name}\n`)}`;
+      }
+      return theme.ok(`✔ removed ${removed.source} filter rule: ${name}\n`);
+    }
+
+    if (action === 'test') {
+      const text = arg.slice(subcommand.length).trim();
+      if (!text) {
+        return `${theme.warn('usage: /filter test <text>\n')}`;
+      }
+      return formatFilterTestResult(loadProjectContentFilter(cwd).filter(text));
+    }
+
+    return `${theme.warn('usage: /filter | /filter add <name> <pattern> <action> | /filter remove <name> | /filter test <text>\n')}`;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `${theme.err(`content filter error: ${message}\n`)}`;
+  }
+}
+
+async function proxyCommand(args: string[]): Promise<string> {
+  const manager = ProxyManager.shared();
+  const [subcommand = 'show', ...rest] = args;
+  const action = subcommand.toLowerCase();
+
+  if (action === 'show' || action === 'list' || action === 'status') {
+    return formatProxyStatus(manager);
+  }
+
+  if (action === 'set') {
+    const rawUrl = rest.join(' ').trim();
+    if (!rawUrl) return `${theme.warn('usage: /proxy set <url>\n')}`;
+    try {
+      const saved = manager.setProxy(ProxyManager.parseProxyUrl(rawUrl));
+      return `${theme.ok('✔ proxy configured\n')}${formatProxyDetails(
+        saved,
+        manager.getSource() || 'file',
+        manager.getConfigPath(),
+      )}`;
+    } catch (error) {
+      return theme.err(`proxy: ${(error as Error).message}\n`);
+    }
+  }
+
+  if (action === 'clear' || action === 'unset') {
+    manager.clearProxy();
+    if (manager.loadConfig() && manager.getSource() === 'env') {
+      return (
+        `${theme.warn('proxy file cleared; environment proxy variables still apply\n')}` +
+        formatProxyStatus(manager)
+      );
+    }
+    return theme.ok(`✔ proxy cleared (${manager.getConfigPath()})\n`);
+  }
+
+  if (action === 'test') {
+    const targetUrl = rest.join(' ').trim() || config.endpoint;
+    if (!manager.loadConfig()) return theme.warn('no proxy configured\n');
+    const result = await manager.testConnection(targetUrl);
+    return result.ok
+      ? `${theme.ok('✔ proxy test succeeded')} ${theme.dim(`${targetUrl} status=${result.status ?? 'n/a'} proxied=${result.proxied}`)}\n`
+      : `${theme.err(`proxy test failed: ${result.error ?? 'unknown error'}`)}\n`;
+  }
+
+  return `${theme.warn('usage: /proxy [show|set <url>|clear|test [url]]\n')}`;
+}
+
+function retentionCommand(args: string[]): string {
+  const manager = new RetentionManager();
+  const [subcommand = 'show', targetRaw, daysRaw, countRaw, enabledRaw] = args;
+  const action = subcommand.toLowerCase();
+
+  if (action === 'show' || action === 'list' || action === 'policies') {
+    return formatRetentionPolicies(manager);
+  }
+  if (action === 'preview') {
+    return formatRetentionPreview(manager.preview(), manager);
+  }
+  if (action === 'enforce' || action === 'apply') {
+    return formatRetentionResult(manager.enforce(), manager);
+  }
+  if (action === 'set') {
+    const target = parseRetentionTarget(targetRaw);
+    const maxAgeDays = parseRetentionCount(daysRaw);
+    const parsedMaxCount = countRaw ? parseRetentionCount(countRaw) : undefined;
+    const enabled = enabledRaw ? enabledRaw.toLowerCase() !== 'off' : true;
+    if (!target || maxAgeDays === null || (countRaw && parsedMaxCount === null)) {
+      return `${theme.warn('usage: /retention set <sessions|audit|memory|all> <days> [count] [on|off]\n')}`;
+    }
+    const nextPolicies = manager.setPolicy({
+      target,
+      maxAgeDays,
+      maxCount: parsedMaxCount ?? undefined,
+      enabled,
+    });
+    return `${theme.ok('✔ retention policy saved')}\n${nextPolicies.map((policy) => `  ${policy.target}: age=${policy.maxAgeDays}d${typeof policy.maxCount === 'number' ? ` count=${policy.maxCount}` : ''} ${policy.enabled ? 'enabled' : 'disabled'}`).join('\n')}\n`;
+  }
+
+  return `${theme.warn('usage: /retention [show|preview|enforce|set <target> <days> [count] [on|off]]\n')}`;
+}
+
+function parseRetentionTarget(value?: string): RetentionTarget | null {
+  if (value === 'sessions' || value === 'audit' || value === 'memory' || value === 'all') {
+    return value;
+  }
+  return null;
+}
+
+function parseRetentionCount(value?: string): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const normalized = Math.trunc(parsed);
+  return normalized >= 0 ? normalized : null;
+}
+
+function renderCurrentProvider(model: string): string {
+  return [
+    `${theme.brand('Current provider')}`,
+    `  name: ${config.provider}`,
+    `  base URL: ${config.endpoint}`,
+    `  model: ${model}`,
+    '',
+  ].join('\n');
+}
+
+function renderProviderList(): string {
+  const providers = providerRegistry.list();
+  const lines = [`${theme.brand('Providers')}`, ''];
+  for (const provider of providers) {
+    const marker = provider.name === config.provider ? theme.ok('●') : theme.dim('○');
+    const defaultModel = provider.defaultModel || provider.models[0] || 'unknown';
+    lines.push(
+      `  ${marker} ${provider.name} ${theme.dim(provider.baseUrl)} ${theme.dim(`model=${defaultModel}`)}`,
+    );
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+async function testActiveProvider(model: string): Promise<string> {
+  if (isLocalProviderName(config.provider)) {
+    localModelProvider.configure({
+      provider: config.provider,
+      baseUrl: config.endpoint,
+      model,
+      apiKey: config.token,
+    });
+    const available = await localModelProvider.isAvailable();
+    const models = available ? await localModelProvider.listModels() : [];
+    const header = available
+      ? theme.ok('✔ local provider reachable')
+      : theme.err('✖ local provider unavailable');
+    const discovered = models.length ? models.join(', ') : theme.dim('(no models reported)');
+    return [
+      header,
+      `provider: ${config.provider}`,
+      `base URL: ${config.endpoint}`,
+      `model: ${model}`,
+      `available models: ${discovered}`,
+      '',
+    ].join('\n');
+  }
+
+  const result = await providerRegistry.testProvider(config.provider);
+  const header = result.ok ? theme.ok('✔ provider reachable') : theme.err('✖ provider unavailable');
+  return [
+    header,
+    `provider: ${result.provider}`,
+    `base URL: ${config.endpoint}`,
+    `model: ${model}`,
+    `available models: ${result.models.length ? result.models.join(', ') : theme.dim('(none reported)')}`,
+    ...(result.error ? [`error: ${result.error}`] : []),
+    '',
+  ].join('\n');
+}
+
+function formatGoalRunStatus(run: GoalRunState | null): string {
+  if (!run) {
+    return `${theme.brand('Goal run')}\n  ${theme.dim('No goal has been started yet.')}\n`;
+  }
+
+  const progress = run.agent.getProgress();
+  const lines = [
+    theme.brand('Goal run'),
+    `  goal: ${run.goal.description}`,
+    `  phase: ${progress.phase}`,
+    `  started: ${run.startedAt}`,
+    `  attempt: ${progress.currentAttempt}/${progress.maxAttempts}`,
+    `  steps: ${progress.completedSteps}/${progress.totalSteps}`,
+  ];
+
+  if (progress.currentStepId) {
+    lines.push(`  current step: ${progress.currentStepId}`);
+  }
+  if (progress.verification) {
+    lines.push(
+      `  verification: ${progress.verification.ok ? 'passed' : 'failed'} (${progress.verification.score})`,
+    );
+    if (progress.verification.issues.length > 0) {
+      lines.push(`  issues: ${progress.verification.issues.join(' | ')}`);
+    }
+  }
+  if (run.result?.summary) {
+    lines.push(`  summary: ${run.result.summary}`);
+  }
+  if (run.error) {
+    lines.push(`  error: ${run.error}`);
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function formatGoalCompletion(result: GoalResult): string {
+  const issues =
+    result.verification.issues.length > 0
+      ? `\n  issues: ${result.verification.issues.join(' | ')}`
+      : '';
+  return (
+    `${theme.brand('Goal complete')}\n` +
+    `  goal: ${result.goal.description}\n` +
+    `  status: ${result.success ? 'success' : result.aborted ? 'aborted' : 'failed'}\n` +
+    `  attempts: ${result.attempts}\n` +
+    `  summary: ${result.summary}${issues}\n`
+  );
+}
+
+async function sandboxCommand(args: string[], cwd: string): Promise<string> {
+  const [subcommand = 'status', ...rest] = args;
+  const sandbox = getContainerSandbox(cwd);
+
+  switch (subcommand.toLowerCase()) {
+    case 'run': {
+      const command = rest.join(' ').trim();
+      if (!command) return theme.warn('usage: /sandbox run <command>\n');
+      if (!(await sandbox.isDockerAvailable())) {
+        return theme.warn(
+          'Docker is not available. Start Docker Desktop or install the Docker CLI.\n',
+        );
+      }
+
+      const containerId = await sandbox.create({ image: sandbox.getDefaultImage() });
+      try {
+        const result = await sandbox.exec(containerId, command);
+        const body = [
+          `${theme.brand('Sandbox run')} ${theme.dim(containerId.slice(0, 12))}`,
+          result.stdout.trimEnd(),
+          result.stderr.trimEnd(),
+        ]
+          .filter(Boolean)
+          .join('\n\n');
+        return `${body}\n`;
+      } finally {
+        await sandbox.destroy(containerId).catch(() => undefined);
+      }
+    }
+    case 'shell': {
+      if (!(await sandbox.isDockerAvailable())) {
+        return theme.warn(
+          'Docker is not available. Start Docker Desktop or install the Docker CLI.\n',
+        );
+      }
+
+      const containerId = await sandbox.create({ image: sandbox.getDefaultImage() });
+      return [
+        `${theme.brand('Sandbox shell')} ${theme.dim(containerId.slice(0, 12))}`,
+        `Project mounted read-only from ${cwd}`,
+        `Attach with: docker exec -it ${containerId} sh`,
+        `Cleanup with: /sandbox cleanup`,
+        '',
+      ].join('\n');
+    }
+    case 'status': {
+      if (!(await sandbox.isDockerAvailable())) {
+        return theme.warn(
+          'Docker is not available. Start Docker Desktop or install the Docker CLI.\n',
+        );
+      }
+
+      const containers = await sandbox.listRunning();
+      if (!containers.length) return `${theme.dim('No sandbox containers are running.')}\n`;
+
+      const lines = [`${theme.brand('Sandbox containers')}`, ''];
+      for (const container of containers) {
+        lines.push(
+          `  ${container.id.slice(0, 12)} ${container.image} ${theme.dim(container.status)}`,
+        );
+      }
+      lines.push('');
+      return lines.join('\n');
+    }
+    case 'cleanup': {
+      if (!(await sandbox.isDockerAvailable())) {
+        return theme.warn(
+          'Docker is not available. Start Docker Desktop or install the Docker CLI.\n',
+        );
+      }
+
+      const containers = await sandbox.listRunning();
+      if (!containers.length) return `${theme.dim('No sandbox containers to clean up.')}\n`;
+
+      await Promise.all(
+        containers.map((container) => sandbox.destroy(container.id).catch(() => undefined)),
+      );
+      return theme.ok(
+        `✔ cleaned up ${containers.length} sandbox container${containers.length === 1 ? '' : 's'}\n`,
+      );
+    }
+    default:
+      return theme.warn(
+        'usage: /sandbox run <command>\n       /sandbox shell\n       /sandbox status\n       /sandbox cleanup\n',
+      );
+  }
+}
+
+function getContainerSandbox(cwd: string): ContainerSandbox {
+  const resolved = path.resolve(cwd);
+  let sandbox = sandboxByCwd.get(resolved);
+  if (!sandbox) {
+    sandbox = new ContainerSandbox(resolved);
+    sandboxByCwd.set(resolved, sandbox);
+  }
+  return sandbox;
+}
+
 function renderBar(used: number, cap: number, width: number): string {
   const ratio = Math.min(1, used / cap);
   const fill = Math.round(width * ratio);
@@ -517,9 +1666,701 @@ function formatPinnedFiles(files: Array<{ path: string; tokens: number }>): stri
   const total = files.reduce((sum, file) => sum + file.tokens, 0);
   const lines = [
     `${theme.brand('Pinned files')}`,
-    ...files.map((file, index) => `  ${index + 1}. ${file.path} ${theme.dim(`(${file.tokens} tokens)`)}`),
+    ...files.map(
+      (file, index) => `  ${index + 1}. ${file.path} ${theme.dim(`(${file.tokens} tokens)`)}`,
+    ),
     `  total: ${theme.hl(String(total))} tokens`,
     '',
   ];
   return lines.join('\n');
 }
+
+function formatProxyStatus(manager: ProxyManager): string {
+  const proxy = manager.loadConfig();
+  if (!proxy) {
+    return `${theme.brand('Proxy')}\n  ${theme.dim('status')} disabled\n  ${theme.dim(
+      'config',
+    )} ${manager.getConfigPath()}\n`;
+  }
+  return formatProxyDetails(proxy, manager.getSource() || 'file', manager.getConfigPath());
+}
+
+function formatProxyDetails(
+  proxy: NonNullable<ReturnType<ProxyManager['loadConfig']>>,
+  source: string,
+  file: string,
+): string {
+  const auth = proxy.auth?.username
+    ? `${proxy.auth.username}${proxy.auth.password ? ':***' : ''}@`
+    : '';
+  const noProxy = proxy.noProxy?.length ? proxy.noProxy.join(', ') : '(none)';
+  return [
+    `${theme.brand('Proxy')} ${theme.dim(`[${source}]`)}`,
+    `  ${theme.dim('url')} ${proxy.type}://${auth}${proxy.host}:${proxy.port}`,
+    `  ${theme.dim('no_proxy')} ${noProxy}`,
+    `  ${theme.dim('config')} ${file}`,
+    '',
+  ].join('\n');
+}
+
+function formatAuditEntries(entries: AuditEntry[], heading = 'Audit log'): string {
+  if (!entries.length) {
+    return `${theme.brand(heading)} ${theme.dim(auditLogPath())}\n  ${theme.dim('No audit entries found.')}\n`;
+  }
+
+  const lines = [`${theme.brand(heading)} ${theme.dim(auditLogPath())}`, ''];
+  for (const entry of entries) {
+    const parts = [
+      entry.tool ? theme.hl(entry.tool) : entry.action,
+      theme.dim(entry.result.toUpperCase()),
+      theme.dim(entry.timestamp),
+    ];
+    if (typeof entry.duration === 'number') parts.push(theme.dim(`${entry.duration}ms`));
+    lines.push(`  ${parts.join('  ')}`);
+    if (entry.command) lines.push(`    command: ${entry.command}`);
+    if (entry.details) lines.push(`    details: ${entry.details.replace(/\r?\n/gu, ' ')}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function formatAuditStats(stats: AuditStats): string {
+  return [
+    `${theme.brand('Audit stats')} ${theme.dim(auditLogPath())}`,
+    `  total:    ${theme.hl(String(stats.total))}`,
+    `  success:  ${theme.ok(String(stats.success))}`,
+    `  failure:  ${theme.err(String(stats.failure))}`,
+    `  denied:   ${theme.warn(String(stats.denied))}`,
+    `  first:    ${theme.dim(stats.firstEntry || 'n/a')}`,
+    `  last:     ${theme.dim(stats.lastEntry || 'n/a')}`,
+    `  avg time: ${theme.dim(stats.avgDuration !== undefined ? `${stats.avgDuration}ms` : 'n/a')}`,
+    '',
+    theme.brand('Top tools'),
+    formatAuditCounter(stats.byTool),
+    '',
+  ].join('\n');
+}
+
+function formatAuditCounter(counter: Record<string, number>): string {
+  const entries = Object.entries(counter)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, 5);
+  if (entries.length === 0) return `  ${theme.dim('none')}`;
+  return entries
+    .map(([name, count]) => `  ${theme.hl(String(count)).padStart(5)}  ${name}`)
+    .join('\n');
+}
+
+function searchAuditEntries(entries: AuditEntry[], query: string): AuditEntry[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [];
+  return entries.filter((entry) =>
+    [
+      entry.id,
+      entry.timestamp,
+      entry.action,
+      entry.tool,
+      entry.command,
+      entry.result,
+      entry.user,
+      entry.details,
+      safeAuditArgs(entry.args),
+    ]
+      .filter((part): part is string => typeof part === 'string' && part.length > 0)
+      .some((part) => part.toLowerCase().includes(needle)),
+  );
+}
+
+function safeAuditArgs(value: unknown): string {
+  try {
+    return value === undefined ? '' : JSON.stringify(value);
+  } catch {
+    return '';
+  }
+}
+
+function formatCloudUsage(currentSessionId?: string): string {
+  const lines = [
+    'usage: /cloud create [name]',
+    '       /cloud connect <id>',
+    '       /cloud list',
+    '       /cloud destroy <id>',
+    '       /cloud sync',
+  ];
+  if (currentSessionId) lines.push(`current cloud session: ${currentSessionId}`);
+  return `${lines.join('\n')}\n`;
+}
+
+function formatCloudSessions(sessions: CloudSessionRecord[]): string {
+  if (!sessions.length) return `${theme.dim('No cloud sessions.\n')}`;
+  const lines = [`${theme.brand('Cloud sessions')}`, ''];
+  for (const session of sessions) {
+    const status = session.status === 'connected' ? theme.ok('connected') : theme.dim('idle');
+    const label =
+      session.name && session.name !== session.id ? ` ${theme.dim(`(${session.name})`)}` : '';
+    const synced = session.lastSyncedAt ? ` synced ${session.lastSyncedAt}` : '';
+    lines.push(`  ${session.id} ${status}${label} ${theme.dim(`msgs=${session.messageCount}`)}`);
+    lines.push(`    ${session.endpoint}${synced}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function formatNavigationResult(label: string, symbol: string, locations: Location[]): string {
+  const lines = [`${theme.brand(label)} ${theme.hl(symbol)}`, ''];
+  for (const location of locations) {
+    const position = `${location.file}:${location.line}${location.column ? `:${location.column}` : ''}`;
+    lines.push(`  ${position}`);
+    lines.push(`    ${location.context}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function parseParallelSpec(
+  raw: string,
+): { agents: AgentTask[]; concurrencyLimit?: number; timeoutMs?: number } | { error: string } {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {
+      error:
+        'usage: /parallel <json-spec|prompt-a, prompt-b>\n' +
+        'example: /parallel [{"name":"plan","type":"plan","prompt":"outline the release"}]',
+    };
+  }
+
+  if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as unknown;
+      if (Array.isArray(parsed)) {
+        return { agents: normalizeAgentTasks(parsed) };
+      }
+      if (parsed && typeof parsed === 'object') {
+        const spec = parsed as {
+          agents?: unknown;
+          concurrencyLimit?: unknown;
+          timeoutMs?: unknown;
+        };
+        if (Array.isArray(spec.agents)) {
+          return {
+            agents: normalizeAgentTasks(spec.agents),
+            concurrencyLimit:
+              typeof spec.concurrencyLimit === 'number'
+                ? Math.floor(spec.concurrencyLimit)
+                : undefined,
+            timeoutMs: typeof spec.timeoutMs === 'number' ? Math.floor(spec.timeoutMs) : undefined,
+          };
+        }
+      }
+      return {
+        error: 'invalid /parallel JSON: expected an array or an object with an "agents" array',
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'failed to parse JSON';
+      return { error: `invalid /parallel JSON: ${message}` };
+    }
+  }
+
+  const prompts = trimmed
+    .split(',')
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (!prompts.length) {
+    return { error: 'usage: /parallel <json-spec|prompt-a, prompt-b>' };
+  }
+  return {
+    agents: prompts.map((prompt, index) => ({
+      name: `agent-${index + 1}`,
+      type: 'task',
+      prompt,
+    })),
+  };
+}
+
+function normalizeAgentTasks(input: unknown[]): AgentTask[] {
+  return input.map((entry, index) => {
+    const task = (entry ?? {}) as Partial<AgentTask>;
+    const prompt = typeof task.prompt === 'string' ? task.prompt.trim() : '';
+    return {
+      name:
+        typeof task.name === 'string' && task.name.trim() ? task.name.trim() : `agent-${index + 1}`,
+      type: typeof task.type === 'string' && task.type.trim() ? task.type.trim() : 'task',
+      prompt,
+      ...(typeof task.systemPrompt === 'string' && task.systemPrompt.trim()
+        ? { systemPrompt: task.systemPrompt.trim() }
+        : {}),
+    };
+  });
+}
+
+function formatParallelResults(results: AgentResult[]): string {
+  if (!results.length) return `${theme.warn('No agent tasks were provided.')}\n`;
+
+  const lines = [`${theme.brand('Parallel agent results')}`];
+  for (const result of results) {
+    const status = result.status === 'success' ? theme.ok('SUCCESS') : theme.err('ERROR');
+    lines.push(`${status} ${result.name} ${theme.dim(`(${formatDuration(result.duration)})`)}`);
+    lines.push(result.output.trim() || theme.dim('(empty output)'));
+    lines.push('');
+  }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function formatDuration(durationMs: number): string {
+  if (durationMs < 1000) return `${durationMs}ms`;
+  return `${(durationMs / 1000).toFixed(2)}s`;
+}
+
+function parseHealArgs(args: string[]): { maxAttempts: number } | { error: string } {
+  let maxAttempts = 3;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === '--max') {
+      const value = args[index + 1];
+      const parsed = Number.parseInt(value ?? '', 10);
+      if (!Number.isFinite(parsed) || parsed < 1) {
+        return { error: 'usage: /heal [--max <positive-number>]' };
+      }
+      maxAttempts = parsed;
+      index += 1;
+      continue;
+    }
+
+    return { error: `unknown /heal option: ${token}` };
+  }
+
+  return { maxAttempts };
+}
+
+function formatHealResult(result: import('../agents/self-heal.js').HealResult): string {
+  const lines = [
+    `${theme.brand('Self-heal build')} ${theme.dim(result.command)}`,
+    `  status: ${result.success ? theme.ok('success') : theme.err('failed')}`,
+  ];
+
+  if (result.attempts.length === 0) {
+    lines.push(`  attempts: ${theme.dim('no safe fixes applied')}`);
+  } else {
+    lines.push(`  attempts: ${theme.hl(String(result.attempts.length))}`);
+    for (const [index, attempt] of result.attempts.entries()) {
+      const location = attempt.error.file
+        ? `${attempt.error.file}${attempt.error.line ? `:${attempt.error.line}` : ''}`
+        : 'unknown location';
+      lines.push(`  ${index + 1}. ${theme.hl(location)}`);
+      lines.push(`     diagnosis: ${attempt.diagnosis}`);
+      lines.push(`     fix: ${attempt.fix}`);
+      lines.push(`     applied: ${attempt.applied ? theme.ok('yes') : theme.err('no')}`);
+    }
+  }
+
+  if (!result.success && result.build.errors.length > 0) {
+    lines.push('  remaining errors:');
+    for (const error of result.build.errors.slice(0, 5)) {
+      lines.push(
+        `    - ${error.code ? `${error.code} ` : ''}${error.message}${error.file ? ` ${theme.dim(`(${error.file}${error.line ? `:${error.line}` : ''})`)}` : ''}`,
+      );
+    }
+  }
+
+  lines.push('');
+  return lines.join('\n');
+}
+
+function buildTddSpec(description: string): TDDSpec {
+  const clauses = description
+    .split(/\s+(?:and|then)\s+|,/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const expectedBehaviors = [
+    'captures the original description',
+    ...clauses.map((clause) => `handles ${clause.toLowerCase()}`),
+  ];
+  return {
+    description,
+    expectedBehaviors: [...new Set(expectedBehaviors)],
+  };
+}
+
+function formatTddCycle(result: TDDResult): string {
+  const status = result.finalStatus === 'green' ? theme.ok('green') : theme.err('red');
+  return [
+    `${theme.brand('TDD cycle')} ${status}`,
+    `  spec: ${theme.hl(result.spec.description)}`,
+    `  test: ${result.testFile}`,
+    `  source: ${result.sourceFile}`,
+    `  cycles: ${result.cycles}`,
+    '',
+  ].join('\n');
+}
+
+function formatTddStatus(result: TDDResult | null): string {
+  if (!result) {
+    return `${theme.brand('TDD status')}\n  ${theme.dim('No TDD cycle has been run yet.')}\n`;
+  }
+  return [
+    `${theme.brand('TDD status')}`,
+    `  status: ${result.finalStatus === 'green' ? theme.ok('green') : theme.err('red')}`,
+    `  spec: ${theme.hl(result.spec.description)}`,
+    `  test: ${result.testFile}`,
+    `  source: ${result.sourceFile}`,
+    `  cycles: ${result.cycles}`,
+    '',
+  ].join('\n');
+}
+
+async function bridgeCommand(args: string[]): Promise<string> {
+  const [subcommand = 'status', rawPort] = args;
+
+  switch (subcommand.toLowerCase()) {
+    case 'start': {
+      const parsedPort = parseBridgePort(rawPort);
+      if (typeof parsedPort === 'string') return `${theme.warn(parsedPort)}\n`;
+      const port = await ideBridgeServer.start(parsedPort ?? DEFAULT_BRIDGE_PORT);
+      return [
+        theme.ok('✔ IDE bridge started'),
+        `  port:        ${theme.hl(String(port))}`,
+        `  connections: ${theme.hl(String(ideBridgeServer.getConnectionCount()))}`,
+        '',
+      ].join('\n');
+    }
+    case 'stop':
+      if (!ideBridgeServer.isRunning()) {
+        return `${theme.warn('IDE bridge is not running.')}\n`;
+      }
+      await ideBridgeServer.stop();
+      return `${theme.ok('✔ IDE bridge stopped')}\n`;
+    case 'status':
+      return formatBridgeStatus();
+    default:
+      return [
+        theme.warn(`unknown bridge subcommand: ${subcommand}`),
+        'usage: /bridge start [port]',
+        '       /bridge stop',
+        '       /bridge status',
+        '',
+      ].join('\n');
+  }
+}
+
+async function serveCommand(args: string[]): Promise<string> {
+  const [subcommand = 'status', rawPort] = args;
+
+  switch (subcommand.toLowerCase()) {
+    case 'start': {
+      const parsedPort = parseServePort(rawPort);
+      if (typeof parsedPort === 'string') return `${theme.warn(parsedPort)}\n`;
+      const port = await apiServer.start(parsedPort ?? DEFAULT_API_PORT);
+      return [
+        theme.ok('✔ API server started'),
+        `  port:     ${theme.hl(String(port))}`,
+        `  sessions: ${theme.hl(String(apiServer.getSessionCount()))}`,
+        '',
+      ].join('\n');
+    }
+    case 'stop':
+      if (!apiServer.isRunning()) {
+        return `${theme.warn('API server is not running.')}\n`;
+      }
+      await apiServer.stop();
+      return `${theme.ok('✔ API server stopped')}\n`;
+    case 'status':
+      if (!apiServer.isRunning()) {
+        return `${theme.warn('API server is stopped.')}\n`;
+      }
+      return [
+        theme.brand('API server status'),
+        `  running:  ${theme.hl('yes')}`,
+        `  port:     ${theme.hl(String(apiServer.getPort() ?? DEFAULT_API_PORT))}`,
+        `  sessions: ${theme.hl(String(apiServer.getSessionCount()))}`,
+        '',
+      ].join('\n');
+    default:
+      return [
+        theme.warn(`unknown serve subcommand: ${subcommand}`),
+        'usage: /serve start [port]',
+        '       /serve stop',
+        '       /serve status',
+        '',
+      ].join('\n');
+  }
+}
+
+function formatBridgeStatus(): string {
+  if (!ideBridgeServer.isRunning()) {
+    return `${theme.warn('IDE bridge is stopped.')}\n`;
+  }
+
+  return [
+    theme.brand('IDE bridge status'),
+    `  running:     ${theme.hl('yes')}`,
+    `  port:        ${theme.hl(String(ideBridgeServer.getPort() ?? DEFAULT_BRIDGE_PORT))}`,
+    `  connections: ${theme.hl(String(ideBridgeServer.getConnectionCount()))}`,
+    '',
+  ].join('\n');
+}
+
+function parseBridgePort(value?: string): number | undefined | string {
+  if (!value) return undefined;
+  const port = Number.parseInt(value, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    return `invalid port: ${value}`;
+  }
+  return port;
+}
+
+function parseServePort(value?: string): number | undefined | string {
+  if (!value) return undefined;
+  const port = Number.parseInt(value, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    return `invalid port: ${value}`;
+  }
+  return port;
+}
+
+async function workflowCommand(args: string[], cwd: string): Promise<string> {
+  const [subcommand = 'list', rawName] = args;
+  const engine = new WorkflowEngine({ cwd });
+  const workflowDir = path.join(cwd, '.icopilot', 'workflows');
+
+  switch (subcommand.toLowerCase()) {
+    case 'list': {
+      const builtins = [...BUILTIN_WORKFLOWS].sort((a, b) => a.name.localeCompare(b.name));
+      let local: WorkflowDef[] = [];
+      let loadError: string | undefined;
+
+      try {
+        local = engine.loadWorkflows(cwd);
+      } catch (error: any) {
+        loadError = error?.message || String(error);
+      }
+
+      const lines = [`${theme.brand('Workflows')} ${theme.dim(workflowDir)}`, ''];
+      lines.push(
+        formatWorkflowSection('Built-in', builtins),
+        '',
+        formatWorkflowSection('Project', local),
+      );
+      if (loadError) {
+        lines.push('', theme.warn(`warning: ${loadError}`));
+      }
+      return `${lines.join('\n')}\n`;
+    }
+    case 'run': {
+      if (!rawName) return theme.warn('usage: /workflow run <name>\n');
+      const workflow = findWorkflowByName(rawName, engine, cwd);
+      if (!workflow) return theme.warn(`workflow not found: ${rawName}\n`);
+
+      const validation = engine.validateWorkflow(workflow);
+      if (validation.length > 0) {
+        return `${formatValidationErrors(workflow.name, validation)}\n`;
+      }
+
+      const result = await engine.run(workflow, { cwd });
+      return `${formatWorkflowRun(workflow.name, result)}\n`;
+    }
+    case 'new': {
+      if (!rawName) return theme.warn('usage: /workflow new <name>\n');
+      const name = normalizeWorkflowName(rawName);
+      const targetPath = path.join(workflowDir, `${name}.yaml`);
+      if (fs.existsSync(targetPath)) {
+        return theme.warn(`workflow already exists: ${targetPath}\n`);
+      }
+
+      fs.mkdirSync(workflowDir, { recursive: true });
+      const workflow = getBuiltinWorkflow(name) ?? createWorkflowTemplate(name);
+      fs.writeFileSync(targetPath, renderWorkflowYaml(workflow), 'utf8');
+      return theme.ok(`✔ created ${targetPath}\n`);
+    }
+    case 'validate': {
+      if (!rawName) return theme.warn('usage: /workflow validate <name>\n');
+      const workflow = findWorkflowByName(rawName, engine, cwd);
+      if (!workflow) return theme.warn(`workflow not found: ${rawName}\n`);
+
+      const errors = engine.validateWorkflow(workflow);
+      if (errors.length === 0) {
+        return theme.ok(`✔ workflow "${workflow.name}" is valid\n`);
+      }
+      return `${formatValidationErrors(workflow.name, errors)}\n`;
+    }
+    default:
+      return theme.warn('usage: /workflow <list|run|new|validate> [name]\n');
+  }
+}
+
+function findWorkflowByName(
+  name: string,
+  engine: WorkflowEngine,
+  cwd: string,
+): WorkflowDef | undefined {
+  const normalized = normalizeWorkflowName(name);
+  try {
+    const local = engine.loadWorkflows(cwd);
+    const localMatch = local.find(
+      (workflow) => normalizeWorkflowName(workflow.name) === normalized,
+    );
+    if (localMatch) return localMatch;
+  } catch {
+    /* ignore local workflow parse failures here */
+  }
+  return getBuiltinWorkflow(normalized);
+}
+
+function normalizeWorkflowName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function formatWorkflowSection(title: string, workflows: WorkflowDef[]): string {
+  if (workflows.length === 0) {
+    return `  ${theme.brand(title)}\n    ${theme.dim('none')}`;
+  }
+
+  return [
+    `  ${theme.brand(title)}`,
+    ...workflows.map(
+      (workflow) => `    ${theme.hl(workflow.name)} ${theme.dim(`- ${workflow.description}`)}`,
+    ),
+  ].join('\n');
+}
+
+function formatValidationErrors(name: string, errors: ValidationError[]): string {
+  return [
+    `${theme.brand('Workflow validation')} ${theme.dim(name)}`,
+    ...errors.map((error) => `  - ${error.path}: ${error.message}`),
+  ].join('\n');
+}
+
+function formatWorkflowRun(
+  name: string,
+  result: {
+    success: boolean;
+    duration: number;
+    steps: Array<{ stepId: string; success: boolean; error?: string }>;
+  },
+): string {
+  const lines = [
+    `${theme.brand('Workflow run')} ${theme.dim(name)}`,
+    `  status: ${result.success ? theme.ok('success') : theme.err('failed')}`,
+    `  duration: ${theme.dim(`${result.duration}ms`)}`,
+  ];
+
+  for (const step of result.steps) {
+    lines.push(
+      `  - ${step.stepId}: ${step.success ? theme.ok('ok') : theme.err('failed')}${step.error ? ` ${theme.dim(step.error)}` : ''}`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
+function errorWatchCommand(args: string[]): string {
+  const [subcommand, ...rest] = args;
+  const action = subcommand?.toLowerCase();
+
+  if (!action) {
+    return `${theme.brand('Error watch')}\n  /error-watch start <cmd>\n  /error-watch stop\n  /error-watch status\n`;
+  }
+
+  switch (action) {
+    case 'start': {
+      const command = rest.join(' ').trim();
+      if (!command) {
+        return theme.warn('usage: /error-watch start <cmd>\n');
+      }
+
+      try {
+        errorWatcher.start(command);
+        return `${theme.ok('✔ error watcher started')}\n${formatErrorWatchStatus()}`;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return theme.err(`failed to start error watcher: ${message}\n`);
+      }
+    }
+    case 'stop':
+      errorWatcher.stop();
+      return `${theme.ok('✔ error watcher stopped')}\n${formatErrorWatchStatus()}`;
+    case 'status':
+      return formatErrorWatchStatus();
+    default:
+      return `${theme.warn(`unknown error-watch subcommand: ${subcommand}`)}\n${theme.dim(
+        'usage: /error-watch start <cmd> | /error-watch stop | /error-watch status\n',
+      )}`;
+  }
+}
+
+function formatErrorWatchStatus(): string {
+  const errors = errorWatcher.getErrors();
+  const lines = [
+    theme.brand('Error watch status'),
+    `  active:  ${theme.hl(errorWatcher.isRunning() ? 'yes' : 'no')}`,
+    `  command: ${theme.hl(errorWatcher.getCommand() ?? 'n/a')}`,
+    `  errors:  ${theme.hl(String(errors.length))}`,
+  ];
+
+  if (!errors.length) {
+    lines.push('', theme.dim('No parsed errors yet.'));
+    return `${lines.join('\n')}\n`;
+  }
+
+  lines.push('', theme.brand('Latest errors'));
+  for (const error of errors.slice(-5)) {
+    lines.push(`  - ${formatParsedError(error)}`);
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+function formatParsedError(error: ParsedError): string {
+  const location = [
+    error.file,
+    error.line !== undefined ? String(error.line) : undefined,
+    error.column !== undefined ? String(error.column) : undefined,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(':');
+
+  const prefix = [error.severity, error.code, location]
+    .filter((part): part is string => Boolean(part))
+    .join(' ');
+  return `${prefix}: ${error.message}`;
+}
+
+function formatStackTraceSummary(
+  trace: ReturnType<typeof parseStackTrace>,
+  analysis: ReturnType<typeof analyzeStackTrace>,
+): string {
+  const relevant = analysis.relevantFrames.length
+    ? analysis.relevantFrames
+        .map((frame, index) => {
+          const location = `${frame.file}:${frame.line}${frame.column ? `:${frame.column}` : ''}`;
+          const fn = frame.function ? ` ${theme.dim(`(${frame.function})`)}` : '';
+          return `  ${index + 1}. ${location}${fn}`;
+        })
+        .join('\n')
+    : '  none\n';
+  const files = analysis.userFiles.length
+    ? analysis.userFiles.map((file) => `  - ${file}`).join('\n')
+    : '  - none detected';
+  const rootCauseLocation =
+    analysis.rootCause.line > 0
+      ? `${analysis.rootCause.file}:${analysis.rootCause.line}${analysis.rootCause.column ? `:${analysis.rootCause.column}` : ''}`
+      : analysis.rootCause.file;
+
+  return [
+    `${theme.brand('Stack trace analysis')} ${theme.dim(trace.type)}`,
+    `  error: ${trace.error}`,
+    `  root cause: ${rootCauseLocation}${analysis.rootCause.function ? ` ${theme.dim(`(${analysis.rootCause.function})`)}` : ''}`,
+    '  relevant frames:',
+    relevant,
+    '  user files:',
+    files,
+    `  suggestion: ${analysis.suggestion}`,
+    '',
+  ].join('\n');
+}
+
+

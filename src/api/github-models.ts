@@ -4,18 +4,41 @@ import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources/chat/completions';
-import { config, requireToken } from '../config.js';
+import { config } from '../config.js';
+import {
+  providerRegistry,
+  resolveProviderApiKey,
+  type ProviderConfig,
+} from '../providers/custom-provider.js';
+import { ProxyManager } from '../security/proxy.js';
 import { theme } from '../ui/theme.js';
 
 let _client: OpenAI | null = null;
+let _clientCacheKey: string | null = null;
 
 export function client(): OpenAI {
-  if (_client) return _client;
-  _client = new OpenAI({
-    apiKey: requireToken(),
-    baseURL: config.endpoint,
+  const provider = activeProvider();
+  const proxyConfig = ProxyManager.shared().loadConfig();
+  const cacheKey = JSON.stringify({
+    provider: config.provider,
+    endpoint: config.endpoint,
+    token: config.token || resolveProviderApiKey(provider) || 'not-needed',
+    headers: provider?.headers || null,
+    proxy: proxyConfig,
   });
+  if (_client && _clientCacheKey === cacheKey) return _client;
+  _client = new OpenAI({
+    apiKey: config.token || resolveProviderApiKey(provider) || 'not-needed',
+    baseURL: config.endpoint || provider?.baseUrl,
+    defaultHeaders: provider?.headers,
+    httpAgent: ProxyManager.shared().getAgent(),
+  });
+  _clientCacheKey = cacheKey;
   return _client;
+}
+
+export function activeProvider(): ProviderConfig {
+  return providerRegistry.get(config.provider) || providerRegistry.getActive();
 }
 
 export interface StreamOpts {
@@ -83,12 +106,14 @@ export async function streamChat(opts: StreamOpts): Promise<StreamResult> {
 }
 
 async function runOnce(opts: StreamOpts): Promise<StreamResult> {
+  const provider = activeProvider();
   const stream = await client().chat.completions.create(
     {
       model: opts.model,
       messages: opts.messages,
       tools: opts.tools,
       temperature: opts.temperature ?? 0.2,
+      ...(provider?.maxTokens ? { max_tokens: provider.maxTokens } : {}),
       stream: true,
     },
     { signal: opts.signal },

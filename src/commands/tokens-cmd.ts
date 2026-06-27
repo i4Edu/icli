@@ -1,5 +1,7 @@
 import { ASK_SYSTEM, PLAN_SYSTEM } from './prompts.js';
 import { loadMemoryBlock } from '../context/memory.js';
+import { loadConventionPromptContext } from '../knowledge/conventions.js';
+import { loadStylePromptContext } from '../knowledge/style-learner.js';
 import type { Session } from '../session/session.js';
 import { theme } from '../ui/theme.js';
 import { countTokensSync } from '../util/tokens.js';
@@ -30,8 +32,12 @@ const FILE_REF_HEADER = '### Referenced files';
 export function tokensCommand(session: Session): string {
   const baseSystemPrompt = session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM;
   const memoryBlock = loadMemoryBlock(session.state.cwd) ?? '';
+  const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
+  const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
 
   const systemPrompt = segmentForText(baseSystemPrompt);
+  const stylePrompt = segmentForText(styleBlock);
+  const conventionPrompt = segmentForText(conventionBlock);
   const memoryPrompt = segmentForText(memoryBlock);
   const userMessages: TokenSegment = { tokens: 0, bytes: 0 };
   const assistantResponses: TokenSegment = { tokens: 0, bytes: 0 };
@@ -142,6 +148,20 @@ export function tokensCommand(session: Session): string {
       bytes: systemPrompt.bytes,
     },
     {
+      category: 'Style profile',
+      tokens: stylePrompt.tokens,
+      percentage: 0,
+      details: stylePrompt.tokens > 0 ? 'loaded from .icopilot/style-profile.json' : 'none loaded',
+      bytes: stylePrompt.bytes,
+    },
+    {
+      category: 'Conventions',
+      tokens: conventionPrompt.tokens,
+      percentage: 0,
+      details: conventionPrompt.tokens > 0 ? 'loaded from .icopilot/conventions.yaml' : 'none loaded',
+      bytes: conventionPrompt.bytes,
+    },
+    {
       category: 'User messages',
       tokens: userMessages.tokens,
       percentage: 0,
@@ -173,7 +193,8 @@ export function tokensCommand(session: Session): string {
       category: 'Memory block',
       tokens: memoryPrompt.tokens,
       percentage: 0,
-      details: memoryPrompt.tokens > 0 ? 'loaded from .icopilot/memory.md' : 'none loaded',
+      details:
+        memoryPrompt.tokens > 0 ? 'loaded from .icopilot memory files (including team memory)' : 'none loaded',
       bytes: memoryPrompt.bytes,
     },
   ];

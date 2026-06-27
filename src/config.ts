@@ -2,11 +2,13 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { providerRegistry, resolveProviderApiKey } from './providers/custom-provider.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type ThemeName = 'auto' | 'light' | 'dark' | 'none';
 
 export interface Config {
+  provider: string;
   endpoint: string;
   token: string | undefined;
   defaultModel: string;
@@ -31,6 +33,7 @@ export interface Config {
 const HOME = os.homedir();
 
 const DEFAULT_CONFIG: Config = {
+  provider: 'github',
   endpoint: 'https://models.inference.ai.azure.com',
   token: undefined,
   defaultModel: 'gpt-4o-mini',
@@ -71,6 +74,7 @@ function parseTheme(value: unknown): ThemeName | undefined {
 
 function normalizeConfig(raw: Record<string, unknown>): Partial<Config> {
   const out: Partial<Config> = {};
+  if (typeof raw.provider === 'string') out.provider = raw.provider;
   if (typeof raw.endpoint === 'string') out.endpoint = raw.endpoint;
   if (typeof raw.token === 'string') out.token = raw.token;
   if (typeof raw.defaultModel === 'string') out.defaultModel = raw.defaultModel;
@@ -110,10 +114,9 @@ export function loadRcFile(): Partial<Config> {
 
 function envConfig(): Partial<Config> {
   const out: Partial<Config> = {};
+  if (process.env.ICOPILOT_PROVIDER) out.provider = process.env.ICOPILOT_PROVIDER;
   if (process.env.ICOPILOT_ENDPOINT) out.endpoint = process.env.ICOPILOT_ENDPOINT;
-  if (process.env.GITHUB_TOKEN || process.env.ICOPILOT_TOKEN) {
-    out.token = process.env.GITHUB_TOKEN || process.env.ICOPILOT_TOKEN;
-  }
+  if (process.env.ICOPILOT_TOKEN) out.token = process.env.ICOPILOT_TOKEN;
   if (process.env.ICOPILOT_MODEL) out.defaultModel = process.env.ICOPILOT_MODEL;
   if (process.env.ICOPILOT_SESSION_DIR) out.sessionDir = process.env.ICOPILOT_SESSION_DIR;
   if (process.env.ICOPILOT_CTX_WINDOW) out.contextWindow = Number(process.env.ICOPILOT_CTX_WINDOW);
@@ -140,17 +143,56 @@ function envConfig(): Partial<Config> {
   return out;
 }
 
-export const config: Config = {
+function finalizeConfig(raw: Config): Config {
+  const activeProvider = providerRegistry.getActive();
+  const requestedProvider =
+    typeof raw.provider === 'string' && raw.provider.trim()
+      ? raw.provider.trim()
+      : undefined;
+  const provider =
+    (requestedProvider &&
+      (requestedProvider !== DEFAULT_CONFIG.provider || activeProvider.name === DEFAULT_CONFIG.provider)
+      ? providerRegistry.get(requestedProvider)
+      : undefined) ||
+    activeProvider ||
+    providerRegistry.get('github');
+  if (!provider) return raw;
+  const useProviderEndpoint =
+    !raw.endpoint ||
+    (raw.endpoint === DEFAULT_CONFIG.endpoint && provider.baseUrl !== DEFAULT_CONFIG.endpoint);
+  const useProviderModel =
+    !raw.defaultModel ||
+    (raw.defaultModel === DEFAULT_CONFIG.defaultModel &&
+      (provider.defaultModel || provider.models[0] || DEFAULT_CONFIG.defaultModel) !== DEFAULT_CONFIG.defaultModel);
+
+  return {
+    ...raw,
+    provider: provider.name,
+    endpoint: useProviderEndpoint ? provider.baseUrl : raw.endpoint,
+    token: raw.token || resolveProviderApiKey(provider),
+    defaultModel: useProviderModel
+      ? provider.defaultModel || provider.models[0] || DEFAULT_CONFIG.defaultModel
+      : raw.defaultModel,
+  };
+}
+
+export const config: Config = finalizeConfig({
   ...DEFAULT_CONFIG,
   ...loadRcFile(),
   ...envConfig(),
-};
+});
+
+export function setProvider(name: string, options: { persist?: boolean } = {}): void {
+  const provider = options.persist === false ? providerRegistry.get(name) : providerRegistry.setActive(name);
+  if (!provider) {
+    throw new Error(`unknown provider: ${name}`);
+  }
+  config.provider = provider.name;
+  config.endpoint = provider.baseUrl;
+  config.token = resolveProviderApiKey(provider) || config.token;
+  if (provider.defaultModel) config.defaultModel = provider.defaultModel;
+}
 
 export function requireToken(): string {
-  if (!config.token) {
-    throw new Error(
-      'GITHUB_TOKEN is not set. Generate a PAT with `models:read` scope, run `gh auth status`, export GITHUB_TOKEN, or set `token` in ~/.icopilotrc.json.',
-    );
-  }
-  return config.token;
+  return config.token || 'not-needed';
 }

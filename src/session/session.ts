@@ -5,6 +5,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import { config } from '../config.js';
 import type { TodoItem } from '../commands/todo-cmd.js';
 import type { PinnedFile } from '../context/pinned.js';
+import { GitContextProvider, type GitFile } from '../context/git-context.js';
 import { countTokensSync } from '../util/tokens.js';
 
 export type Mode = 'ask' | 'plan';
@@ -20,6 +21,7 @@ export interface SessionState {
   autopilotEnabled?: boolean;
   systemPrompt?: string;
   pinned: PinnedFile[];
+  gitContext: GitFile[];
 }
 
 export interface SessionListItem {
@@ -48,6 +50,7 @@ export class Session {
       autopilotEnabled: Boolean(init?.autopilotEnabled),
       systemPrompt: typeof init?.systemPrompt === 'string' ? init.systemPrompt : undefined,
       pinned: normalizePinnedFiles(init?.pinned),
+      gitContext: normalizeGitContext(init?.gitContext),
     };
     fs.mkdirSync(config.sessionDir, { recursive: true });
     this.file = path.join(config.sessionDir, `${id}.json`);
@@ -132,6 +135,18 @@ export class Session {
   setPinned(files: PinnedFile[]) {
     this.state.pinned = files.map((file) => ({ ...file }));
     this.persist();
+  }
+
+  setGitContext(files: GitFile[]) {
+    this.state.gitContext = files.map((file) => ({ ...file }));
+    this.persist();
+  }
+
+  async initializeGitContext(provider = new GitContextProvider(this.state.cwd)): Promise<GitFile[]> {
+    const files = await provider.getSessionContextFiles().catch(() => []);
+    this.state.gitContext = files.map((file) => ({ ...file }));
+    this.persist();
+    return this.state.gitContext;
   }
 
   persist() {
@@ -250,6 +265,29 @@ function normalizePinnedFiles(data: unknown): PinnedFile[] {
         path: candidate.path,
         addedAt: candidate.addedAt,
         tokens: candidate.tokens,
+      },
+    ];
+  });
+}
+
+function normalizeGitContext(data: unknown): GitFile[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const candidate = entry as Partial<GitFile>;
+    if (typeof candidate.path !== 'string') return [];
+    if (
+      candidate.status !== 'added' &&
+      candidate.status !== 'modified' &&
+      candidate.status !== 'deleted'
+    ) {
+      return [];
+    }
+    return [
+      {
+        path: candidate.path,
+        status: candidate.status,
+        diff: typeof candidate.diff === 'string' ? candidate.diff : undefined,
       },
     ];
   });

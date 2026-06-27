@@ -7,6 +7,7 @@ export async function runOneShot(prompt: string, opts: { model?: string; plan?: 
     model: opts.model,
     mode: opts.plan ? 'plan' : 'ask',
   });
+  await session.initializeGitContext();
   const ac = new AbortController();
   const onSigint = () => {
     ac.abort();

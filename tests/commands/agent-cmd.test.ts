@@ -73,6 +73,24 @@ afterEach(() => {
 });
 
 describe('agent-cmd', { timeout: 30_000 }, () => {
+  function writeCustomAgent(name = 'repo-guide'): void {
+    const agentsDir = path.join(tmpDir, '.icopilot', 'agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(agentsDir, `${name}.yaml`),
+      [
+        `name: ${name}`,
+        'description: Summarize the repository',
+        'systemPrompt: |',
+        '  You are a repository guide.',
+        'tools:',
+        '  - rg',
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+  }
+
   it('returns built-in config for each agent type', () => {
     expect(getAgentConfig('explore').systemPrompt).toBe(
       'You are a codebase exploration agent. Analyze code structure, find relevant files, explain architecture. Use grep/glob tools to search. Be concise and factual.',
@@ -114,13 +132,17 @@ describe('agent-cmd', { timeout: 30_000 }, () => {
   });
 
   it('lists available agents', () => {
+    writeCustomAgent();
     const output = agentCommand(['list'], tmpDir);
 
     expect(output).toContain('Available agents');
+    expect(output).toContain('Built-in');
+    expect(output).toContain('Custom');
     expect(output).toContain('explore');
     expect(output).toContain('task');
     expect(output).toContain('review');
     expect(output).toContain('plan');
+    expect(output).toContain('repo-guide');
   });
 
   it('defaults review to staged changes when no target is provided', () => {
@@ -138,16 +160,27 @@ describe('agent-cmd', { timeout: 30_000 }, () => {
     expect(output).toContain('run the full test suite');
   });
 
+  it('builds a prompt for a custom agent definition', () => {
+    writeCustomAgent();
+
+    const output = agentCommand(['repo-guide', 'map', 'the', 'entrypoints'], tmpDir);
+
+    expect(output).toContain('REPO-GUIDE');
+    expect(output).toContain('You are a repository guide.');
+    expect(output).toContain('Allowed tools: rg');
+    expect(output).toContain('map the entrypoints');
+  });
+
   it('wires /agent into slash handling and help text', () => {
     const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
 
     expect(slashSource).toContain("import { agentCommand } from './agent-cmd.js';");
-    expect(slashSource).toContain('/agent <type> [query]');
+    expect(slashSource).toContain('/agent <name> [query]');
     expect(slashSource).toContain("case 'agent':");
     expect(slashSource).toContain('agentCommand(rest, s.state.cwd)');
   });
 
   it('adds /agent to shell completion context', () => {
-    expect(defaultContext().slashCommands).toContain('agent');
+    expect(defaultContext(tmpDir).slashCommands).toContain('agent');
   });
 });

@@ -1,12 +1,20 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
+import { config } from '../config.js';
 import { proposeAndRun } from './shell.js';
 import { proposeWrite, proposeWriteBatch, readFileSafe } from './file-ops.js';
 import { editFileTool, EDIT_FILE_SCHEMA } from './edit-file.js';
+import { multiEditSchema, multiEditTool } from './multi-edit.js';
 import { applyPatchTool } from './apply-patch.js';
 import { grepTool } from './grep.js';
 import { globTool } from './glob.js';
 import { readImage, DESCRIBE_IMAGE_SCHEMA } from './image.js';
+import { listDirectory, listDirectorySchema } from './list-directory.js';
+import { searchSymbols, searchSymbolsSchema, type SearchSymbolFilter } from './search-symbols.js';
+import { runInTerminal, runInTerminalSchema } from './run-in-terminal.js';
+import { withRetry } from './retry.js';
 import { webFetchTool, WEB_FETCH_SCHEMA } from './web.js';
+import { AuditLogger, type AuditResult } from '../security/audit.js';
+import { RoleManager, defaultRolesConfigPath } from '../security/roles.js';
 
 type McpTools = {
   schemas: ChatCompletionTool[];
@@ -24,6 +32,7 @@ const dynamicImport = new Function('specifier', 'return import(specifier)') as (
 const mcpModulePromise = dynamicImport('../mcp/index.js').catch(() => null as McpModule | null);
 let mcpLoaded = false;
 let mcpTools: McpTools | null = null;
+const auditLogger = new AuditLogger();
 
 export const TOOL_SCHEMAS: ChatCompletionTool[] = [
   {
@@ -98,6 +107,7 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
     },
   },
   EDIT_FILE_SCHEMA,
+  multiEditSchema,
   {
     type: 'function',
     function: {
@@ -144,23 +154,60 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
       },
     },
   },
+  searchSymbolsSchema,
+  listDirectorySchema,
+  runInTerminalSchema,
   WEB_FETCH_SCHEMA,
   DESCRIBE_IMAGE_SCHEMA,
 ];
 
 export async function getAllToolSchemas(): Promise<ChatCompletionTool[]> {
+  const roleManager = createRoleManager();
   const mcp = await getMcpToolsSafe();
-  if (!mcp) return TOOL_SCHEMAS;
+  if (!mcp)
+    return TOOL_SCHEMAS.filter((schema) => roleManager.checkAccess(schema.function.name).allowed);
   const seen = new Set(TOOL_SCHEMAS.map((schema) => schema.function.name));
-  return [...TOOL_SCHEMAS, ...mcp.schemas.filter((schema) => !seen.has(schema.function.name))];
+  return [
+    ...TOOL_SCHEMAS,
+    ...mcp.schemas.filter((schema) => !seen.has(schema.function.name)),
+  ].filter((schema) => roleManager.checkAccess(schema.function.name).allowed);
 }
 
 export async function dispatchTool(name: string, args: Record<string, any>): Promise<string> {
-  const builtIn = await dispatchBuiltIn(name, args);
-  if (builtIn !== undefined) return builtIn;
-  const mcp = await getMcpToolsSafe();
-  if (mcp) return mcp.dispatch(name, args);
-  return JSON.stringify({ error: `unknown tool: ${name}` });
+  const startedAt = Date.now();
+  const access = createRoleManager().checkAccess(name);
+  if (!access.allowed) {
+    const denied = JSON.stringify({ error: access.reason || `access denied: ${name}` });
+    recordAudit(name, args, denied, Date.now() - startedAt, 'denied');
+    return denied;
+  }
+  try {
+    const builtIn = await withRetry(() => dispatchBuiltIn(name, args));
+    if (builtIn !== undefined) {
+      recordAudit(name, args, builtIn, Date.now() - startedAt);
+      return builtIn;
+    }
+    const mcp = await getMcpToolsSafe();
+    if (mcp) {
+      const out = await mcp.dispatch(name, args);
+      recordAudit(name, args, out, Date.now() - startedAt);
+      return out;
+    }
+    const out = JSON.stringify({ error: `unknown tool: ${name}` });
+    recordAudit(name, args, out, Date.now() - startedAt, 'failure');
+    return out;
+  } catch (error: unknown) {
+    auditLogger.log({
+      action: 'tool.execute',
+      tool: name,
+      command: extractCommand(name, args),
+      args,
+      result: 'failure',
+      duration: Date.now() - startedAt,
+      details: formatErrorMessage(error),
+    });
+    throw error;
+  }
 }
 
 async function dispatchBuiltIn(
@@ -208,6 +255,22 @@ async function dispatchBuiltIn(
         endLine: Number(args.endLine),
         newContent: String(args.newContent ?? ''),
       });
+    case 'multi_edit':
+      return multiEditTool({
+        description: String(args.description ?? ''),
+        rollbackable: Boolean(args.rollbackable),
+        files: Array.isArray(args.files)
+          ? args.files.map((file: any) => ({
+              file: String(file.file ?? ''),
+              edits: Array.isArray(file.edits)
+                ? file.edits.map((edit: any) => ({
+                    oldText: String(edit.oldText ?? ''),
+                    newText: String(edit.newText ?? ''),
+                  }))
+                : [],
+            }))
+          : [],
+      });
     case 'apply_patch':
       return applyPatchTool({ patch: String(args.patch || '') });
     case 'grep':
@@ -224,6 +287,33 @@ async function dispatchBuiltIn(
         cwd: args.cwd ? String(args.cwd) : undefined,
         ignore: Array.isArray(args.ignore) ? args.ignore.map(String) : undefined,
       });
+    case 'list_directory':
+      return listDirectory({
+        path: String(args.path || '.'),
+        recursive: Boolean(args.recursive),
+        maxDepth: args.maxDepth !== undefined ? Number(args.maxDepth) : undefined,
+        pattern: args.pattern ? String(args.pattern) : undefined,
+      });
+    case 'search_symbols':
+      return searchSymbols({
+        query: String(args.query || ''),
+        filePattern: args.filePattern ? String(args.filePattern) : undefined,
+        type: normalizeSearchSymbolType(args.type),
+      });
+    case 'run_in_terminal':
+      return JSON.stringify(
+        await runInTerminal({
+          command: String(args.command || ''),
+          cwd: args.cwd ? String(args.cwd) : undefined,
+          timeout: args.timeout === undefined ? undefined : Number(args.timeout),
+          env:
+            args.env && typeof args.env === 'object'
+              ? Object.fromEntries(
+                  Object.entries(args.env).map(([key, value]) => [key, String(value)]),
+                )
+              : undefined,
+        }),
+      );
     case 'web_fetch':
       return webFetchTool(args as any);
     case 'describe_image':
@@ -251,4 +341,143 @@ async function getMcpToolsSafe(): Promise<McpTools | null> {
 
 function truncate(s: string, n: number): string {
   return s.length > n ? s.slice(0, n) + `\n…[truncated ${s.length - n} chars]` : s;
+}
+
+function normalizeSearchSymbolType(value: unknown): SearchSymbolFilter | undefined {
+  return value === 'function' ||
+    value === 'class' ||
+    value === 'variable' ||
+    value === 'interface' ||
+    value === 'type' ||
+    value === 'all'
+    ? value
+    : undefined;
+}
+
+function createRoleManager(): RoleManager {
+  const roleManager = new RoleManager(defaultRolesConfigPath(config.cwd));
+  roleManager.loadRoles();
+  return roleManager;
+}
+
+function recordAudit(
+  name: string,
+  args: Record<string, any>,
+  output: string,
+  duration: number,
+  forcedResult?: AuditResult,
+): void {
+  const details = summarizeOutput(output);
+  auditLogger.log({
+    action: 'tool.execute',
+    tool: name,
+    command: extractCommand(name, args),
+    args,
+    result: forcedResult ?? inferAuditResult(name, output),
+    duration,
+    details: details || undefined,
+  });
+}
+
+function inferAuditResult(name: string, output: string): AuditResult {
+  const parsed = tryParseJson(output);
+
+  if (name === 'run_shell') {
+    if (parsed && typeof parsed.ran === 'boolean') {
+      if (!parsed.ran) return 'denied';
+      return parsed.exitCode === 0 ? 'success' : 'failure';
+    }
+    return classifyTextResult(output);
+  }
+
+  if (name === 'run_in_terminal') {
+    if (parsed && typeof parsed.exitCode === 'number') {
+      return parsed.exitCode === 0 ? 'success' : 'failure';
+    }
+    return classifyTextResult(output);
+  }
+
+  if (parsed && typeof parsed.wrote === 'boolean') {
+    return parsed.wrote ? 'success' : classifyFromPayload(parsed.error);
+  }
+
+  if (parsed && typeof parsed.ok === 'boolean') {
+    return parsed.ok ? 'success' : classifyFromPayload(parsed.error);
+  }
+
+  if (parsed && typeof parsed.success === 'boolean') {
+    if (parsed.success) return 'success';
+    const failures = Array.isArray(parsed.failed)
+      ? parsed.failed
+          .map((item: any) => (typeof item?.error === 'string' ? item.error : ''))
+          .filter((message: string) => message.length > 0)
+      : [];
+    if (failures.length > 0) {
+      return failures.every((message: string) => isDeniedMessage(message)) ? 'denied' : 'failure';
+    }
+    return 'failure';
+  }
+
+  if (
+    parsed &&
+    Array.isArray(parsed.applied) &&
+    Array.isArray(parsed.skipped) &&
+    Array.isArray(parsed.errors)
+  ) {
+    if (parsed.errors.length > 0) return 'failure';
+    if (parsed.applied.length > 0) return 'success';
+    if (parsed.skipped.length > 0) return 'denied';
+  }
+
+  if (parsed && typeof parsed.error === 'string') {
+    return classifyFromPayload(parsed.error);
+  }
+
+  return classifyTextResult(output);
+}
+
+function classifyFromPayload(message: unknown): AuditResult {
+  return typeof message === 'string' && isDeniedMessage(message) ? 'denied' : 'failure';
+}
+
+function classifyTextResult(text: string): AuditResult {
+  if (!text.trim()) return 'success';
+  const parsed = tryParseJson(text);
+  if (parsed && typeof parsed.error === 'string') {
+    return classifyFromPayload(parsed.error);
+  }
+  return /"error"\s*:/u.test(text) ? 'failure' : 'success';
+}
+
+function isDeniedMessage(message: string): boolean {
+  return /\b(denied|blocked|cancelled|canceled|rejected|skipped|not selected)\b/iu.test(message);
+}
+
+function summarizeOutput(output: string): string {
+  const trimmed = output.trim();
+  if (!trimmed) return '';
+  return trimmed.length > 400
+    ? `${trimmed.slice(0, 400)}…[truncated ${trimmed.length - 400} chars]`
+    : trimmed;
+}
+
+function extractCommand(name: string, args: Record<string, any>): string | undefined {
+  if (name === 'run_shell' || name === 'run_in_terminal') {
+    return typeof args.command === 'string' && args.command.trim().length > 0
+      ? args.command.trim()
+      : undefined;
+  }
+  return undefined;
+}
+
+function tryParseJson(value: string): any {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
