@@ -15,12 +15,17 @@ export interface Config {
   contextWindow: number;
   // Soft warning threshold (fraction).
   contextWarn: number;
+  autoCompact: boolean;
+  autoCompactThreshold: number;
   cwd: string;
   verbose: boolean;
   logLevel: LogLevel;
   sandbox: boolean;
   policyPath: string | undefined;
   theme: ThemeName;
+  jsonOutput: boolean;
+  quiet: boolean;
+  autoApprove: boolean;
 }
 
 const HOME = os.homedir();
@@ -32,12 +37,17 @@ const DEFAULT_CONFIG: Config = {
   sessionDir: path.join(HOME, '.terminal-copilot', 'sessions'),
   contextWindow: 120_000,
   contextWarn: 0.75,
+  autoCompact: true,
+  autoCompactThreshold: 0.95,
   cwd: process.cwd(),
   verbose: false,
   logLevel: 'info',
   sandbox: false,
   policyPath: undefined,
   theme: 'auto',
+  jsonOutput: false,
+  quiet: false,
+  autoApprove: false,
 };
 
 function parseBool(value: string | undefined): boolean | undefined {
@@ -67,10 +77,15 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<Config> {
   if (typeof raw.sessionDir === 'string') out.sessionDir = raw.sessionDir;
   if (typeof raw.contextWindow === 'number') out.contextWindow = raw.contextWindow;
   if (typeof raw.contextWarn === 'number') out.contextWarn = raw.contextWarn;
+  if (typeof raw.autoCompact === 'boolean') out.autoCompact = raw.autoCompact;
+  if (typeof raw.autoCompactThreshold === 'number') out.autoCompactThreshold = raw.autoCompactThreshold;
   if (typeof raw.cwd === 'string') out.cwd = raw.cwd;
   if (typeof raw.verbose === 'boolean') out.verbose = raw.verbose;
   if (typeof raw.sandbox === 'boolean') out.sandbox = raw.sandbox;
   if (typeof raw.policyPath === 'string') out.policyPath = raw.policyPath;
+  if (typeof raw.jsonOutput === 'boolean') out.jsonOutput = raw.jsonOutput;
+  if (typeof raw.quiet === 'boolean') out.quiet = raw.quiet;
+  if (typeof raw.autoApprove === 'boolean') out.autoApprove = raw.autoApprove;
   const logLevel = parseLogLevel(raw.logLevel);
   if (logLevel) out.logLevel = logLevel;
   const theme = parseTheme(raw.theme);
@@ -102,6 +117,11 @@ function envConfig(): Partial<Config> {
   if (process.env.ICOPILOT_MODEL) out.defaultModel = process.env.ICOPILOT_MODEL;
   if (process.env.ICOPILOT_SESSION_DIR) out.sessionDir = process.env.ICOPILOT_SESSION_DIR;
   if (process.env.ICOPILOT_CTX_WINDOW) out.contextWindow = Number(process.env.ICOPILOT_CTX_WINDOW);
+  const autoCompact = parseBool(process.env.ICOPILOT_AUTO_COMPACT);
+  if (autoCompact !== undefined) out.autoCompact = autoCompact;
+  if (process.env.ICOPILOT_AUTO_COMPACT_THRESHOLD) {
+    out.autoCompactThreshold = Number(process.env.ICOPILOT_AUTO_COMPACT_THRESHOLD);
+  }
   const verbose = parseBool(process.env.ICOPILOT_VERBOSE);
   if (verbose !== undefined) out.verbose = verbose;
   const logLevel = parseLogLevel(process.env.ICOPILOT_LOG_LEVEL);
@@ -111,6 +131,12 @@ function envConfig(): Partial<Config> {
   if (process.env.ICOPILOT_POLICY) out.policyPath = process.env.ICOPILOT_POLICY;
   const theme = parseTheme(process.env.ICOPILOT_THEME);
   if (theme) out.theme = theme;
+  const jsonOutput = parseBool(process.env.ICOPILOT_JSON);
+  if (jsonOutput !== undefined) out.jsonOutput = jsonOutput;
+  const quiet = parseBool(process.env.ICOPILOT_QUIET);
+  if (quiet !== undefined) out.quiet = quiet;
+  const autoApprove = parseBool(process.env.ICOPILOT_AUTO_APPROVE);
+  if (autoApprove !== undefined) out.autoApprove = autoApprove;
   return out;
 }
 

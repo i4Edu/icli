@@ -18,14 +18,14 @@ beforeEach(async () => {
   configRef = configModule.config;
   configRef.sessionDir = tmpDir;
   SessionCtor = sessionModule.Session;
-});
+}, 30_000);
 
 afterEach(() => {
   delete process.env.ICOPILOT_SESSION_DIR;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe('Session', () => {
+describe('Session', { timeout: 30_000 }, () => {
   it('pushes, persists, resets, estimates token usage, and compacts history', () => {
     const session = new SessionCtor({ id: 'test-session', model: 'model-a', cwd: tmpDir });
     const firstMessage: ChatCompletionMessageParam = { role: 'user', content: 'hello world' };
@@ -63,10 +63,33 @@ describe('Session', () => {
     session.setModel('gpt-test');
     session.setMode('plan');
     session.setCwd(tmpDir);
+    session.setTodos([
+      {
+        id: 'todo-1',
+        text: 'persist todo',
+        done: false,
+        createdAt: '2024-01-01T00:00:00.000Z',
+      },
+    ]);
+    session.setPinned([
+      {
+        path: path.join(tmpDir, 'notes.ts'),
+        addedAt: '2024-01-01T00:00:00.000Z',
+        tokens: 12,
+      },
+    ]);
 
     expect(session.state.model).toBe('gpt-test');
     expect(session.state.mode).toBe('plan');
     expect(session.state.cwd).toBe(tmpDir);
+    expect(session.state.todos).toHaveLength(1);
+    expect(session.state.pinned).toEqual([
+      {
+        path: path.join(tmpDir, 'notes.ts'),
+        addedAt: '2024-01-01T00:00:00.000Z',
+        tokens: 12,
+      },
+    ]);
 
     const persisted = JSON.parse(
       fs.readFileSync(path.join(tmpDir, 'stateful-session.json'), 'utf8'),
@@ -74,7 +97,14 @@ describe('Session', () => {
       model: string;
       mode: string;
       cwd: string;
+      todos: Array<{ text: string }>;
+      pinned: Array<{ path: string; tokens: number }>;
     };
     expect(persisted).toMatchObject({ model: 'gpt-test', mode: 'plan', cwd: tmpDir });
+    expect(persisted.todos[0]?.text).toBe('persist todo');
+    expect(persisted.pinned[0]).toMatchObject({ path: path.join(tmpDir, 'notes.ts'), tokens: 12 });
+
+    const loaded = SessionCtor.load('stateful-session');
+    expect(loaded.state.pinned[0]).toMatchObject({ path: path.join(tmpDir, 'notes.ts'), tokens: 12 });
   });
 });

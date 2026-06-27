@@ -15,6 +15,10 @@ describe('completion generators', () => {
     expect(script).toContain('icopilot');
     expect(script).toContain('icli');
     expect(script).toContain('/help');
+    expect(script).toContain('/share');
+    expect(script).toContain('/memory');
+    expect(script).toContain('/task');
+    expect(script).toContain('/tasks');
     expect(script).toContain('--prompt');
   });
 });

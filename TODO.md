@@ -103,13 +103,145 @@
 
 ## Phase 12 — Productivity & Reach (v1.1)
 
-- ⬜ `/undo` & `/redo` — file-write transaction journal (`src/session/undo-journal.ts`)
-- ⬜ `/cost` — running token + USD cost estimator (`src/util/cost.ts`)
-- ⬜ `web_fetch` tool — sandboxed HTTP GET with host allowlist (`src/tools/web.ts`)
-- ⬜ `/snippets` — saved prompt templates (`src/snippets/*`)
-- ⬜ `/profile` — named config profiles (`src/config-profile.ts`)
-- ⬜ Shell completion script generator (`scripts/gen-completions.mjs`)
-- ⬜ `/stats` — local usage counters (`src/stats/*`)
-- ⬜ `/explain <path>` — quick file/folder summary
-- ⬜ `/lint` — auto-detect & run project linters
-- ⬜ `/bookmark` — bookmark/recall conversation positions (`src/session/bookmarks.ts`)
+- ✅ `/undo` & `/redo` — file-write transaction journal (`src/session/undo-journal.ts`)
+- ✅ `/cost` — running token + USD cost estimator (`src/util/cost.ts`)
+- ✅ `web_fetch` tool — sandboxed HTTP GET with host allowlist (`src/tools/web.ts`)
+- ✅ `/snippets` — saved prompt templates (`src/snippets/*`)
+- ✅ `/profile` — named config profiles (`src/config-profile.ts`)
+- ✅ Shell completion script generator (`scripts/gen-completions.mjs`)
+- ✅ `/stats` — local usage counters (`src/stats/*`)
+- ✅ `/explain <path>` — quick file/folder summary
+- ✅ `/lint` — auto-detect & run project linters
+- ✅ `/bookmark` — bookmark/recall conversation positions (`src/session/bookmarks.ts`)
+
+## Phase 13 — Copilot CLI Parity & Beyond (v1.2)
+
+- ✅ `/suggest` — natural-language → shell command suggestion (like `gh copilot suggest`)
+- ✅ `/explain-shell <cmd>` — explain an arbitrary shell command in plain English
+- ✅ Autopilot mode (`--autopilot`) — multi-step autonomous task execution with plan→act loop
+- ✅ `/summary` — workspace/project architectural overview
+- ✅ Command safety net — detect dangerous commands, warn before confirmation
+- ✅ `/test` — auto-detect and run project test suites
+- ✅ `/search` — semantic code search using workspace embeddings
+- ✅ `/refactor` — AI-guided refactoring (rename, extract, inline)
+- ✅ `/history` — interactive conversation history browser
+- ✅ `edit_file` tool — surgical line-range edits without full file rewrite
+- ✅ `describe_image` tool — image analysis via multi-modal models
+- ✅ `/generate` — shell command generation from natural-language goals
+- ✅ `/fix` — AI-powered error troubleshooting prompts
+- ✅ `/doctor` — diagnose local iCopilot setup (token, config, git, node)
+- ✅ `/init` — scaffold `.icopilot` project configuration
+- ✅ `/diff-review` — enhanced diff review (unstaged, staged, branch, range)
+- ✅ `/alias` — custom command shortcuts with persistent storage
+- ✅ `/multi` — query multiple models in parallel for comparison
+- ✅ `/deps` — inspect project dependencies (npm, cargo, go, pip, bundler)
+- ✅ `/changelog` — generate changelog from git commits
+- ✅ `/env` — show environment context and diagnostics
+- ✅ `/template` — scaffold projects from built-in templates
+- ✅ `/tokens` — detailed token usage breakdown by message type
+- ✅ `/git-log` — visual git log with filtering
+- ✅ `/watch` — file watcher configuration
+- ✅ `/metrics` — session performance metrics tracking
+- ✅ `/security` — scan for secrets and credential leaks
+- ✅ `/todo` — session-scoped task tracking with persistence
+- ✅ `/stash` — stash/restore conversation state
+- ✅ `/compare` — side-by-side file comparison with AI prompt
+
+## Phase 14 — Agent Runtime & Extensibility (v1.3) ✅
+
+- ✅ `--autopilot` CLI flag — wire autopilot mode to entry point
+- ✅ Safety net integration — `checkCommandSafety()` in shell tool
+- ✅ `/pin` `/unpin` — wire PinnedContext into sessions + slash commands
+- ✅ Auto-compact — automatic context compaction at 95% budget
+- ✅ `--json` flag — structured output for scripting
+- ✅ `--quiet` / `-q` — suppress decorative output
+- ✅ `--yes` / `--no-confirm` — auto-approve for CI/CD
+- ✅ `/skill` — agent skill management (load, activate, deactivate)
+- ✅ `/extension` — extension loader with manifest.json discovery
+- ✅ `/agent` — delegate to specialized sub-agents (explore, task, review, plan)
+- ✅ `/explore` — codebase exploration with project context
+- ✅ Background tasks — `/task` management for long-running operations
+- ✅ `/memory` — persistent project memory across sessions
+- ✅ `/share` — session export/import bundles
+- ✅ Enhanced `/context` — full breakdown by source with trim suggestions
+- ✅ Version bump to 1.3.0
+
+## Phase 15 — Multi-Agent Orchestration (v1.4)
+
+- ⬜ Parallel agent runner — concurrent sub-agent execution
+- ⬜ `&` suffix syntax — background any prompt
+- ⬜ Agent result aggregation — merged multi-agent output
+- ⬜ Custom agent definitions — `.icopilot/agents/*.yaml`
+- ⬜ Agent routing — automatic delegation by query type
+- ⬜ `run_in_terminal` tool — interactive PTY command execution
+- ⬜ `list_directory` tool — structured directory listing
+- ⬜ `search_symbols` tool — AST-aware symbol search
+- ⬜ Tool retry logic — automatic retry on transient failures
+
+## Phase 16 — Copilot Spaces & Teams (v1.5)
+
+- ⬜ Project spaces — isolated context sandboxes per project/branch
+- ⬜ Space configuration — `.icopilot/space.yaml`
+- ⬜ `/space` command — switch context workspace
+- ⬜ Session handoff — export state for another developer
+- ⬜ Shared team memory — `.icopilot/team-memory.md`
+- ⬜ Smart file selection — model-driven relevant file picking
+- ⬜ Git-aware context — auto-include recently modified files
+- ⬜ Dependency-aware context — follow imports to include related files
+- ⬜ Context priority scoring — relevance-ranked sources
+
+## Phase 17 — IDE-Grade Intelligence (v1.6)
+
+- ⬜ Tree-sitter integration — AST parsing
+- ⬜ Symbol index — project-wide function/class/type table
+- ⬜ Cross-file navigation — go-to-definition, find-references
+- ⬜ Type-aware refactoring — rename across all usages
+- ⬜ Multi-file atomic edits — N-file changes reviewed holistically
+- ⬜ Code generation with tests — auto-generate test file for new modules
+- ⬜ Live error watching — monitor build output, auto-suggest fixes
+- ⬜ Stack trace analysis — AI-powered root cause diagnosis
+- ⬜ Dead code detection — identify unused exports/functions
+
+## Phase 18 — Workflow Automation (v1.7)
+
+- ⬜ Workflow definitions — `.icopilot/workflows/*.yaml`
+- ⬜ Built-in workflows — review-and-commit, test-fix-loop, release-prep
+- ⬜ Conditional steps + loop constructs
+- ⬜ GitHub Actions helper — generate workflow YAML from natural language
+- ⬜ Pre-commit hook — `/review` + `/security` before commit
+- ⬜ File watch triggers — run workflow on change
+- ⬜ Release automation — version bump → changelog → tag → publish
+
+## Phase 19 — Knowledge & Learning (v1.8)
+
+- ⬜ Project RAG — chunk and index all docs for retrieval
+- ⬜ External docs ingestion — API docs, framework guides
+- ⬜ `/doc` command — generate JSDoc/docstring
+- ⬜ README generation — scaffold from project analysis
+- ⬜ Architecture diagrams — mermaid from code relationships
+- ⬜ Style learning — adapt to user's coding patterns
+- ⬜ Correction memory — remember user corrections
+- ⬜ Project conventions — learn and enforce patterns
+
+## Phase 20 — Enterprise & Security (v1.9)
+
+- ⬜ Role-based tool access — restrict by user role
+- ⬜ Audit logging — full trail of tool executions
+- ⬜ SSO support — SAML/OIDC authentication
+- ⬜ Proxy support — HTTP/HTTPS/SOCKS5
+- ⬜ Air-gapped mode — local models (Ollama, vLLM)
+- ⬜ Content filtering — prevent PII in prompts
+- ⬜ Retention policies — auto-delete after N days
+
+## Phase 21 — The Complete Agentic OS (v2.0)
+
+- ⬜ Goal-driven development — describe feature → implement end-to-end
+- ⬜ Self-healing builds — detect failure → diagnose → fix → retry
+- ⬜ Test-driven agent — write tests first, implement until green
+- ⬜ Multi-repo orchestration — coordinate across repositories
+- ⬜ Plugin marketplace — `icopilot install <plugin>`
+- ⬜ Custom model providers — any OpenAI-compatible endpoint
+- ⬜ IDE bridge — bidirectional VS Code / Neovim communication
+- ⬜ API server mode — expose as HTTP API
+- ⬜ Container sandbox — Docker-based isolated execution
+- ⬜ Cloud sessions — run in cloud, access from any terminal

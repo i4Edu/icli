@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { embed } from './embeddings.js';
 
 export interface IndexEntry {
   id: string;
@@ -14,6 +15,13 @@ export interface IndexFile {
   model: string;
   createdAt: string;
   entries: IndexEntry[];
+}
+
+export interface SearchHit {
+  file: string;
+  chunk: number;
+  text: string;
+  score: number;
 }
 
 export class VectorStore {
@@ -100,4 +108,26 @@ function cosine(a: number[], aNorm: number, b: number[], bNorm: number): number 
   let dot = 0;
   for (let i = 0; i < len; i++) dot += a[i] * b[i];
   return dot / (aNorm * bNorm);
+}
+
+export async function searchIndex(cwd: string, query: string, topK = 6): Promise<SearchHit[]> {
+  const indexPath = path.join(cwd, '.icopilot', 'index.json');
+  if (!fs.existsSync(indexPath)) {
+    const error = new Error('No index found');
+    (error as NodeJS.ErrnoException).code = 'ENOENT';
+    throw error;
+  }
+
+  const store = new VectorStore(indexPath);
+  store.load();
+
+  const [queryVec] = await embed([query]);
+  if (!queryVec) return [];
+
+  return store.search(queryVec, topK).map(({ entry, score }) => ({
+    file: entry.file,
+    chunk: entry.chunk,
+    text: entry.text,
+    score,
+  }));
 }

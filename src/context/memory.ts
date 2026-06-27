@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { PersistentMemory } from './persistent-memory.js';
 
 const MAX_MEMORY_BYTES = 16 * 1024;
 
@@ -17,8 +18,21 @@ function readMemory(file: string): string | null {
 export function loadMemoryBlock(cwd: string): string | null {
   const project = readMemory(path.join(cwd, '.icopilot', 'memory.md'));
   const global = readMemory(path.join(os.homedir(), '.icopilot', 'memory.md'));
+  const persistent = readPersistentMemory(cwd);
   const sections: string[] = [];
   if (project) sections.push(`## Project memory\n${project}`);
   if (global) sections.push(`## Global memory\n${global}`);
+  if (persistent) sections.push(persistent);
   return sections.length ? sections.join('\n\n') : null;
+}
+
+function readPersistentMemory(cwd: string): string | null {
+  try {
+    const memory = new PersistentMemory();
+    memory.load(memory.getProjectId(cwd));
+    const rendered = memory.render().slice(0, MAX_MEMORY_BYTES).trim();
+    return rendered || null;
+  } catch {
+    return null;
+  }
 }

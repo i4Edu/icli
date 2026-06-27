@@ -1,9 +1,11 @@
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { proposeAndRun } from './shell.js';
 import { proposeWrite, proposeWriteBatch, readFileSafe } from './file-ops.js';
+import { editFileTool, EDIT_FILE_SCHEMA } from './edit-file.js';
 import { applyPatchTool } from './apply-patch.js';
 import { grepTool } from './grep.js';
 import { globTool } from './glob.js';
+import { readImage, DESCRIBE_IMAGE_SCHEMA } from './image.js';
 import { webFetchTool, WEB_FETCH_SCHEMA } from './web.js';
 
 type McpTools = {
@@ -95,6 +97,7 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
       },
     },
   },
+  EDIT_FILE_SCHEMA,
   {
     type: 'function',
     function: {
@@ -142,6 +145,7 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
     },
   },
   WEB_FETCH_SCHEMA,
+  DESCRIBE_IMAGE_SCHEMA,
 ];
 
 export async function getAllToolSchemas(): Promise<ChatCompletionTool[]> {
@@ -197,6 +201,13 @@ async function dispatchBuiltIn(
       );
       return JSON.stringify(r);
     }
+    case 'edit_file':
+      return editFileTool({
+        path: String(args.path || ''),
+        startLine: Number(args.startLine),
+        endLine: Number(args.endLine),
+        newContent: String(args.newContent ?? ''),
+      });
     case 'apply_patch':
       return applyPatchTool({ patch: String(args.patch || '') });
     case 'grep':
@@ -215,6 +226,8 @@ async function dispatchBuiltIn(
       });
     case 'web_fetch':
       return webFetchTool(args as any);
+    case 'describe_image':
+      return JSON.stringify(readImage(args as any));
     default:
       return undefined;
   }

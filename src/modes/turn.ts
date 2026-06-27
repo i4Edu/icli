@@ -7,12 +7,17 @@ import { theme } from '../ui/theme.js';
 import { ASK_SYSTEM, PLAN_SYSTEM } from '../commands/prompts.js';
 import { parseFileRefs, renderFileRefBlock } from '../context/file-refs.js';
 import { loadMemoryBlock } from '../context/memory.js';
+import { PinnedContext } from '../context/pinned.js';
+import type { MetricsCollector } from '../commands/metrics-cmd.js';
+import { config } from '../config.js';
+import { countTokensSync } from '../util/tokens.js';
 
 const MAX_TOOL_HOPS = 6;
 
 export interface TurnOpts {
   session: Session;
   userInput: string;
+  metrics?: MetricsCollector;
   signal: AbortSignal;
 }
 
@@ -21,11 +26,13 @@ export interface TurnOpts {
  * streaming output, and persistent history.
  */
 export async function runTurn(opts: TurnOpts): Promise<void> {
-  const { session, userInput, signal } = opts;
+  const { session, userInput, metrics, signal } = opts;
+  const turnStartedAt = Date.now();
+  let assistantTokens = 0;
   const refs = parseFileRefs(userInput);
   const refBlock = renderFileRefBlock(refs);
 
-  if (refs.length) {
+  if (refs.length && !config.quiet && !config.jsonOutput) {
     process.stdout.write(
       theme.dim(
         `  injected ${refs.length} file ref${refs.length === 1 ? '' : 's'}: ` +
@@ -37,9 +44,7 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
 
   const sys: ChatCompletionMessageParam = {
     role: 'system',
-    content: `${loadMemoryBlock(session.state.cwd) ?? ''}\n\n${
-      session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM
-    }`.trim(),
+    content: buildSystemPrompt(session),
   };
 
   const userMsg: ChatCompletionMessageParam = {
@@ -50,52 +55,102 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
 
   const useTools = session.state.mode === 'ask';
 
-  for (let hop = 0; hop < MAX_TOOL_HOPS; hop++) {
-    const sink = new StreamSink();
-    process.stdout.write('\n' + theme.assistant('● ') + '');
-    const res = await streamChat({
-      model: session.state.model,
-      messages: [sys, ...session.state.messages],
-      tools: useTools ? TOOL_SCHEMAS : undefined,
-      signal,
-      onToken: (t) => sink.write(t),
-    });
-    sink.finalize();
-
-    // Persist assistant message
-    const assistantMsg: ChatCompletionMessageParam = {
-      role: 'assistant',
-      content: res.content || '',
-      ...(res.toolCalls.length
-        ? {
-            tool_calls: res.toolCalls.map((tc) => ({
-              id: tc.id,
-              type: 'function' as const,
-              function: { name: tc.name, arguments: tc.arguments || '{}' },
-            })),
-          }
-        : {}),
-    };
-    session.push(assistantMsg);
-
-    if (!res.toolCalls.length || res.finishReason === 'stop') return;
-
-    // Execute tools and append tool results, then loop
-    for (const tc of res.toolCalls) {
-      let parsed: any = {};
-      try {
-        parsed = tc.arguments ? JSON.parse(tc.arguments) : {};
-      } catch {
-        parsed = { __raw: tc.arguments };
+  try {
+    for (let hop = 0; hop < MAX_TOOL_HOPS; hop++) {
+      const sink = new StreamSink();
+      if (!config.quiet && !config.jsonOutput) {
+        process.stdout.write('\n' + theme.assistant('● ') + '');
       }
-      const out = await dispatchTool(tc.name, parsed);
-      session.push({
-        role: 'tool',
-        tool_call_id: tc.id,
-        content: out,
-      } as ChatCompletionMessageParam);
+      const res = await streamChat({
+        model: session.state.model,
+        messages: [sys, ...session.state.messages],
+        tools: useTools ? TOOL_SCHEMAS : undefined,
+        signal,
+        onToken: (t) => {
+          if (!config.jsonOutput) sink.write(t);
+        },
+      });
+      if (!config.jsonOutput) {
+        sink.finalize();
+      }
+      const content = res.content || '';
+      const tokenCount = safeTokenCount(content);
+      assistantTokens += tokenCount;
+
+      // Persist assistant message
+      const assistantMsg: ChatCompletionMessageParam = {
+        role: 'assistant',
+        content,
+        ...(res.toolCalls.length
+          ? {
+              tool_calls: res.toolCalls.map((tc) => ({
+                id: tc.id,
+                type: 'function' as const,
+                function: { name: tc.name, arguments: tc.arguments || '{}' },
+              })),
+            }
+          : {}),
+      };
+      session.push(assistantMsg);
+
+      if (config.jsonOutput) {
+        process.stdout.write(
+          JSON.stringify({
+            role: 'assistant',
+            content,
+            model: session.state.model,
+            tokens: tokenCount,
+          }) + '\n',
+        );
+      }
+
+      if (!res.toolCalls.length || res.finishReason === 'stop') return;
+
+      // Execute tools and append tool results, then loop
+      for (const tc of res.toolCalls) {
+        let parsed: any = {};
+        try {
+          parsed = tc.arguments ? JSON.parse(tc.arguments) : {};
+        } catch {
+          parsed = { __raw: tc.arguments };
+        }
+        const toolStartedAt = Date.now();
+        const out = await dispatchTool(tc.name, parsed);
+        metrics?.recordToolCall(tc.name, Date.now() - toolStartedAt);
+        session.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: out,
+        } as ChatCompletionMessageParam);
+      }
+    }
+  } finally {
+    if (!signal.aborted && assistantTokens > 0) {
+      const durationMs = Date.now() - turnStartedAt;
+      metrics?.recordResponseTime(durationMs);
+      if (durationMs > 0) {
+        metrics?.recordTokenThroughput(assistantTokens / (durationMs / 1000));
+      }
     }
   }
 
-  process.stdout.write(theme.warn(`\n⚠  tool-call hop limit (${MAX_TOOL_HOPS}) reached.\n`));
+  if (!config.jsonOutput) {
+    process.stdout.write(theme.warn(`\n⚠  tool-call hop limit (${MAX_TOOL_HOPS}) reached.\n`));
+  }
+}
+
+export function buildSystemPrompt(session: Session): string {
+  const pinnedBlock = PinnedContext.fromJSON(session.state.pinned).render();
+  const basePrompt = session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM);
+  return [loadMemoryBlock(session.state.cwd) ?? '', basePrompt, pinnedBlock]
+    .filter((part) => part.trim().length > 0)
+    .join('\n\n');
+}
+
+function safeTokenCount(text: string): number {
+  try {
+    return countTokensSync(text);
+  } catch {
+    return Math.ceil(text.length / 4);
+  }
 }

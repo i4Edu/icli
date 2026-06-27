@@ -34,11 +34,14 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
   }
 
   const patch = createPatch(relPath, old, newContent, exists ? 'current' : 'empty', 'proposed');
-  process.stdout.write('\n' + theme.badge('WRITE') + ` ${relPath}\n`);
-  process.stdout.write(colorizePatch(patch) + '\n');
+  if (!config.quiet && !config.jsonOutput) {
+    process.stdout.write('\n' + theme.badge('WRITE') + ` ${relPath}\n`);
+    process.stdout.write(colorizePatch(patch) + '\n');
+  }
 
   const remembered = toolMemory.isWriteRemembered(abs);
   const ok =
+    config.autoApprove ||
     remembered ||
     (await confirm({
       message: exists ? 'Apply this patch?' : 'Create this new file?',
@@ -46,11 +49,11 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
     }).catch(() => false));
 
   if (!ok) {
-    process.stdout.write(theme.warn('  skipped.\n'));
+    if (!config.jsonOutput) process.stdout.write(theme.warn('  skipped.\n'));
     return { wrote: false, path: abs, bytes: 0 };
   }
 
-  if (!remembered) {
+  if (!config.autoApprove && !remembered) {
     const remember = await confirm({
       message: 'Remember this write path for the session?',
       default: false,
@@ -60,7 +63,7 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
 
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, newContent, 'utf8');
-  process.stdout.write(theme.ok(`  ✔ wrote ${relPath}\n`));
+  if (!config.jsonOutput) process.stdout.write(theme.ok(`  ✔ wrote ${relPath}\n`));
   return { wrote: true, path: abs, bytes: Buffer.byteLength(newContent) };
 }
 
@@ -93,20 +96,23 @@ export async function proposeWriteBatch(
     prepared.push({ relPath: item.path, abs, content: item.content, old, exists });
   }
 
-  process.stdout.write('\n' + theme.badge('WRITE BATCH') + ` ${prepared.length} files\n`);
-  for (const item of prepared) {
-    const patch = createPatch(
-      item.relPath,
-      item.old,
-      item.content,
-      item.exists ? 'current' : 'empty',
-      'proposed',
-    );
-    process.stdout.write(colorizePatch(patch) + '\n');
+  if (!config.quiet && !config.jsonOutput) {
+    process.stdout.write('\n' + theme.badge('WRITE BATCH') + ` ${prepared.length} files\n`);
+    for (const item of prepared) {
+      const patch = createPatch(
+        item.relPath,
+        item.old,
+        item.content,
+        item.exists ? 'current' : 'empty',
+        'proposed',
+      );
+      process.stdout.write(colorizePatch(patch) + '\n');
+    }
   }
 
   const remembered = prepared.every((item) => toolMemory.isWriteRemembered(item.abs));
   const ok =
+    config.autoApprove ||
     remembered ||
     (await confirm({
       message: 'Apply all patches?',
@@ -114,14 +120,14 @@ export async function proposeWriteBatch(
     }).catch(() => false));
 
   if (!ok) {
-    process.stdout.write(theme.warn('  skipped.\n'));
+    if (!config.jsonOutput) process.stdout.write(theme.warn('  skipped.\n'));
     return {
       wrote: false,
       results: prepared.map((item) => ({ wrote: false, path: item.abs, bytes: 0 })),
     };
   }
 
-  if (!remembered) {
+  if (!config.autoApprove && !remembered) {
     const remember = await confirm({
       message: 'Remember these write paths for the session?',
       default: false,

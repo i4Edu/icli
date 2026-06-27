@@ -1,5 +1,7 @@
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
+import { loadAliases, resolveAlias } from '../commands/alias-cmd.js';
+import { MetricsCollector } from '../commands/metrics-cmd.js';
 import { handleSlash } from '../commands/slash.js';
 import { Session } from '../session/session.js';
 import {
@@ -10,15 +12,19 @@ import {
   showCursor,
   size,
 } from '../ui/screen.js';
+import { handlePostTurnContextBudget } from './auto-compact.js';
+import { backgroundTaskManager } from './background.js';
+import { runAutopilot } from './autopilot.js';
 import { runTurn } from './turn.js';
 
-const VERSION = '0.1.0';
+const VERSION = '1.3.0';
 const FRAME_MS = 33;
 
 type StdoutWrite = typeof process.stdout.write;
 
 export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void> {
   const session = new Session({ mode: initialMode });
+  const metrics = new MetricsCollector();
   const originalWrite = process.stdout.write.bind(process.stdout) as StdoutWrite;
   const writeRaw = (text: string) => {
     originalWrite(text);
@@ -134,20 +140,48 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
 
     busy = true;
     currentAbort = new AbortController();
+    const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
     chat += `\n❯ ${line}\n`;
     markDirty();
 
     try {
       captureStdout();
-      const slash = await handleSlash(line, {
+      const slash = await handleSlash(resolvedLine, {
         session,
         abort: currentAbort,
+        metrics,
         exit: () => {
           running = false;
         },
       });
       if (!slash.consumed) {
-        await runTurn({ session, userInput: line, signal: currentAbort.signal });
+        const forwardInput = slash.forwardInput ?? resolvedLine;
+        const trimmedForwardInput = forwardInput.trim();
+        if (trimmedForwardInput.endsWith('&')) {
+          const goal = trimmedForwardInput.slice(0, -1).trim();
+          if (!goal) {
+            process.stdout.write('\nusage: <prompt> &\n');
+          } else {
+            const id = backgroundTaskManager.startTask(goal);
+            process.stdout.write(`\n↳ started background task ${id.slice(0, 8)} for: ${goal}\n`);
+          }
+          return;
+        }
+
+        if (session.state.autopilotEnabled) {
+          await runAutopilot(forwardInput, {
+            session,
+            signal: currentAbort.signal,
+          });
+        } else {
+          await runTurn({
+            session,
+            userInput: forwardInput,
+            metrics,
+            signal: currentAbort.signal,
+          });
+        }
+        await handlePostTurnContextBudget(session, currentAbort.signal);
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError' && !currentAbort.signal.aborted) {

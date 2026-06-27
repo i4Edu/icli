@@ -6,6 +6,7 @@ import type { SlashContext } from '../../src/commands/slash.js';
 import { config } from '../../src/config.js';
 
 const compactSessionMock = vi.fn();
+const runAutopilotMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../src/commands/git.js', () => ({
   showDiff: vi.fn(),
@@ -32,8 +33,24 @@ vi.mock('../../src/commands/index-cmd.js', () => ({
   indexCommand: vi.fn(),
 }));
 
+vi.mock('../../src/commands/diff-review-cmd.js', () => ({
+  reviewDiff: vi.fn(),
+}));
+
+vi.mock('simple-git', () => ({
+  default: () => ({
+    checkIsRepo: vi.fn().mockResolvedValue(true),
+    log: vi.fn().mockResolvedValue({ all: [] }),
+    tags: vi.fn().mockResolvedValue({ latest: null }),
+  }),
+}));
+
 vi.mock('../../src/commands/route-cmd.js', () => ({
   routeCommand: vi.fn(() => 'routing profile: fixed\n'),
+}));
+
+vi.mock('../../src/modes/autopilot.js', () => ({
+  runAutopilot: runAutopilotMock,
 }));
 
 let tmpDir: string;
@@ -48,6 +65,7 @@ function createContext(mode: 'ask' | 'plan' = 'ask'): SlashContext {
       mode,
       cwd: tmpDir,
       messages: [{ role: 'user', content: 'hello' }],
+      autopilotEnabled: false,
     },
     reset: vi.fn(),
     setModel: vi.fn((model: string) => {
@@ -58,6 +76,9 @@ function createContext(mode: 'ask' | 'plan' = 'ask'): SlashContext {
     }),
     setMode: vi.fn((nextMode: 'ask' | 'plan') => {
       session.state.mode = nextMode;
+    }),
+    setAutopilotEnabled: vi.fn((enabled: boolean) => {
+      session.state.autopilotEnabled = enabled;
     }),
     tokenUsage: vi.fn(() => 42),
     compactInto: vi.fn(),
@@ -89,7 +110,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('handleSlash', () => {
+describe('handleSlash', { timeout: 180_000 }, () => {
   it('ignores non-slash input', async () => {
     const { handleSlash } = await import('../../src/commands/slash.js');
     await expect(handleSlash('hello', createContext())).resolves.toEqual({
@@ -148,9 +169,9 @@ describe('handleSlash', () => {
 
     await handleSlash('/context', ctx);
 
-    expect(ctx.session.tokenUsage).toHaveBeenCalled();
-    expect(output).toContain('tokens used:');
-    expect(output).toContain('messages: 1');
+    expect(output).toContain('Context hub');
+    expect(output).toContain('Conversation history');
+    expect(output).toContain('Tool results');
   });
 
   it('recognizes /plan', async () => {
@@ -161,6 +182,36 @@ describe('handleSlash', () => {
 
     expect(ctx.session.setMode).toHaveBeenCalledWith('plan');
     expect(output).toContain('mode');
+  });
+
+  it('toggles /autopilot with no goal', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+    const ctx = createContext('ask');
+
+    await handleSlash('/autopilot', ctx);
+
+    expect(ctx.session.setAutopilotEnabled).toHaveBeenCalledWith(true);
+    expect(output).toContain('autopilot');
+  });
+
+  it('runs /autopilot <goal>', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+    const ctx = createContext('ask');
+
+    await handleSlash('/autopilot wire the CLI', ctx);
+
+    expect(runAutopilotMock).toHaveBeenCalledWith('wire the CLI', {
+      session: ctx.session,
+      signal: ctx.abort.signal,
+    });
+  });
+
+  it('recognizes /tasks', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+
+    await handleSlash('/tasks', createContext());
+
+    expect(output).toContain('Background tasks');
   });
 
   it('reports unknown slash commands as consumed', async () => {

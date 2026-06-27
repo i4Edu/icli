@@ -1,6 +1,6 @@
 {
   "name": "icopilot",
-  "version": "0.1.0",
+  "version": "1.3.0",
   "description": "iCopilot — terminal-native agentic CLI powered by GitHub Models",
   "type": "module",
   "bin": {

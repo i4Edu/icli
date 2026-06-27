@@ -3,6 +3,8 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { config } from '../config.js';
+import type { TodoItem } from '../commands/todo-cmd.js';
+import type { PinnedFile } from '../context/pinned.js';
 import { countTokensSync } from '../util/tokens.js';
 
 export type Mode = 'ask' | 'plan';
@@ -14,6 +16,10 @@ export interface SessionState {
   mode: Mode;
   cwd: string;
   messages: ChatCompletionMessageParam[];
+  todos: TodoItem[];
+  autopilotEnabled?: boolean;
+  systemPrompt?: string;
+  pinned: PinnedFile[];
 }
 
 export interface SessionListItem {
@@ -38,6 +44,10 @@ export class Session {
       mode: init?.mode || 'ask',
       cwd: init?.cwd || config.cwd,
       messages: init?.messages || [],
+      todos: Array.isArray(init?.todos) ? [...init.todos] : [],
+      autopilotEnabled: Boolean(init?.autopilotEnabled),
+      systemPrompt: typeof init?.systemPrompt === 'string' ? init.systemPrompt : undefined,
+      pinned: normalizePinnedFiles(init?.pinned),
     };
     fs.mkdirSync(config.sessionDir, { recursive: true });
     this.file = path.join(config.sessionDir, `${id}.json`);
@@ -101,6 +111,26 @@ export class Session {
   }
   setCwd(p: string) {
     this.state.cwd = p;
+    this.persist();
+  }
+
+  setAutopilotEnabled(enabled: boolean) {
+    this.state.autopilotEnabled = enabled;
+    this.persist();
+  }
+
+  setSystemPrompt(prompt?: string) {
+    this.state.systemPrompt = prompt?.trim() ? prompt : undefined;
+    this.persist();
+  }
+
+  setTodos(todos: TodoItem[]) {
+    this.state.todos = todos.map((todo) => ({ ...todo }));
+    this.persist();
+  }
+
+  setPinned(files: PinnedFile[]) {
+    this.state.pinned = files.map((file) => ({ ...file }));
     this.persist();
   }
 
@@ -201,4 +231,26 @@ function contentToText(content: unknown): string {
   }
   if (content == null) return '';
   return JSON.stringify(content, null, 2);
+}
+
+function normalizePinnedFiles(data: unknown): PinnedFile[] {
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const candidate = entry as Partial<PinnedFile>;
+    if (
+      typeof candidate.path !== 'string' ||
+      typeof candidate.addedAt !== 'string' ||
+      typeof candidate.tokens !== 'number'
+    ) {
+      return [];
+    }
+    return [
+      {
+        path: candidate.path,
+        addedAt: candidate.addedAt,
+        tokens: candidate.tokens,
+      },
+    ];
+  });
 }
