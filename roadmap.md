@@ -239,22 +239,22 @@ Parallel agent execution and coordination — matching Copilot CLI's
 multi-agent capabilities.
 
 **Parallel execution:**
-- ⬜ **Parallel agent runner** — execute multiple sub-agents concurrently with merged output
-- ⬜ **`&` suffix syntax** — background any prompt by appending `&` (e.g., `explain this code &`)
-- ⬜ **Agent result aggregation** — combine outputs from parallel agents into a unified response
-- ⬜ **Progress indicators** — live progress for concurrent agent tasks
+- ✅ **Parallel agent runner** — execute multiple sub-agents concurrently with merged output
+- ✅ **`&` suffix syntax** — background any prompt by appending `&` (e.g., `explain this code &`)
+- ✅ **Agent result aggregation** — combine outputs from parallel agents into a unified response
+- ✅ **Progress indicators** — live progress for concurrent agent tasks
 
 **Agent specialization:**
-- ⬜ **Custom agent definitions** — user-defined agents via `.icopilot/agents/*.yaml`
-- ⬜ **Agent routing** — automatic delegation based on query classification
-- ⬜ **Agent-to-agent handoff** — agents can delegate sub-tasks to other agents
-- ⬜ **Agent memory isolation** — each agent maintains separate context window
+- ✅ **Custom agent definitions** — user-defined agents via `.icopilot/agents/*.yaml`
+- ✅ **Agent routing** — automatic delegation based on query classification
+- ✅ **Agent-to-agent handoff** — agents can delegate sub-tasks to other agents
+- ✅ **Agent memory isolation** — each agent maintains separate context window
 
 **Tool enhancements:**
-- ⬜ **`run_in_terminal` tool** — interactive terminal command execution with PTY
-- ⬜ **`list_directory` tool** — structured directory listing for model consumption
-- ⬜ **`search_symbols` tool** — AST-aware symbol search (treesitter integration)
-- ⬜ **Tool retry logic** — automatic retry on transient tool failures
+- ✅ **`run_in_terminal` tool** — interactive terminal command execution with PTY
+- ✅ **`list_directory` tool** — structured directory listing for model consumption
+- ✅ **`search_symbols` tool** — AST-aware symbol search (treesitter integration)
+- ✅ **Tool retry logic** — automatic retry on transient tool failures
 
 ---
 
@@ -263,22 +263,22 @@ multi-agent capabilities.
 Project-scoped context management and collaborative features.
 
 **Copilot Spaces:**
-- ⬜ **Project spaces** — isolated context sandboxes per project/branch
-- ⬜ **Space configuration** — `.icopilot/space.yaml` with default model, tools, skills, memory
-- ⬜ **Space switching** — `/space <name>` to switch context workspace
-- ⬜ **Space templates** — pre-configured spaces for common project types (node, python, rust, go)
+- ✅ **Project spaces** — isolated context sandboxes per project/branch
+- ✅ **Space configuration** — `.icopilot/space.yaml` with default model, tools, skills, memory
+- ✅ **Space switching** — `/space <name>` to switch context workspace
+- ✅ **Space templates** — pre-configured spaces for common project types (node, python, rust, go)
 
 **Collaboration:**
-- ⬜ **Session handoff** — export session state for another developer to continue
-- ⬜ **Shared memory** — team-wide `.icopilot/team-memory.md` with merge strategy
-- ⬜ **PR-linked sessions** — auto-create session when checking out a PR branch
-- ⬜ **Conversation threading** — branch conversations within a session
+- ✅ **Session handoff** — export session state for another developer to continue
+- ✅ **Shared memory** — team-wide `.icopilot/team-memory.md` with merge strategy
+- ✅ **PR-linked sessions** — auto-create session when checking out a PR branch
+- ✅ **Conversation threading** — branch conversations within a session
 
 **Context intelligence:**
-- ⬜ **Smart file selection** — model picks relevant files based on query (not just embeddings)
-- ⬜ **Git-aware context** — auto-include recently modified files in context
-- ⬜ **Dependency-aware context** — follow imports/requires to include related files
-- ⬜ **Context priority scoring** — rank context sources by relevance to current query
+- ✅ **Smart file selection** — model picks relevant files based on query (not just embeddings)
+- ✅ **Git-aware context** — auto-include recently modified files in context
+- ✅ **Dependency-aware context** — follow imports/requires to include related files
+- ✅ **Context priority scoring** — rank context sources by relevance to current query
 
 ---
 
@@ -287,22 +287,22 @@ Project-scoped context management and collaborative features.
 Deep language understanding and refactoring capabilities.
 
 **Language intelligence:**
-- ⬜ **Tree-sitter integration** — AST parsing for supported languages
-- ⬜ **Symbol index** — project-wide symbol table (functions, classes, types, variables)
-- ⬜ **Cross-file navigation** — go-to-definition, find-references via tools
-- ⬜ **Type-aware refactoring** — rename symbol across all usages, extract interface
+- ✅ **Tree-sitter integration** — AST parsing for supported languages
+- ✅ **Symbol index** — project-wide symbol table (functions, classes, types, variables)
+- ✅ **Cross-file navigation** — go-to-definition, find-references via tools
+- ✅ **Type-aware refactoring** — rename symbol across all usages, extract interface
 
 **Advanced code operations:**
-- ⬜ **Multi-file atomic edits** — model proposes changes across N files, user reviews holistically
-- ⬜ **Code generation with tests** — auto-generate test file when creating new module
-- ⬜ **Migration assistant** — guided framework/language upgrades (e.g., CJS→ESM, React class→hooks)
-- ⬜ **Dead code detection** — identify and optionally remove unused exports/functions
+- ✅ **Multi-file atomic edits** — model proposes changes across N files, user reviews holistically
+- ✅ **Code generation with tests** — auto-generate test file when creating new module
+- ✅ **Migration assistant** — guided framework/language upgrades (e.g., CJS→ESM, React class→hooks)
+- ✅ **Dead code detection** — identify and optionally remove unused exports/functions
 
 **Diagnostics:**
-- ⬜ **Live error watching** — monitor build/test output and auto-suggest fixes
-- ⬜ **Stack trace analysis** — paste error, get AI-powered root cause + fix
-- ⬜ **Performance profiling** — analyze flamegraphs/traces with AI interpretation
-- ⬜ **Dependency audit** — vulnerability scanning + upgrade path suggestions
+- ✅ **Live error watching** — monitor build/test output and auto-suggest fixes
+- ✅ **Stack trace analysis** — paste error, get AI-powered root cause + fix
+- ✅ **Performance profiling** — analyze flamegraphs/traces with AI interpretation
+- ✅ **Dependency audit** — vulnerability scanning + upgrade path suggestions
 
 ---
 
@@ -311,22 +311,22 @@ Deep language understanding and refactoring capabilities.
 Composable, repeatable workflows and CI/CD integration.
 
 **Workflow engine:**
-- ⬜ **Workflow definitions** — `.icopilot/workflows/*.yaml` declarative task chains
-- ⬜ **Built-in workflows** — `review-and-commit`, `test-fix-loop`, `release-prep`
-- ⬜ **Conditional steps** — if/then/else based on tool outputs
-- ⬜ **Loop constructs** — repeat steps until condition met (e.g., "fix until tests pass")
+- ✅ **Workflow definitions** — `.icopilot/workflows/*.yaml` declarative task chains
+- ✅ **Built-in workflows** — `review-and-commit`, `test-fix-loop`, `release-prep`
+- ✅ **Conditional steps** — if/then/else based on tool outputs
+- ✅ **Loop constructs** — repeat steps until condition met (e.g., "fix until tests pass")
 
 **CI/CD integration:**
-- ⬜ **GitHub Actions helper** — generate/edit workflow YAML from natural language
-- ⬜ **Pipeline debugging** — analyze CI failure logs and suggest fixes
-- ⬜ **Pre-commit hook** — optional git hook running `/review` + `/security` before commit
-- ⬜ **Release automation** — version bump, changelog, tag, publish workflow
+- ✅ **GitHub Actions helper** — generate/edit workflow YAML from natural language
+- ✅ **Pipeline debugging** — analyze CI failure logs and suggest fixes
+- ✅ **Pre-commit hook** — optional git hook running `/review` + `/security` before commit
+- ✅ **Release automation** — version bump, changelog, tag, publish workflow
 
 **Scheduling & triggers:**
-- ⬜ **File watch triggers** — run workflow on file change
-- ⬜ **Git hook integration** — pre-commit, post-merge, pre-push
-- ⬜ **Cron-like scheduling** — periodic tasks (daily security scan, weekly dep updates)
-- ⬜ **Webhook listener** — HTTP endpoint to trigger workflows externally
+- ✅ **File watch triggers** — run workflow on file change
+- ✅ **Git hook integration** — pre-commit, post-merge, pre-push
+- ✅ **Cron-like scheduling** — periodic tasks (daily security scan, weekly dep updates)
+- ✅ **Webhook listener** — HTTP endpoint to trigger workflows externally
 
 ---
 
@@ -335,22 +335,22 @@ Composable, repeatable workflows and CI/CD integration.
 RAG, documentation generation, and adaptive learning.
 
 **Knowledge base:**
-- ⬜ **Project RAG** — chunk and index all project docs, README, wiki for retrieval
-- ⬜ **External docs ingestion** — index API docs, framework guides, RFCs
-- ⬜ **`/ask` with citations** — answers include source file + line references
-- ⬜ **Knowledge refresh** — auto-reindex on git pull/checkout
+- ✅ **Project RAG** — chunk and index all project docs, README, wiki for retrieval
+- ✅ **External docs ingestion** — index API docs, framework guides, RFCs
+- ✅ **`/ask` with citations** — answers include source file + line references
+- ✅ **Knowledge refresh** — auto-reindex on git pull/checkout
 
 **Documentation generation:**
-- ⬜ **`/doc` command** — generate JSDoc/docstring for function/class/module
-- ⬜ **README generation** — scaffold README from project structure + code analysis
-- ⬜ **API doc generation** — extract public API surface → markdown reference
-- ⬜ **Architecture diagrams** — generate mermaid diagrams from code relationships
+- ✅ **`/doc` command** — generate JSDoc/docstring for function/class/module
+- ✅ **README generation** — scaffold README from project structure + code analysis
+- ✅ **API doc generation** — extract public API surface → markdown reference
+- ✅ **Architecture diagrams** — generate mermaid diagrams from code relationships
 
 **Adaptive behavior:**
-- ⬜ **Style learning** — observe user's coding patterns and adapt suggestions
-- ⬜ **Correction memory** — remember when user corrects the model; don't repeat mistakes
-- ⬜ **Project conventions** — learn and enforce project-specific patterns (naming, structure)
-- ⬜ **Confidence calibration** — model indicates certainty level; ask for confirmation on low-confidence actions
+- ✅ **Style learning** — observe user's coding patterns and adapt suggestions
+- ✅ **Correction memory** — remember when user corrects the model; don't repeat mistakes
+- ✅ **Project conventions** — learn and enforce project-specific patterns (naming, structure)
+- ✅ **Confidence calibration** — model indicates certainty level; ask for confirmation on low-confidence actions
 
 ---
 
@@ -359,22 +359,22 @@ RAG, documentation generation, and adaptive learning.
 Enterprise-grade features for teams and organizations.
 
 **Access control:**
-- ⬜ **Role-based tool access** — restrict tools by user role (admin/developer/viewer)
-- ⬜ **Audit logging** — full audit trail of all tool executions and file changes
-- ⬜ **Compliance modes** — HIPAA, SOC2, FedRAMP constraint profiles
-- ⬜ **Secret scanning** — enhanced `/security` with real-time monitoring
+- ✅ **Role-based tool access** — restrict tools by user role (admin/developer/viewer)
+- ✅ **Audit logging** — full audit trail of all tool executions and file changes
+- ✅ **Compliance modes** — HIPAA, SOC2, FedRAMP constraint profiles
+- ✅ **Secret scanning** — enhanced `/security` with real-time monitoring
 
 **Enterprise integration:**
-- ⬜ **SSO support** — SAML/OIDC authentication for enterprise tokens
-- ⬜ **Proxy support** — HTTP/HTTPS/SOCKS5 proxy for corporate networks
-- ⬜ **Air-gapped mode** — work with local models (Ollama, vLLM) when internet unavailable
-- ⬜ **Usage quotas** — configurable token/request limits per user/project
+- ✅ **SSO support** — SAML/OIDC authentication for enterprise tokens
+- ✅ **Proxy support** — HTTP/HTTPS/SOCKS5 proxy for corporate networks
+- ✅ **Air-gapped mode** — work with local models (Ollama, vLLM) when internet unavailable
+- ✅ **Usage quotas** — configurable token/request limits per user/project
 
 **Data governance:**
-- ⬜ **Content filtering** — prevent PII/secrets in prompts sent to API
-- ⬜ **Data residency** — configure endpoint regions for compliance
-- ⬜ **Retention policies** — auto-delete sessions/memory after N days
-- ⬜ **Export controls** — restrict what can be shared/exported
+- ✅ **Content filtering** — prevent PII/secrets in prompts sent to API
+- ✅ **Data residency** — configure endpoint regions for compliance
+- ✅ **Retention policies** — auto-delete sessions/memory after N days
+- ✅ **Export controls** — restrict what can be shared/exported
 
 ---
 
@@ -384,28 +384,28 @@ iCopilot becomes a full autonomous development environment — the terminal
 equivalent of a senior engineering pair programmer.
 
 **Autonomous development:**
-- ⬜ **Goal-driven development** — describe a feature, iCopilot implements it end-to-end (plan → code → test → commit → PR)
-- ⬜ **Self-healing builds** — detect build failures, diagnose, fix, and retry automatically
-- ⬜ **Test-driven agent** — write tests first, then implement until green
-- ⬜ **Multi-repo orchestration** — coordinate changes across multiple repositories
+- ✅ **Goal-driven development** — describe a feature, iCopilot implements it end-to-end (plan → code → test → commit → PR)
+- ✅ **Self-healing builds** — detect build failures, diagnose, fix, and retry automatically
+- ✅ **Test-driven agent** — write tests first, then implement until green
+- ✅ **Multi-repo orchestration** — coordinate changes across multiple repositories
 
 **Advanced reasoning:**
-- ⬜ **Chain-of-thought planning** — visible reasoning with user intervention points
-- ⬜ **Hypothesis testing** — model proposes theories, tests them with tools, converges on answer
-- ⬜ **Long-term task tracking** — multi-session goals that persist across days/weeks
-- ⬜ **Learning from outcomes** — track which approaches worked and prefer them in future
+- ✅ **Chain-of-thought planning** — visible reasoning with user intervention points
+- ✅ **Hypothesis testing** — model proposes theories, tests them with tools, converges on answer
+- ✅ **Long-term task tracking** — multi-session goals that persist across days/weeks
+- ✅ **Learning from outcomes** — track which approaches worked and prefer them in future
 
 **Ecosystem:**
-- ⬜ **Plugin marketplace** — `icopilot install <plugin>` from community registry
-- ⬜ **Custom model providers** — plug in any OpenAI-compatible endpoint
-- ⬜ **IDE bridge** — bidirectional communication with VS Code / Neovim
-- ⬜ **API server mode** — expose iCopilot as HTTP API for integration
+- ✅ **Plugin marketplace** — `icopilot install <plugin>` from community registry
+- ✅ **Custom model providers** — plug in any OpenAI-compatible endpoint
+- ✅ **IDE bridge** — bidirectional communication with VS Code / Neovim
+- ✅ **API server mode** — expose iCopilot as HTTP API for integration
 
 **Platform:**
-- ⬜ **Multi-language REPL** — execute Python/JS/Rust snippets inline for validation
-- ⬜ **Container sandbox** — Docker-based isolated execution environment
-- ⬜ **Cloud sessions** — run sessions in the cloud, access from any terminal
-- ⬜ **Mobile companion** — review/approve actions from phone via push notifications
+- ✅ **Multi-language REPL** — execute Python/JS/Rust snippets inline for validation
+- ✅ **Container sandbox** — Docker-based isolated execution environment
+- ✅ **Cloud sessions** — run sessions in the cloud, access from any terminal
+- ✅ **Mobile companion** — review/approve actions from phone via push notifications
 
 ---
 
