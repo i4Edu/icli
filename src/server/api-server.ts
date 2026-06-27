@@ -4,11 +4,19 @@ import { randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { parseFileRefs, renderFileRefBlock } from '../context/file-refs.js';
+import {
+  buildImageContent,
+  detectImagePaths,
+  isVisionCapableModel,
+  type MessageContentPart,
+} from '../context/image-input.js';
 import { streamChat } from '../api/github-models.js';
 import { config } from '../config.js';
 import { buildSystemPrompt } from '../modes/turn.js';
 import { Session } from '../session/session.js';
 import { TOOL_SCHEMAS, dispatchTool } from '../tools/registry.js';
+import path from 'node:path';
+import os from 'node:os';
 
 const MAX_TOOL_HOPS = 6;
 export const DEFAULT_API_PORT = 8787;
@@ -186,6 +194,13 @@ export class APIServer {
         const commandResult = await handleSlash(command, {
           session,
           abort: new AbortController(),
+          schedulePrompt: async (prompt) => {
+            await runSessionChat({
+              session,
+              userInput: prompt,
+              signal: new AbortController().signal,
+            });
+          },
           exit: () => undefined,
         });
 
@@ -397,13 +412,26 @@ async function runSessionChat(opts: RunSessionChatOptions): Promise<SessionChatR
   const { session, userInput, signal, onToken, onEvent } = opts;
   const refs = parseFileRefs(userInput);
   const refBlock = renderFileRefBlock(refs);
+  const promptInput = refBlock ? `${userInput}\n\n${refBlock}` : userInput;
+  const imagePaths = detectImagePaths(userInput);
+  const userContent = buildUserMessageContent(
+    promptInput,
+    imagePaths,
+    session.state.cwd,
+    session.state.model,
+    (warning) =>
+      onEvent?.({
+        event: 'warning',
+        data: { message: warning },
+      }),
+  );
   const sys: ChatCompletionMessageParam = {
     role: 'system',
     content: buildSystemPrompt(session),
   };
   const userMsg: ChatCompletionMessageParam = {
     role: 'user',
-    content: refBlock ? `${userInput}\n\n${refBlock}` : userInput,
+    content: userContent,
   };
   session.push(userMsg);
 
@@ -497,6 +525,42 @@ function serializeSession(session: Session): JSONRecord {
     autopilotEnabled: Boolean(session.state.autopilotEnabled),
     todos: session.state.todos,
   };
+}
+
+function buildUserMessageContent(
+  text: string,
+  imagePaths: string[],
+  cwd: string,
+  model: string,
+  onWarning: (warning: string) => void,
+): string | MessageContentPart[] {
+  if (!imagePaths.length) return text;
+  if (!isVisionCapableModel(model)) {
+    onWarning(
+      `model "${model}" does not support image input; ignoring ${imagePaths.length} image reference${imagePaths.length === 1 ? '' : 's'}.`,
+    );
+    return text;
+  }
+
+  const content: MessageContentPart[] = [{ type: 'text', text }];
+  const resolvedImagePaths = imagePaths.map((imagePath) => resolveImagePath(imagePath, cwd));
+
+  for (const imagePath of resolvedImagePaths) {
+    try {
+      content.push(...buildImageContent([imagePath]));
+    } catch (error: any) {
+      onWarning(`unable to attach image ${imagePath}: ${error?.message || error}`);
+    }
+  }
+
+  return content.length > 1 ? content : text;
+}
+
+function resolveImagePath(filePath: string, cwd: string): string {
+  if (filePath.startsWith('~/') || filePath.startsWith('~\\')) {
+    return path.join(os.homedir(), filePath.slice(2));
+  }
+  return path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {

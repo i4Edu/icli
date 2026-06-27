@@ -1,6 +1,7 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { streamChat } from '../api/github-models.js';
 import { Session } from '../session/session.js';
+import { hookManager } from '../hooks/lifecycle.js';
 import { theme } from '../ui/theme.js';
 
 const SUMMARY_PROMPT = `You are summarizing a developer/AI assistant conversation to preserve essential context while drastically reducing token usage.
@@ -13,6 +14,11 @@ Produce a structured summary with these sections (omit empty ones):
 Keep it under 400 words.`;
 
 export async function compactSession(session: Session, signal?: AbortSignal): Promise<string> {
+  await hookManager.emit('preCompact', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    messageCount: session.state.messages.length,
+  });
   const history = session.state.messages
     .map((m) => {
       const c = typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? '');
@@ -38,5 +44,15 @@ export async function compactSession(session: Session, signal?: AbortSignal): Pr
     },
   });
   process.stdout.write('\n');
-  return res.content || acc;
+  const summary = res.content || acc;
+  const hookResult = await hookManager.emit('postCompact', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    messageCount: session.state.messages.length,
+    summary,
+  });
+  if (hookResult.action === 'modify' && typeof (hookResult.modifications as any)?.summary === 'string') {
+    return String((hookResult.modifications as any).summary);
+  }
+  return summary;
 }

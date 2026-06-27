@@ -1,5 +1,6 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { Session } from '../session/session.js';
+import { hookManager } from '../hooks/lifecycle.js';
 import { theme } from '../ui/theme.js';
 import { runTurn } from './turn.js';
 
@@ -121,6 +122,12 @@ export async function runAutopilot(
     });
   if (!opts.session) {
     await session.initializeGitContext();
+    await hookManager.emit('sessionStart', {
+      sessionId: session.state.id,
+      cwd: session.state.cwd,
+      mode: session.state.mode,
+      model: session.state.model,
+    });
   }
 
   const previousMode = session.state.mode;
@@ -151,6 +158,14 @@ export async function runAutopilot(
     session.setSystemPrompt(previousPrompt);
     session.setMode(previousMode);
     session.setAutopilotEnabled(previousAutopilotEnabled);
+    if (!opts.session) {
+      await hookManager.emit('sessionEnd', {
+        sessionId: session.state.id,
+        cwd: session.state.cwd,
+        mode: session.state.mode,
+        model: session.state.model,
+      });
+    }
   }
 }
 

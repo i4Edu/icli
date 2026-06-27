@@ -1,13 +1,14 @@
 import { config } from '../config.js';
 import { renderGitContextBlock } from '../context/git-context.js';
 import { PinnedContext } from '../context/pinned.js';
-import { ASK_SYSTEM, PLAN_SYSTEM } from './prompts.js';
+import { PLAN_SYSTEM, getAskSystemPrompt } from './prompts.js';
 import { loadMemoryBlock } from '../context/memory.js';
 import { loadConventionPromptContext } from '../knowledge/conventions.js';
 import { loadStylePromptContext } from '../knowledge/style-learner.js';
 import type { Session } from '../session/session.js';
 import { theme } from '../ui/theme.js';
 import { countTokensSync } from '../util/tokens.js';
+import { showContextUsage } from './context-viz-cmd.js';
 
 export interface ContextSource {
   name: string;
@@ -26,7 +27,8 @@ export interface ContextBreakdown {
 const FILE_REF_HEADER = '### Referenced files';
 
 export function buildContextBreakdown(session: Session): ContextBreakdown {
-  const systemPrompt = session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM);
+  const systemPrompt =
+    session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : getAskSystemPrompt());
   const memoryBlock = loadMemoryBlock(session.state.cwd) ?? '';
   const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
   const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
@@ -124,7 +126,7 @@ export function contextCommand(args: string[], session: Session): string {
   switch (subcommand) {
     case undefined:
     case '':
-      return renderContextBreakdown(breakdown);
+      return showContextUsage(session);
     case 'sources':
       return renderSources(breakdown);
     case 'budget':

@@ -197,7 +197,7 @@ CLI and beyond — making it a true agentic terminal assistant.
 
 ---
 
-## v1.3 — Agent Runtime & Extensibility 🟡
+## v1.3 — Agent Runtime & Extensibility ✅
 
 Deep integration of the agentic features built in v1.2, plus a full
 extension system and CI/CD scripting support.
@@ -406,6 +406,56 @@ equivalent of a senior engineering pair programmer.
 - ⬜ **Container sandbox** — Docker-based isolated execution environment
 - ⬜ **Cloud sessions** — run sessions in the cloud, access from any terminal
 - ⬜ **Mobile companion** — review/approve actions from phone via push notifications
+
+---
+
+## v2.1 — Competitive Parity ✅
+
+Closes feature gaps identified by comparing iCopilot against GitHub Copilot CLI,
+Claude Code, and Aider — making iCopilot a first-class competitor in the agentic
+CLI space.
+
+**Input & output:**
+- ✅ **Image input** — vision model detection, base64 encoding, screenshot context
+- ✅ **Clipboard operations** — `/paste`, `/copy-context`, `/run` with output injection
+- ✅ **External editor** — `$VISUAL`/`$EDITOR` detection, `.md` temp files
+- ✅ **Web scraping** — `/web <url> [focus]`, HTML→markdown, truncation
+
+**Editing & code quality:**
+- ✅ **Diff-based editing** — SEARCH/REPLACE blocks, fuzzy matching, `/edit-format`
+- ✅ **Auto-lint & auto-test** — run linter/tests after AI edits, auto-fix loop
+- ✅ **Mid-session diff** — `/changes` with per-turn git snapshots
+
+**Session control:**
+- ✅ **Per-message modes** — `/ask`, `/code`, `/architect` prefixes per turn
+- ✅ **Reasoning control** — `/reasoning`, `/think-tokens`, API wiring
+- ✅ **Scheduled prompts** — `/every`, `/after` for recurring/delayed tasks
+- ✅ **Read-only files** — `/read-only` with file protection
+
+**Infrastructure & extensibility:**
+- ✅ **Lifecycle hooks** — 10 event types, preToolUse deny/modify, JSON stdin/stdout
+- ✅ **Git undo** — AI commit tracking, `git reset --soft`, safety guards
+- ✅ **Auto-memory** — AI self-learning with 28-day retention, `/memory auto`
+
+**UX & feedback:**
+- ✅ **Runtime settings** — `/settings KEY VALUE`, `~/.icopilotrc.json` persistence
+- ✅ **User feedback** — `/feedback` with offline storage, optional GitHub issue
+- ✅ **Context visualization** — visual `/context` usage view + `/usage` alias
+
+---
+
+## v2.2 — Platform & Ecosystem (planned) 💡
+
+The next frontier — voice, browser UI, and ecosystem features.
+
+- ⬜ **Voice input** — speech-to-text for hands-free interaction
+- ⬜ **ACP protocol server** — Agent Client Protocol for tool interop
+- ⬜ **Browser/web UI** — `--browser` flag for web-based interface
+- ⬜ **Architect mode** — dual-model (planner + coder) for complex tasks
+- ⬜ **Git worktrees** — isolated branch work with AI
+- ⬜ **Cloud-scheduled routines** — remote cron-like task execution
+- ⬜ **Vi/Emacs keybindings** — modal editing in the REPL
+- ⬜ **Slack/Teams integration** — receive notifications and approve actions
 
 ---
 

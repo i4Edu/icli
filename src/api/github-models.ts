@@ -60,6 +60,12 @@ export interface StreamResult {
   finishReason: string | null;
 }
 
+type ChatReasoningParams = {
+  max_completion_tokens?: number;
+  max_tokens?: number;
+  reasoning_effort?: string;
+};
+
 /**
  * Stream a chat completion from GitHub Models, with exponential backoff
  * on HTTP 429. Supports tool/function calling.
@@ -107,23 +113,23 @@ export async function streamChat(opts: StreamOpts): Promise<StreamResult> {
 
 async function runOnce(opts: StreamOpts): Promise<StreamResult> {
   const provider = activeProvider();
-  const stream = await client().chat.completions.create(
-    {
-      model: opts.model,
-      messages: opts.messages,
-      tools: opts.tools,
-      temperature: opts.temperature ?? 0.2,
-      ...(provider?.maxTokens ? { max_tokens: provider.maxTokens } : {}),
-      stream: true,
-    },
-    { signal: opts.signal },
-  );
+  const request: any = {
+    model: opts.model,
+    messages: opts.messages,
+    tools: opts.tools,
+    temperature: opts.temperature ?? 0.2,
+    ...buildChatReasoningParams(opts.model, provider?.maxTokens),
+    stream: true,
+  };
+  const stream = (await client().chat.completions.create(request, {
+    signal: opts.signal,
+  })) as unknown as AsyncIterable<ChatCompletionChunk>;
 
   let content = '';
   let finishReason: string | null = null;
   const toolAcc: Record<number, { id: string; name: string; arguments: string }> = {};
 
-  for await (const chunk of stream as AsyncIterable<ChatCompletionChunk>) {
+  for await (const chunk of stream) {
     const choice = chunk.choices?.[0];
     if (!choice) continue;
     const delta: any = choice.delta || {};
@@ -148,6 +154,44 @@ async function runOnce(opts: StreamOpts): Promise<StreamResult> {
     toolCalls: Object.values(toolAcc).filter((t) => t.name),
     finishReason,
   };
+}
+
+function buildChatReasoningParams(model: string, providerMaxTokens?: number): ChatReasoningParams {
+  const params: ChatReasoningParams = {};
+  if (supportsReasoningEffort(model) && config.reasoningEffort) {
+    params.reasoning_effort = config.reasoningEffort;
+  }
+  const completionBudget = resolveCompletionBudget(model, providerMaxTokens, config.thinkTokens);
+  if (completionBudget !== undefined) {
+    params.max_completion_tokens = completionBudget;
+    return params;
+  }
+  if (providerMaxTokens) {
+    params.max_tokens = providerMaxTokens;
+  }
+  return params;
+}
+
+function resolveCompletionBudget(
+  model: string,
+  providerMaxTokens?: number,
+  thinkTokens?: number,
+): number | undefined {
+  if (!supportsReasoningTokenBudget(model)) return undefined;
+  const budgets = [providerMaxTokens, thinkTokens].filter(
+    (value): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0,
+  );
+  if (!budgets.length) return undefined;
+  return Math.min(...budgets.map((value) => Math.floor(value)));
+}
+
+function supportsReasoningEffort(model: string): boolean {
+  return /^o\d/i.test(model.trim());
+}
+
+function supportsReasoningTokenBudget(model: string): boolean {
+  const normalized = model.trim().toLowerCase();
+  return /^o\d/.test(normalized) || normalized.startsWith('gpt-5');
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {

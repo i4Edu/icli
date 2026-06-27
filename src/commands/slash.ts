@@ -1,18 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { confirm, input, select } from '@inquirer/prompts';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { config, setProvider } from '../config.js';
 import { providerRegistry } from '../providers/custom-provider.js';
 import { isLocalProviderName, localModelProvider } from '../providers/local-model.js';
 import { Session } from '../session/session.js';
 import { theme } from '../ui/theme.js';
 import { showDiff, commitFromStaged, prDescription } from './git.js';
+import { showChangesSinceLastTurn, showChangesSinceSessionStart } from './changes-cmd.js';
 import { compactSession } from '../context/compactor.js';
 import { PinnedContext } from '../context/pinned.js';
+import { addReadOnly, getReadOnlyFiles, removeReadOnly } from '../context/read-only.js';
 import { pickSession, exportSession } from '../session/manager.js';
 import { reviewStaged, draftIssue, scaffoldBranch } from './git-extra.js';
 import { indexCommand } from './index-cmd.js';
 import { routeCommand } from './route-cmd.js';
 import { undoCommand } from './undo-cmd.js';
+import { gitUndo } from './git-undo-cmd.js';
 import { costCommand } from './cost-cmd.js';
 import { snippetsCommand } from './snippets-cmd.js';
 import { profileCommand } from './profile-cmd.js';
@@ -35,6 +41,12 @@ import { gitLogCommand } from './git-log-cmd.js';
 import { envCommand } from './env-cmd.js';
 import { TodoList, todoCommand } from './todo-cmd.js';
 import { tokensCommand } from './tokens-cmd.js';
+import {
+  getReasoningConfig,
+  parseTokenBudget,
+  setReasoningEffort,
+  setThinkTokens,
+} from './reasoning-cmd.js';
 import { stashCommand } from './stash-cmd.js';
 import { buildChangelogPrompt } from './changelog-cmd.js';
 import { releaseCommand } from './release-cmd.js';
@@ -87,7 +99,20 @@ import { pluginCommand } from '../plugins/marketplace.js';
 import { spaceCommand } from './space-cmd.js';
 import { diagramCommand } from './diagram-cmd.js';
 import { readmeCommand } from './readme-cmd.js';
+import {
+  getGitHubRepoSlug,
+  openGitHubIssues,
+  submitFeedback,
+  type FeedbackType,
+} from './feedback-cmd.js';
+import { isModelSettingKey, resetSetting, setSetting, showSettings } from './settings-cmd.js';
+import { copyContextToClipboard, copyTextToClipboard, readClipboard } from './clipboard-cmd.js';
+import { resolveModePrefix, type MessageModePrefix } from './mode-prefix.js';
+import { openEditor } from './editor-cmd.js';
+import { fetchAndConvert, validateWebUrl } from './web-cmd.js';
+import { detectAutoLintCommand, detectAutoTestCommand } from '../tools/auto-check.js';
 import { ErrorWatcher, suggestFix, type ParsedError } from '../intelligence/error-watch.js';
+import { DeadCodeDetector, type DeadCodeReport } from '../intelligence/dead-code.js';
 import { findReferences, goToDefinition, type Location } from '../intelligence/navigation.js';
 import { ContainerSandbox } from '../sandbox/container.js';
 import { analyzeStackTrace, formatForLLM, parseStackTrace } from '../intelligence/stack-trace.js';
@@ -95,6 +120,7 @@ import {
   ParallelAgentRunner,
   type AgentTask,
   type AgentResult,
+  type ParallelAgentRunResult,
 } from '../agents/parallel-runner.js';
 import {
   GoalDrivenAgent,
@@ -129,11 +155,23 @@ import {
 import { AuditLogger, auditLogPath, type AuditEntry, type AuditStats } from '../security/audit.js';
 import { BridgeServer, DEFAULT_BRIDGE_PORT } from '../bridge/ide-bridge.js';
 import { DEFAULT_API_PORT, getGlobalAPIServer } from '../server/api-server.js';
+import { assertSandbox } from '../tools/sandbox.js';
+import { loadPolicy, shellCommandAllowed } from '../tools/policy.js';
+import { checkCommandSafety, formatSafetyWarning } from '../tools/safety.js';
+import {
+  cancelSchedule,
+  listScheduled,
+  scheduleOnce,
+  scheduleRecurring,
+  setScheduleRunner,
+  type ScheduledTask,
+} from './schedule-cmd.js';
 
 export interface SlashContext {
   session: Session;
   abort: AbortController;
   metrics?: MetricsCollector;
+  schedulePrompt?: (prompt: string) => void | Promise<void>;
   /** signal the outer loop to terminate */
   exit: () => void;
 }
@@ -144,6 +182,8 @@ export interface SlashResult {
   consumed: boolean;
   /** optional transformed input to forward to the LLM */
   forwardInput?: string;
+  /** optional per-message mode override */
+  turnMode?: MessageModePrefix | null;
 }
 
 const HELP = `
@@ -157,13 +197,27 @@ ${theme.brand('Slash commands')}
   /provider test             test the active provider connection
   /cwd <path>                change repository context
   /diff                      show git diff (unstaged, then staged)
+  /changes [last]            show changes since session start or last AI turn
   /git-log                   show recent git commits
-  /context [view]            show context hub (sources, budget, trim)
+  /context [view]            show visual context usage and trim tools
+  /usage                     alias for /context
   /pin <file>                pin a file to persistent context (or list pinned files)
   /unpin <file|--all>        remove pinned files from persistent context
+  /read-only, /ro <path>     add a read-only context file
+  /read-only drop <path>     remove a read-only context file
+  /read-only list            list read-only context files
+  /every <interval> <prompt> schedule a recurring prompt
+  /after <delay> <prompt>    schedule a one-shot prompt
+  /schedule                  list active scheduled prompts
+  /schedule cancel <id>      cancel a scheduled prompt
   /tokens                    show detailed token usage breakdown
+  /editor                    open $VISUAL/$EDITOR for a multi-line prompt
+  /reasoning [level]         show or set reasoning effort (low|medium|high|max)
+  /think-tokens [budget]     show or set reasoning token budget (8k, 0.5M, 0=off)
   /history                   browse recent conversation history
   /compact                   summarize conversation, free token space
+  /settings [key] [value]    show, set, or reset runtime settings
+  /feedback [type] [text]    save feedback locally and optionally open issues
   /sessions                  list and resume saved sessions
   /cloud create [name]      create and connect a cloud session
   /cloud connect <id>       connect to a cloud session
@@ -172,10 +226,14 @@ ${theme.brand('Slash commands')}
   /cloud sync               sync local session state to the cloud
   /export [md|json] [path]   export current session transcript/state
   /share                     share session bundles and clipboard exports
+  /paste [image]             send clipboard text or image as the next prompt
+  /copy <text>               copy arbitrary text to the system clipboard
+  /copy-context [last]       copy conversation context to the clipboard
   /handoff export [path]     export resumable handoff bundle
   /handoff import <path>     import a handoff bundle into a new session
   /handoff preview <path>    inspect a handoff bundle without importing
   /plan                      toggle Plan Mode
+  /edit-format [whole|diff]  show or change the active edit format
   /autopilot [goal]          toggle autopilot or run a goal immediately
   /goal <description>        plan, implement, test, and verify a goal in the background
   /goal status               show the current or most recent goal run
@@ -192,7 +250,8 @@ ${theme.brand('Slash commands')}
   /goto <symbol>             find a symbol definition with regex navigation
   /refs <symbol>             find symbol references with regex navigation
   /route get|set|list        multi-model routing profile
-  /undo [status], /redo       undo or redo approved file writes
+  /undo [--hard|file|status]  undo last AI git commit or access file undo journal
+  /redo                       redo approved file writes
   /cost                       estimate current session token cost
   /snippets, /snippet         manage reusable prompt snippets
   /profile, /profiles         manage saved CLI profiles
@@ -214,6 +273,9 @@ ${theme.brand('Slash commands')}
   /heal [--max <n>]           run build, apply safe auto-fixes, and retry
   /lint                       detect available repository linters
   /test                       detect available repository test frameworks
+  /auto-lint [on|off]         toggle auto-lint after AI file edits
+  /auto-test [on|off]         toggle auto-test after AI file edits
+  /auto-fix [on|off]          toggle auto-repair for failed auto-checks
   /tdd <description>|status   start or inspect the latest TDD cycle
   /doctor                     diagnose local iCopilot setup
   /todo                       track session todos
@@ -224,6 +286,7 @@ ${theme.brand('Slash commands')}
   /proxy                      show, set, clear, or test proxy configuration
   /filter [list|add|remove|test] manage prompt content filter rules
   /retention                  inspect or enforce retention policies
+  /dead-code [path]           scan for unused exports and unreachable files
   /refactor <subcommand>      build an AI refactor prompt
   /stacktrace <trace>         analyze a stack trace and diagnose root cause
   /metrics                    show session performance metrics
@@ -241,9 +304,10 @@ ${theme.brand('Slash commands')}
   /explore <question>         explore codebase with AI agent
   /trigger <subcommand>       manage file-change triggers
   /watch <pattern> <cmd>      file watcher configuration
+  /web <url> [focus]          fetch a web page into conversation context
   /bridge <subcommand>        manage IDE bridge websocket server
   /error-watch <action>       watch build errors and suggest fixes
-  /memory                     manage persistent project memory
+  /memory                     manage persistent + auto-learned memory
   /corrections                manage remembered user corrections
   /team-memory                manage shared team memory
   /repo                       manage multi-repo orchestration
@@ -253,12 +317,17 @@ ${theme.brand('Slash commands')}
   /extension [list|info|reload] inspect local extensions
   /serve <subcommand>         manage HTTP API server
   /sandbox <run|shell|status|cleanup> use Docker sandbox helpers
+  /run <command>             run a shell command and optionally add output to chat
   /plugin [subcommand]        search and manage marketplace plugins
   /workflow [subcommand]      manage workflow definitions
   /exit, /quit               quit iCopilot
 
 ${theme.brand('Inline')}
+  /ask <message>             discuss only for one turn
+  /code <message>            implement directly for one turn
+  /architect <message>       plan briefly, then implement for one turn
   @path/to/file              inject file contents into next message
+  Ctrl+X Ctrl+E              open editor for a multi-line prompt
   Ctrl-C                     interrupt streaming (does not exit)
 `;
 
@@ -292,6 +361,15 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const trimmed = line.trim();
   if (!trimmed.startsWith('/')) return { handled: false, consumed: false };
 
+  const modePrefix = resolveModePrefix(trimmed);
+  if (modePrefix.matched) {
+    if (modePrefix.consumed) {
+      process.stdout.write(theme.warn(`${modePrefix.usage}\n`));
+      return done();
+    }
+    return done(false, modePrefix.forwardInput, modePrefix.turnMode ?? null);
+  }
+
   const spaceIndex = trimmed.indexOf(' ');
   const cmd = (spaceIndex === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIndex)).trim();
   const arg = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1).trim();
@@ -299,6 +377,7 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const s = ctx.session;
   const roleManager = getRoleManager(s.state.cwd);
   const normalizedCommand = cmd.toLowerCase();
+  setScheduleRunner(ctx.schedulePrompt ?? null);
 
   if (normalizedCommand !== 'help' && normalizedCommand !== 'role') {
     const access = roleManager.checkAccess(`command:${normalizedCommand}`);
@@ -379,12 +458,80 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'diff':
       await showDiff();
       return done();
+    case 'changes':
+      process.stdout.write(
+        rest[0] === 'last'
+          ? await showChangesSinceLastTurn(s)
+          : await showChangesSinceSessionStart(s),
+      );
+      return done();
     case 'git-log':
       process.stdout.write(await gitLogCommand(rest, s.state.cwd));
       return done();
     case 'context':
+    case 'usage':
       process.stdout.write(contextCommand(rest, s));
       return done();
+    case 'settings': {
+      if (!arg) {
+        process.stdout.write(showSettings());
+        return done();
+      }
+      if ((rest[0] ?? '').toLowerCase() === 'reset') {
+        const key = rest[1];
+        if (!key) {
+          process.stdout.write(theme.warn('usage: /settings reset <key>\n'));
+          return done();
+        }
+        try {
+          process.stdout.write(resetSetting(key));
+          if (isModelSettingKey(key)) s.setModel(config.defaultModel);
+        } catch (error) {
+          process.stdout.write(theme.err(`${(error as Error).message}\n`));
+        }
+        return done();
+      }
+      if (rest.length < 2) {
+        process.stdout.write(theme.warn('usage: /settings [<key> <value> | reset <key>]\n'));
+        return done();
+      }
+      const key = rest[0];
+      const value = arg.slice(key.length).trim();
+      try {
+        process.stdout.write(setSetting(key, value));
+        if (isModelSettingKey(key)) s.setModel(config.defaultModel);
+      } catch (error) {
+        process.stdout.write(theme.err(`${(error as Error).message}\n`));
+      }
+      return done();
+    }
+    case 'feedback': {
+      try {
+        const feedback = await resolveFeedbackInput(rest, arg);
+        if (!feedback) {
+          process.stdout.write(theme.warn('usage: /feedback [bug|feature|praise] <text>\n'));
+          return done();
+        }
+        process.stdout.write(submitFeedback(feedback.type, feedback.text, { cwd: s.state.cwd }));
+        const repo = getGitHubRepoSlug(s.state.cwd);
+        if (repo) {
+          const openIssue = await confirm({
+            message: `Open GitHub issue form for ${repo}?`,
+            default: false,
+          }).catch(() => false);
+          if (openIssue) {
+            process.stdout.write(
+              openGitHubIssues(repo)
+                ? theme.ok(`Opened ${repo} issues in your browser.\n`)
+                : theme.warn(`Could not open browser. Visit ${repo} issues manually.\n`),
+            );
+          }
+        }
+      } catch (error) {
+        process.stdout.write(theme.err(`${(error as Error).message}\n`));
+      }
+      return done();
+    }
     case 'pin': {
       const pinned = PinnedContext.fromJSON(s.state.pinned);
       if (!arg) {
@@ -433,9 +580,134 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(theme.ok(`✔ unpinned ${target} (${removedFile?.tokens ?? 0} tokens)\n`));
       return done();
     }
+    case 'read-only':
+    case 'ro': {
+      if (!arg || arg === 'list') {
+        process.stdout.write(formatReadOnlyFiles(getReadOnlyFiles()));
+        return done();
+      }
+
+      const [subcommand = '', ...subArgs] = rest;
+      if (subcommand === 'drop') {
+        const target = subArgs.join(' ').trim();
+        if (!target) {
+          process.stdout.write(theme.warn('usage: /read-only drop <path>\n'));
+          return done();
+        }
+        const resolved = path.resolve(s.state.cwd, target);
+        if (!removeReadOnly(resolved)) {
+          process.stdout.write(theme.warn(`not read-only: ${resolved}\n`));
+          return done();
+        }
+        process.stdout.write(theme.ok(`✔ removed read-only file ${resolved}\n`));
+        return done();
+      }
+
+      try {
+        const added = addReadOnly(arg);
+        process.stdout.write(theme.ok(`✔ read-only ${added}\n`));
+      } catch (error: unknown) {
+        process.stdout.write(
+          theme.err(`${error instanceof Error ? error.message : String(error)}\n`),
+        );
+      }
+      return done();
+    }
+    case 'every': {
+      const [interval = '', ...promptParts] = rest;
+      const prompt = promptParts.join(' ').trim();
+      if (!interval || !prompt) {
+        process.stdout.write(theme.warn('usage: /every <interval> <prompt>\n'));
+        return done();
+      }
+      try {
+        const task = scheduleRecurring(interval, prompt);
+        process.stdout.write(theme.ok(`✔ scheduled recurring task ${task.id} (${interval})\n`));
+      } catch (error: unknown) {
+        process.stdout.write(
+          theme.err(`${error instanceof Error ? error.message : String(error)}\n`),
+        );
+      }
+      return done();
+    }
+    case 'after': {
+      const [delay = '', ...promptParts] = rest;
+      const prompt = promptParts.join(' ').trim();
+      if (!delay || !prompt) {
+        process.stdout.write(theme.warn('usage: /after <delay> <prompt>\n'));
+        return done();
+      }
+      try {
+        const task = scheduleOnce(delay, prompt);
+        process.stdout.write(theme.ok(`✔ scheduled one-shot task ${task.id} (${delay})\n`));
+      } catch (error: unknown) {
+        process.stdout.write(
+          theme.err(`${error instanceof Error ? error.message : String(error)}\n`),
+        );
+      }
+      return done();
+    }
+    case 'schedule': {
+      if (rest[0] === 'cancel') {
+        const id = rest.slice(1).join(' ').trim();
+        if (!id) {
+          process.stdout.write(theme.warn('usage: /schedule cancel <id>\n'));
+          return done();
+        }
+        process.stdout.write(
+          cancelSchedule(id)
+            ? theme.ok(`✔ cancelled schedule ${id}\n`)
+            : theme.warn(`schedule not found: ${id}\n`),
+        );
+        return done();
+      }
+      process.stdout.write(formatScheduledTasks(listScheduled()));
+      return done();
+    }
     case 'tokens':
       process.stdout.write(tokensCommand(s));
       return done();
+    case 'editor': {
+      const content = await openEditor();
+      if (!content) {
+        process.stdout.write(theme.warn('editor canceled.\n'));
+        return done();
+      }
+      return done(false, content);
+    }
+    case 'reasoning': {
+      if (!arg) {
+        process.stdout.write(formatReasoningConfig());
+        return done();
+      }
+      const level = arg.toLowerCase();
+      if (level !== 'low' && level !== 'medium' && level !== 'high' && level !== 'max') {
+        process.stdout.write(theme.warn('usage: /reasoning [low|medium|high|max]\n'));
+        return done();
+      }
+      setReasoningEffort(level);
+      process.stdout.write(theme.ok(`✔ reasoning effort → ${level}\n`));
+      return done();
+    }
+    case 'think-tokens': {
+      if (!arg) {
+        process.stdout.write(formatReasoningConfig());
+        return done();
+      }
+      try {
+        const budget = parseTokenBudget(arg);
+        if (budget === 0) {
+          setThinkTokens(null);
+          process.stdout.write(theme.ok('✔ think token budget disabled\n'));
+          return done();
+        }
+        setThinkTokens(budget);
+        process.stdout.write(theme.ok(`✔ think token budget → ${budget} tokens\n`));
+      } catch (error: any) {
+        process.stdout.write(theme.err(`${error?.message || error}\n`));
+      }
+      return done();
+    }
     case 'compact': {
       const summary = await compactSession(s, ctx.abort.signal);
       s.compactInto(summary);
@@ -534,6 +806,64 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'share':
       process.stdout.write(shareCommand(rest, s));
       return done();
+    case 'paste': {
+      try {
+        if ((rest[0] ?? '').toLowerCase() === 'image') {
+          const clipboard = await readClipboard();
+          if (clipboard.type !== 'image') {
+            process.stdout.write(theme.warn('clipboard does not contain an image\n'));
+            return done();
+          }
+          process.stdout.write(theme.ok(`✔ pasted clipboard image ${clipboard.content}\n`));
+          return done(false, `"${clipboard.content}"`);
+        }
+
+        const clipboard = await readClipboard();
+        if (clipboard.type !== 'text' || !clipboard.content.trim()) {
+          process.stdout.write(theme.warn('clipboard is empty, unavailable, or not text\n'));
+          return done();
+        }
+        process.stdout.write(theme.dim('pasted clipboard text into the next prompt\n'));
+        return done(false, clipboard.content);
+      } catch (error: any) {
+        process.stdout.write(theme.err(`clipboard: ${error?.message || error}\n`));
+        return done();
+      }
+    }
+    case 'copy': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /copy <text>\n'));
+        return done();
+      }
+      try {
+        await copyTextToClipboard(arg);
+        process.stdout.write(theme.ok('✔ copied text to clipboard\n'));
+      } catch (error: any) {
+        process.stdout.write(theme.err(`clipboard: ${error?.message || error}\n`));
+      }
+      return done();
+    }
+    case 'copy-context': {
+      try {
+        const scope = (rest[0] ?? '').toLowerCase() === 'last' ? 'last' : 'all';
+        const selectedMessages = scope === 'last' ? selectLastExchange(s.state.messages) : s.state.messages;
+        const summary = buildClipboardSystemSummary(s);
+        const fileContext = buildClipboardFileContext(s);
+        const synthetic: ChatCompletionMessageParam[] = [];
+        if (summary) synthetic.push({ role: 'system', content: summary });
+        if (fileContext) synthetic.push({ role: 'system', content: fileContext });
+        const messages = [...synthetic, ...selectedMessages];
+        await copyContextToClipboard(messages);
+        process.stdout.write(
+          theme.ok(
+            `✔ copied ${messages.length} context message${messages.length === 1 ? '' : 's'} to clipboard\n`,
+          ),
+        );
+      } catch (error: any) {
+        process.stdout.write(theme.err(`clipboard: ${error?.message || error}\n`));
+      }
+      return done();
+    }
     case 'handoff': {
       const [subcommand = '', ...subArgs] = rest;
       const action = subcommand.toLowerCase();
@@ -588,7 +918,20 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(theme.ok(`✔ mode → ${next}\n`));
       return done();
     }
-    case 'autopilot':
+    case 'edit-format': {
+      if (!arg) {
+        process.stdout.write(theme.dim(`edit format: ${config.editFormat}\n`));
+        return done();
+      }
+      if (arg !== 'whole' && arg !== 'diff') {
+        process.stdout.write(theme.warn('usage: /edit-format [whole|diff]\n'));
+        return done();
+      }
+      config.editFormat = arg;
+      process.stdout.write(theme.ok(`✔ edit format → ${config.editFormat}\n`));
+      return done();
+    }
+    case 'autopilot': {
       if (!arg) {
         const next = !s.state.autopilotEnabled;
         s.setAutopilotEnabled(next);
@@ -597,6 +940,7 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       }
       await runAutopilot(arg, { session: s, signal: ctx.abort.signal });
       return done();
+    }
     case 'goal': {
       const action = (rest[0] ?? '').toLowerCase();
       if (!arg) {
@@ -764,7 +1108,15 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(routeCommand(arg));
       return done();
     case 'undo':
-      process.stdout.write(await undoCommand(arg.toLowerCase() === 'status' ? 'status' : 'undo'));
+      if (rest[0]?.toLowerCase() === 'status') {
+        process.stdout.write(await undoCommand('status'));
+        return done();
+      }
+      if (rest[0]?.toLowerCase() === 'file' || rest[0]?.toLowerCase() === 'journal') {
+        process.stdout.write(await undoCommand('undo'));
+        return done();
+      }
+      process.stdout.write(await gitUndo({ cwd: s.state.cwd, hard: rest.includes('--hard') }));
       return done();
     case 'redo':
       process.stdout.write(await undoCommand('redo'));
@@ -911,6 +1263,46 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'test':
       process.stdout.write(testCommand(s.state.cwd));
       return done();
+    case 'auto-lint': {
+      const next = resolveToggle(arg, config.autoLint);
+      if (next === undefined) {
+        process.stdout.write(theme.warn('usage: /auto-lint [on|off]\n'));
+        return done();
+      }
+      config.autoLint = next;
+      const detected = detectAutoLintCommand(s.state.cwd);
+      process.stdout.write(
+        theme.ok(
+          `✔ auto-lint → ${next ? 'on' : 'off'}${next && detected ? ` (${detected})` : ''}\n`,
+        ),
+      );
+      return done();
+    }
+    case 'auto-test': {
+      const next = resolveToggle(arg, config.autoTest);
+      if (next === undefined) {
+        process.stdout.write(theme.warn('usage: /auto-test [on|off]\n'));
+        return done();
+      }
+      config.autoTest = next;
+      const detected = detectAutoTestCommand(s.state.cwd);
+      process.stdout.write(
+        theme.ok(
+          `✔ auto-test → ${next ? 'on' : 'off'}${next && detected ? ` (${detected})` : ''}\n`,
+        ),
+      );
+      return done();
+    }
+    case 'auto-fix': {
+      const next = resolveToggle(arg, config.autoFix);
+      if (next === undefined) {
+        process.stdout.write(theme.warn('usage: /auto-fix [on|off]\n'));
+        return done();
+      }
+      config.autoFix = next;
+      process.stdout.write(theme.ok(`✔ auto-fix → ${next ? 'on' : 'off'}\n`));
+      return done();
+    }
     case 'tdd':
       if (!arg) {
         process.stdout.write(theme.warn('usage: /tdd <description>\n       /tdd status\n'));
@@ -960,6 +1352,12 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'retention':
       process.stdout.write(retentionCommand(rest));
       return done();
+    case 'dead-code': {
+      const scanRoot = arg ? path.resolve(s.state.cwd, arg) : s.state.cwd;
+      const report = new DeadCodeDetector().scan(scanRoot);
+      process.stdout.write(formatDeadCodeReport(scanRoot, report));
+      return done();
+    }
     case 'refactor':
       process.stdout.write(refactorCommand(rest, s.state.cwd));
       return done();
@@ -1083,8 +1481,8 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
             `(concurrency=${runner.concurrencyLimit}, timeout=${runner.timeoutMs}ms)\n`,
         ),
       );
-      const results = await runner.runParallel(spec.agents);
-      process.stdout.write(formatParallelResults(results));
+      const result = await runner.runParallel(spec.agents);
+      process.stdout.write(formatParallelResults(result));
       return done();
     }
     case 'explore': {
@@ -1102,6 +1500,38 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'watch':
       process.stdout.write(watchCommand(rest));
       return done();
+    case 'web': {
+      const [rawUrl] = rest;
+      const focus = rawUrl ? arg.slice(rawUrl.length).trim() : '';
+      if (!rawUrl) {
+        process.stdout.write(theme.warn('usage: /web <url> [focus instructions]\n'));
+        return done();
+      }
+
+      try {
+        const parsedUrl = validateWebUrl(rawUrl);
+        const result = await fetchAndConvert(parsedUrl.toString());
+        const bytes = Buffer.byteLength(result.markdown, 'utf8');
+        const content = buildWebContextMessage(parsedUrl.toString(), result.markdown, focus);
+        s.push({ role: 'user', content });
+        process.stdout.write(
+          [
+            `${theme.brand('Web context added')} ${theme.dim(parsedUrl.toString())}`,
+            `  title:  ${result.title}`,
+            `  bytes:  ${bytes}`,
+            `  tokens: ${result.tokens}`,
+            focus ? `  focus:  ${focus}` : '',
+            '',
+          ]
+            .filter(Boolean)
+            .join('\n'),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        process.stdout.write(theme.err(`${message}\n`));
+      }
+      return done();
+    }
     case 'bridge':
       process.stdout.write(await bridgeCommand(rest));
       return done();
@@ -1177,8 +1607,223 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   }
 }
 
-function done(consumed = true, forwardInput?: string): SlashResult {
-  return { handled: true, consumed, forwardInput };
+function done(
+  consumed = true,
+  forwardInput?: string,
+  turnMode: MessageModePrefix | null = null,
+): SlashResult {
+  return {
+    handled: true,
+    consumed,
+    ...(forwardInput !== undefined ? { forwardInput } : {}),
+    ...(turnMode ? { turnMode } : {}),
+  };
+}
+
+async function resolveFeedbackInput(
+  rest: string[],
+  rawArg: string,
+): Promise<{ type: FeedbackType; text: string } | null> {
+  const quickType = (rest[0] ?? '').toLowerCase();
+  if (quickType === 'bug' || quickType === 'feature' || quickType === 'praise') {
+    const text = rawArg.slice(quickType.length).trim();
+    return text ? { type: quickType, text } : null;
+  }
+  if (rawArg) return null;
+
+  const type = await select<FeedbackType>({
+    message: 'Feedback type',
+    choices: [
+      { name: 'Bug report', value: 'bug' },
+      { name: 'Feature request', value: 'feature' },
+      { name: 'Praise', value: 'praise' },
+    ],
+  }).catch(() => null);
+  if (!type) return null;
+
+  const text = await input({
+    message: 'Describe your feedback',
+    validate: (value) => (value.trim() ? true : 'Feedback is required'),
+  }).catch(() => '');
+  return text.trim() ? { type, text: text.trim() } : null;
+}
+
+function resolveToggle(value: string, current: boolean): boolean | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return !current;
+  if (normalized === 'on') return true;
+  if (normalized === 'off') return false;
+  return undefined;
+}
+
+function buildClipboardSystemSummary(session: Session): string {
+  const lines = [
+    'System prompt summary',
+    `Mode: ${session.state.mode}`,
+    `Model: ${session.state.model}`,
+    `Working directory: ${session.state.cwd}`,
+  ];
+  if (session.state.systemPrompt?.trim()) {
+    lines.push(`Custom system prompt: ${truncateMiddle(session.state.systemPrompt.trim(), 400)}`);
+  } else {
+    lines.push('System prompt source: built-in default');
+  }
+  return lines.join('\n');
+}
+
+function buildClipboardFileContext(session: Session): string {
+  const lines = ['File context', `Working directory: ${session.state.cwd}`];
+  const pinned = PinnedContext.fromJSON(session.state.pinned).list();
+  if (pinned.length > 0) {
+    lines.push('Pinned files:');
+    lines.push(...pinned.map((file) => `- ${file.path} (${file.tokens} tokens)`));
+  }
+  const gitContext = session.state.gitContext ?? [];
+  if (gitContext.length > 0) {
+    lines.push('Git context:');
+    lines.push(
+      ...gitContext
+        .slice(0, 10)
+        .map((file) => `- ${file.path}${file.status ? ` [${file.status}]` : ''}`),
+    );
+    if (gitContext.length > 10) lines.push(`- ... ${gitContext.length - 10} more`);
+  }
+  return lines.length > 2 ? lines.join('\n') : '';
+}
+
+function selectLastExchange(messages: ChatCompletionMessageParam[]): ChatCompletionMessageParam[] {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'user') return messages.slice(index);
+  }
+  return messages.slice(-1);
+}
+
+function truncateMiddle(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  const head = Math.ceil((maxLength - 1) / 2);
+  const tail = Math.floor((maxLength - 1) / 2);
+  return `${value.slice(0, head)}…${value.slice(value.length - tail)}`;
+}
+
+async function runSlashShellCommand(
+  command: string,
+  cwd: string,
+): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+  if (!shellCommandAllowed(command, loadPolicy(config.cwd))) {
+    throw new Error('policy denied command execution');
+  }
+  assertSandbox(cwd, config.cwd);
+  const safety = checkCommandSafety(command);
+  if (safety.level === 'critical') {
+    throw new Error(formatSafetyWarning(safety).replace(/\x1B\[[0-9;]*m/g, ''));
+  }
+  if (safety.level === 'warn') {
+    process.stdout.write(`${formatSafetyWarning(safety)}\n`);
+  }
+
+  return new Promise((resolve, reject) => {
+    const isWin = process.platform === 'win32';
+    const shell = isWin ? 'powershell.exe' : 'bash';
+    const args = isWin ? ['-NoProfile', '-Command', command] : ['-lc', command];
+    const child = spawn(shell, args, {
+      cwd,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (exitCode) => {
+      resolve({ exitCode, stdout, stderr });
+    });
+  });
+}
+
+function formatRunResult(
+  command: string,
+  result: { exitCode: number | null; stdout: string; stderr: string },
+): string {
+  const lines = [
+    `${theme.brand('Run')} ${theme.dim(command)}`,
+    `  exit code: ${result.exitCode ?? 'unknown'}`,
+  ];
+  if (result.stdout.trim()) lines.push('', result.stdout.trimEnd());
+  if (result.stderr.trim()) lines.push('', theme.warn('stderr:'), result.stderr.trimEnd());
+  return `${lines.join('\n')}\n`;
+}
+
+function buildRunContextMessage(
+  command: string,
+  result: { exitCode: number | null; stdout: string; stderr: string },
+): string {
+  const content = result.stdout.trim() || result.stderr.trim() || '(no output)';
+  return `Command output from \`${command}\` (exit ${result.exitCode ?? 'unknown'}):\n\n\`\`\`text\n${content}\n\`\`\``;
+}
+
+function buildWebContextMessage(url: string, markdown: string, focus?: string): string {
+  const lines = [`Content from ${url}:`];
+  if (focus) {
+    lines.push(`Focus on: ${focus}`);
+  }
+  lines.push('', markdown);
+  return lines.join('\n');
+}
+
+function formatReadOnlyFiles(files: string[]): string {
+  if (!files.length) return `${theme.dim('No read-only files.\n')}`;
+  const lines = [
+    `${theme.brand('Read-only files')}`,
+    ...files.map((file, index) => `  ${index + 1}. ${file}`),
+    '',
+  ];
+  return lines.join('\n');
+}
+
+function formatScheduledTasks(tasks: ScheduledTask[]): string {
+  if (!tasks.length) return `${theme.dim('No scheduled prompts.\n')}`;
+  const lines = [`${theme.brand('Scheduled prompts')}`];
+  for (const task of tasks) {
+    lines.push(
+      `  ${task.id} ${theme.dim(`[${task.type}]`)} ${task.prompt}`,
+      `    every: ${formatInterval(task.interval)}  next: ${task.nextRun.toISOString()}`,
+    );
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+function formatInterval(interval: number): string {
+  const parts: string[] = [];
+  let remaining = interval;
+  const hours = Math.floor(remaining / (60 * 60 * 1000));
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+    remaining -= hours * 60 * 60 * 1000;
+  }
+  const minutes = Math.floor(remaining / (60 * 1000));
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+    remaining -= minutes * 60 * 1000;
+  }
+  const seconds = Math.floor(remaining / 1000);
+  if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+  return parts.join('');
+}
+
+function formatReasoningConfig(): string {
+  const current = getReasoningConfig();
+  return [
+    theme.brand('Reasoning'),
+    `  effort: ${current.effort ?? 'default'}`,
+    `  think tokens: ${typeof current.thinkTokens === 'number' ? current.thinkTokens : 'disabled'}`,
+    '',
+  ].join('\n');
 }
 
 function handleRoleCommand(rest: string[], roleManager: RoleManager): string {
@@ -1893,16 +2538,51 @@ function normalizeAgentTasks(input: unknown[]): AgentTask[] {
   });
 }
 
-function formatParallelResults(results: AgentResult[]): string {
-  if (!results.length) return `${theme.warn('No agent tasks were provided.')}\n`;
+function formatParallelResults(run: ParallelAgentRunResult): string {
+  if (!run.results.length) return `${theme.warn('No agent tasks were provided.')}\n`;
 
-  const lines = [`${theme.brand('Parallel agent results')}`];
-  for (const result of results) {
+  const lines = [`${theme.brand('Parallel agent results')}`, '', run.aggregated.summary];
+  if (run.aggregated.conflicts.length) {
+    lines.push('', '## Conflicts', ...run.aggregated.conflicts);
+  }
+  lines.push('');
+  for (const result of run.results) {
     const status = result.status === 'success' ? theme.ok('SUCCESS') : theme.err('ERROR');
     lines.push(`${status} ${result.name} ${theme.dim(`(${formatDuration(result.duration)})`)}`);
     lines.push(result.output.trim() || theme.dim('(empty output)'));
     lines.push('');
   }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function formatDeadCodeReport(rootDir: string, report: DeadCodeReport): string {
+  const lines = [
+    `${theme.brand('Dead code report')} ${theme.dim(rootDir)}`,
+    `  scanned: ${theme.hl(String(report.stats.total))} items`,
+    `  unused: ${theme.hl(String(report.stats.unused))} ${theme.dim(`(${report.stats.percentage.toFixed(2)}%)`)}`,
+    '',
+  ];
+
+  if (report.unusedExports.length) {
+    lines.push('Unused exports');
+    for (const entry of report.unusedExports) {
+      lines.push(`  - ${entry.file}:${entry.line} ${entry.name} ${theme.dim(`(${entry.kind})`)}`);
+    }
+    lines.push('');
+  }
+
+  if (report.unusedFiles.length) {
+    lines.push('Unused files');
+    for (const file of report.unusedFiles) {
+      lines.push(`  - ${file}`);
+    }
+    lines.push('');
+  }
+
+  if (!report.unusedExports.length && !report.unusedFiles.length) {
+    lines.push(theme.ok('✔ no unused exports or files detected'), '');
+  }
+
   return `${lines.join('\n').trimEnd()}\n`;
 }
 
@@ -2362,5 +3042,3 @@ function formatStackTraceSummary(
     '',
   ].join('\n');
 }
-
-

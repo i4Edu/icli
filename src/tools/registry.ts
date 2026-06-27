@@ -15,6 +15,7 @@ import { withRetry } from './retry.js';
 import { webFetchTool, WEB_FETCH_SCHEMA } from './web.js';
 import { AuditLogger, type AuditResult } from '../security/audit.js';
 import { RoleManager, defaultRolesConfigPath } from '../security/roles.js';
+import { hookManager } from '../hooks/lifecycle.js';
 
 type McpTools = {
   schemas: ChatCompletionTool[];
@@ -181,30 +182,54 @@ export async function dispatchTool(name: string, args: Record<string, any>): Pro
     recordAudit(name, args, denied, Date.now() - startedAt, 'denied');
     return denied;
   }
+  const preToolHook = await hookManager.emit('preToolUse', {
+    tool: name,
+    args,
+    cwd: config.cwd,
+  });
+  if (preToolHook.action === 'deny') {
+    const denied = JSON.stringify({ error: preToolHook.reason || `tool blocked by hook: ${name}` });
+    recordAudit(name, args, denied, Date.now() - startedAt, 'denied');
+    return denied;
+  }
+  const effectiveArgs =
+    preToolHook.action === 'modify' && preToolHook.modifications
+      ? { ...args, ...coerceHookObject(preToolHook.modifications) }
+      : args;
   try {
-    const builtIn = await withRetry(() => dispatchBuiltIn(name, args));
+    const builtIn = await withRetry(() => dispatchBuiltIn(name, effectiveArgs));
     if (builtIn !== undefined) {
-      recordAudit(name, args, builtIn, Date.now() - startedAt);
-      return builtIn;
+      const hookedOutput = await applyPostToolHook(name, effectiveArgs, builtIn, startedAt);
+      recordAudit(name, effectiveArgs, hookedOutput, Date.now() - startedAt);
+      return hookedOutput;
     }
     const mcp = await getMcpToolsSafe();
     if (mcp) {
-      const out = await mcp.dispatch(name, args);
-      recordAudit(name, args, out, Date.now() - startedAt);
-      return out;
+      const out = await mcp.dispatch(name, effectiveArgs);
+      const hookedOutput = await applyPostToolHook(name, effectiveArgs, out, startedAt);
+      recordAudit(name, effectiveArgs, hookedOutput, Date.now() - startedAt);
+      return hookedOutput;
     }
     const out = JSON.stringify({ error: `unknown tool: ${name}` });
-    recordAudit(name, args, out, Date.now() - startedAt, 'failure');
-    return out;
+    const hookedOutput = await applyPostToolHook(name, effectiveArgs, out, startedAt);
+    recordAudit(name, effectiveArgs, hookedOutput, Date.now() - startedAt, 'failure');
+    return hookedOutput;
   } catch (error: unknown) {
     auditLogger.log({
       action: 'tool.execute',
       tool: name,
-      command: extractCommand(name, args),
-      args,
+      command: extractCommand(name, effectiveArgs),
+      args: effectiveArgs,
       result: 'failure',
       duration: Date.now() - startedAt,
       details: formatErrorMessage(error),
+    });
+    await hookManager.emit('errorOccurred', {
+      scope: 'tool',
+      tool: name,
+      args: effectiveArgs,
+      cwd: config.cwd,
+      message: formatErrorMessage(error),
     });
     throw error;
   }
@@ -480,4 +505,32 @@ function tryParseJson(value: string): any {
 
 function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function applyPostToolHook(
+  name: string,
+  args: Record<string, any>,
+  output: string,
+  startedAt: number,
+): Promise<string> {
+  const hookResult = await hookManager.emit('postToolUse', {
+    tool: name,
+    args,
+    output,
+    cwd: config.cwd,
+    duration: Date.now() - startedAt,
+  });
+  if (hookResult.action !== 'modify' || !hookResult.modifications) return output;
+  const modifications = coerceHookObject(hookResult.modifications);
+  if (typeof modifications.output === 'string') return modifications.output;
+  if (modifications.result && typeof modifications.result === 'object') {
+    return JSON.stringify(modifications.result);
+  }
+  return output;
+}
+
+function coerceHookObject(value: object): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
 }

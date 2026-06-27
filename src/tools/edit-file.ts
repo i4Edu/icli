@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { config } from '../config.js';
+import type { AutoCheckResult } from './auto-check.js';
 import { proposeWrite } from './file-ops.js';
 
 export interface EditFileArgs {
@@ -16,6 +17,7 @@ export interface EditFileResult {
   linesReplaced: number;
   newLineCount: number;
   error?: string;
+  autoLint?: AutoCheckResult;
 }
 
 export async function editFileTool(args: EditFileArgs): Promise<string> {
@@ -78,7 +80,7 @@ export async function editFileTool(args: EditFileArgs): Promise<string> {
       );
     }
 
-    return JSON.stringify(result(true, linesReplaced, newLines.length));
+    return JSON.stringify(result(true, linesReplaced, newLines.length, undefined, write.autoLint));
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);
     return JSON.stringify(result(false, linesReplaced, newLines.length, message));
@@ -108,6 +110,8 @@ function result(
   linesReplaced: number,
   newLineCount: number,
   error?: string,
+  autoLint?: AutoCheckResult,
 ): EditFileResult {
-  return error ? { ok, linesReplaced, newLineCount, error } : { ok, linesReplaced, newLineCount };
+  const base = error ? { ok, linesReplaced, newLineCount, error } : { ok, linesReplaced, newLineCount };
+  return autoLint ? { ...base, autoLint } : base;
 }

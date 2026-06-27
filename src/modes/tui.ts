@@ -16,6 +16,7 @@ import { handlePostTurnContextBudget } from './auto-compact.js';
 import { backgroundTaskManager } from './background.js';
 import { runAutopilot } from './autopilot.js';
 import { runTurn } from './turn.js';
+import { hookManager } from '../hooks/lifecycle.js';
 
 const VERSION = '1.3.0';
 const FRAME_MS = 33;
@@ -25,6 +26,12 @@ type StdoutWrite = typeof process.stdout.write;
 export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void> {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
+  await hookManager.emit('sessionStart', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    mode: session.state.mode,
+    model: session.state.model,
+  });
   const metrics = new MetricsCollector();
   const originalWrite = process.stdout.write.bind(process.stdout) as StdoutWrite;
   const writeRaw = (text: string) => {
@@ -45,6 +52,7 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
   let cleaned = false;
   let frame: NodeJS.Timeout | undefined;
   let currentAbort: AbortController | null = null;
+  const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -129,9 +137,12 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
     process.stdout.write = originalWrite;
   };
 
-  const handleLine = async (line: string) => {
+  const handleLine = async (line: string, scheduled = false) => {
     if (busy) {
-      chat += '\n(system) still working; wait for the current turn to finish.\n';
+      pendingInputs.push({ line, scheduled });
+      chat += scheduled
+        ? `\n(system) queued scheduled prompt: ${line}\n`
+        : '\n(system) still working; prompt queued.\n';
       markDirty();
       return;
     }
@@ -142,7 +153,7 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
     busy = true;
     currentAbort = new AbortController();
     const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
-    chat += `\n❯ ${line}\n`;
+    chat += `\n${scheduled ? '⏱' : '❯'} ${line}\n`;
     markDirty();
 
     try {
@@ -151,6 +162,7 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
         session,
         abort: currentAbort,
         metrics,
+        schedulePrompt: (prompt) => void handleLine(prompt, true),
         exit: () => {
           running = false;
         },
@@ -169,7 +181,9 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
           return;
         }
 
-        if (session.state.autopilotEnabled) {
+        const turnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null }).turnMode;
+
+        if (session.state.autopilotEnabled && !turnMode) {
           await runAutopilot(forwardInput, {
             session,
             signal: currentAbort.signal,
@@ -180,12 +194,18 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
             userInput: forwardInput,
             metrics,
             signal: currentAbort.signal,
+            turnMode: turnMode ?? undefined,
           });
         }
         await handlePostTurnContextBudget(session, currentAbort.signal);
       }
     } catch (err: any) {
       if (err?.name !== 'AbortError' && !currentAbort.signal.aborted) {
+        await hookManager.emit('errorOccurred', {
+          scope: 'tui',
+          sessionId: session.state.id,
+          message: err?.message || String(err),
+        });
         chat += `\nerror: ${err?.message || err}\n`;
       }
     } finally {
@@ -193,6 +213,8 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
       currentAbort = null;
       busy = false;
       markDirty();
+      const next = pendingInputs.shift();
+      if (next) void handleLine(next.line, next.scheduled);
       if (!running) cleanup();
     }
   };
@@ -224,6 +246,12 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
     });
   } finally {
     if (running) cleanup();
+    await hookManager.emit('sessionEnd', {
+      sessionId: session.state.id,
+      cwd: session.state.cwd,
+      mode: session.state.mode,
+      model: session.state.model,
+    });
   }
 }
 

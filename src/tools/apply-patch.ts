@@ -4,10 +4,13 @@ import { checkbox } from '@inquirer/prompts';
 import { applyPatch, parsePatch } from 'diff';
 import type { Hunk, ParsedDiff } from 'diff';
 import { config } from '../config.js';
+import { hookManager } from '../hooks/lifecycle.js';
 import { theme } from '../ui/theme.js';
+import { formatAutoCheckResult, runAutoLint, type AutoCheckResult } from './auto-check.js';
 import { loadPolicy, writePathAllowed } from './policy.js';
 import { assertSandbox } from './sandbox.js';
 import { toolMemory } from './memory.js';
+import { ensureWriteAllowed } from './file-ops.js';
 
 interface ApplyPatchArgs {
   patch: string;
@@ -57,6 +60,15 @@ export async function applyPatchTool(args: ApplyPatchArgs): Promise<string> {
     const relPath = normalizePatchPath(displayPath(filePatch));
     const abs = path.resolve(config.cwd, relPath);
     try {
+      const denied = ensureWriteAllowed(abs);
+      if (denied) {
+        skipped.push({
+          path: relPath,
+          hunks: selectedHunks.map(({ hunkIndex }) => hunkIndex),
+          reason: denied,
+        });
+        continue;
+      }
       assertSandbox(abs, config.cwd);
       if (!toolMemory.isWriteRemembered(abs) && !writePathAllowed(abs, policy, config.cwd)) {
         skipped.push({
@@ -78,13 +90,20 @@ export async function applyPatchTool(args: ApplyPatchArgs): Promise<string> {
       }
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, next, 'utf8');
+      await hookManager.emit('fileChanged', {
+        cwd: config.cwd,
+        path: relPath,
+        absolutePath: abs,
+      });
       applied.push({ path: relPath, hunks: selectedHunks.map(({ hunkIndex }) => hunkIndex) });
     } catch (e: any) {
       errors.push({ path: relPath, error: e?.message || String(e) });
     }
   }
 
-  return JSON.stringify({ applied, skipped, errors });
+  const changedFiles = applied.map((entry) => entry.path);
+  const autoLint = errors.length === 0 ? await maybeRunAutoLint(changedFiles) : undefined;
+  return JSON.stringify({ applied, skipped, errors, ...(autoLint ? { autoLint } : {}) });
 }
 
 function clonePatchWithHunks(filePatch: ParsedDiff, hunks: Hunk[]): ParsedDiff {
@@ -119,4 +138,13 @@ function colorizePatch(p: string): string {
       return l;
     })
     .join('\n');
+}
+
+async function maybeRunAutoLint(changedFiles: string[]): Promise<AutoCheckResult | undefined> {
+  if (!config.autoLint || changedFiles.length === 0) return undefined;
+  const result = await runAutoLint(changedFiles);
+  if (!config.quiet && !config.jsonOutput) {
+    process.stdout.write(`${theme.dim(formatAutoCheckResult('lint', result, changedFiles))}\n`);
+  }
+  return result;
 }

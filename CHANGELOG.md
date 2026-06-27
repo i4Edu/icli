@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] — 2026-06-28
+
+### Added — v2.1 Competitive Parity
+- **Image input** — vision model detection, base64 encoding, screenshot context (`src/context/image-input.ts`)
+- **Git undo** — AI commit tracking with `git reset --soft` and safety guards (`src/commands/git-undo-cmd.ts`)
+- **Web scraping** — `/web <url> [focus]` with HTML→markdown conversion (`src/commands/web-cmd.ts`)
+- **Lifecycle hooks** — 10 event types with preToolUse deny/modify via JSON stdin/stdout (`src/hooks/lifecycle.ts`)
+- **Diff-based editing** — SEARCH/REPLACE blocks with fuzzy matching and `/edit-format` (`src/tools/diff-edit.ts`)
+- **External editor** — `$VISUAL`/`$EDITOR` detection with `.md` temp files (`src/commands/editor-cmd.ts`)
+- **Reasoning control** — `/reasoning` and `/think-tokens` with API wiring (`src/commands/reasoning-cmd.ts`)
+- **Auto-lint & auto-test** — run linter/tests after AI edits with auto-fix loop (`src/tools/auto-check.ts`)
+- **Per-message mode switching** — `/ask`, `/code`, `/architect` per-turn prefixes (`src/commands/mode-prefix.ts`)
+- **Mid-session diff** — `/changes` with per-turn git snapshots (`src/commands/changes-cmd.ts`)
+- **Runtime settings** — `/settings KEY VALUE` with `~/.icopilotrc.json` persistence (`src/commands/settings-cmd.ts`)
+- **User feedback** — `/feedback` with offline storage and optional GitHub issue (`src/commands/feedback-cmd.ts`)
+- **Context visualization** — visual `/context` usage view + `/usage` alias (`src/commands/context-viz-cmd.ts`)
+- **Auto-memory** — AI self-learning with 28-day retention and `/memory auto` (`src/knowledge/auto-memory.ts`)
+- **Scheduled prompts** — `/every` and `/after` for recurring/delayed tasks (`src/commands/schedule-cmd.ts`)
+- **Read-only files** — `/read-only` with file protection (`src/commands/schedule-cmd.ts`)
+- **Clipboard operations** — `/paste`, `/copy-context`, `/run` with output injection (`src/commands/clipboard-cmd.ts`)
+
+### Fixed
+- Wiring issues: `/dead-code` handler, `--perf-trace` flag, completion deduplication, aggregator integration
+- Slash test assertion for `/copy-context` return shape
+
 ## [2.0.0] — 2026-06-27
 
 ### Added — v1.4 Multi-Agent Orchestration

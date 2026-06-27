@@ -6,9 +6,22 @@ import { config } from '../config.js';
 import type { TodoItem } from '../commands/todo-cmd.js';
 import type { PinnedFile } from '../context/pinned.js';
 import { GitContextProvider, type GitFile } from '../context/git-context.js';
+import { hookManager } from '../hooks/lifecycle.js';
 import { countTokensSync } from '../util/tokens.js';
 
 export type Mode = 'ask' | 'plan';
+
+export interface GitTurnSnapshot {
+  turnIndex: number;
+  ref: string;
+  createdAt: string;
+}
+
+export interface ChangeTrackingState {
+  sessionStartRef: string;
+  sessionStartAt: string;
+  turnSnapshots: GitTurnSnapshot[];
+}
 
 export interface SessionState {
   id: string;
@@ -22,6 +35,7 @@ export interface SessionState {
   systemPrompt?: string;
   pinned: PinnedFile[];
   gitContext: GitFile[];
+  changeTracking?: ChangeTrackingState;
 }
 
 export interface SessionListItem {
@@ -51,6 +65,7 @@ export class Session {
       systemPrompt: typeof init?.systemPrompt === 'string' ? init.systemPrompt : undefined,
       pinned: normalizePinnedFiles(init?.pinned),
       gitContext: normalizeGitContext(init?.gitContext),
+      changeTracking: normalizeChangeTracking(init?.changeTracking),
     };
     fs.mkdirSync(config.sessionDir, { recursive: true });
     this.file = path.join(config.sessionDir, `${id}.json`);
@@ -113,8 +128,20 @@ export class Session {
     this.persist();
   }
   setCwd(p: string) {
+    const previousCwd = this.state.cwd;
     this.state.cwd = p;
+    config.cwd = p;
     this.persist();
+    if (previousCwd !== p) {
+      void hookManager.loadHooks(p).then(() =>
+        hookManager.emit('cwdChanged', {
+          sessionId: this.state.id,
+          previousCwd,
+          newCwd: p,
+          source: 'session',
+        }),
+      );
+    }
   }
 
   setAutopilotEnabled(enabled: boolean) {
@@ -291,4 +318,42 @@ function normalizeGitContext(data: unknown): GitFile[] {
       },
     ];
   });
+}
+
+function normalizeChangeTracking(data: unknown): ChangeTrackingState | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const candidate = data as Partial<ChangeTrackingState>;
+  if (
+    typeof candidate.sessionStartRef !== 'string' ||
+    typeof candidate.sessionStartAt !== 'string' ||
+    !Array.isArray(candidate.turnSnapshots)
+  ) {
+    return undefined;
+  }
+
+  const turnSnapshots = candidate.turnSnapshots.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const snapshot = entry as Partial<GitTurnSnapshot>;
+    if (
+      typeof snapshot.turnIndex !== 'number' ||
+      !Number.isInteger(snapshot.turnIndex) ||
+      typeof snapshot.ref !== 'string' ||
+      typeof snapshot.createdAt !== 'string'
+    ) {
+      return [];
+    }
+    return [
+      {
+        turnIndex: snapshot.turnIndex,
+        ref: snapshot.ref,
+        createdAt: snapshot.createdAt,
+      },
+    ];
+  });
+
+  return {
+    sessionStartRef: candidate.sessionStartRef,
+    sessionStartAt: candidate.sessionStartAt,
+    turnSnapshots,
+  };
 }

@@ -29,7 +29,7 @@ describe('ParallelAgentRunner', () => {
       onProgress: (event) => progress.push(event),
     });
 
-    const results = await runner.runParallel(tasks);
+    const { results, aggregated } = await runner.runParallel(tasks);
 
     expect(maxActive).toBe(2);
     expect(results).toEqual([
@@ -39,6 +39,7 @@ describe('ParallelAgentRunner', () => {
     ]);
     expect(progress.filter((event) => event.status === 'started')).toHaveLength(3);
     expect(progress.filter((event) => event.status === 'success')).toHaveLength(3);
+    expect(aggregated.summary).toContain('first done');
   });
 
   it('returns per-agent errors without failing the whole batch', async () => {
@@ -52,13 +53,15 @@ describe('ParallelAgentRunner', () => {
       },
     });
 
-    const results = await runner.runParallel([
+    const { results, aggregated } = await runner.runParallel([
       { name: 'healthy', type: 'task', prompt: 'ok' },
       { name: 'broken', type: 'review', prompt: 'fail' },
     ]);
 
     expect(results[0]).toEqual(expect.objectContaining({ name: 'healthy', status: 'success', output: 'healthy ok' }));
     expect(results[1]).toEqual(expect.objectContaining({ name: 'broken', status: 'error', output: 'boom' }));
+    expect(aggregated.summary).toContain('healthy ok');
+    expect(aggregated.summary).not.toContain('boom');
   });
 
   it('aborts agents that exceed the timeout and falls back to the built-in system prompt', async () => {
@@ -79,10 +82,14 @@ describe('ParallelAgentRunner', () => {
       executeTask,
     });
 
-    const [result] = await runner.runParallel([{ name: 'planner', type: 'plan', prompt: 'outline the rollout' }]);
+    const { results, aggregated } = await runner.runParallel([
+      { name: 'planner', type: 'plan', prompt: 'outline the rollout' },
+    ]);
+    const [result] = results;
 
     expect(executeTask).toHaveBeenCalledTimes(1);
     expect(result.status).toBe('error');
     expect(result.output).toContain('Timed out after 20ms');
+    expect(aggregated.summary).toContain('No agent results available');
   });
 });

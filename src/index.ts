@@ -1,5 +1,5 @@
 import './util/perf.js';
-import { markFirstPrompt } from './util/perf.js';
+import { enablePerfTrace, markFirstPrompt } from './util/perf.js';
 import path from 'node:path';
 import { Command } from 'commander';
 import { runInteractive } from './modes/interactive.js';
@@ -10,6 +10,7 @@ import { config, setProvider } from './config.js';
 import { DEFAULT_API_PORT, getGlobalAPIServer, stopGlobalAPIServer } from './server/api-server.js';
 import { theme } from './ui/theme.js';
 import { logger } from './logger.js';
+import { hookManager, initializeLifecycleHooks } from './hooks/lifecycle.js';
 import { hookCommand } from './hooks/precommit.js';
 import { Marketplace } from './plugins/marketplace.js';
 
@@ -34,7 +35,9 @@ function friendlyError(err: any): string {
   return `fatal: ${logger.redact(message)}`;
 }
 
-export function applyCliOptions(opts: any): void {
+export function applyCliOptions(opts: any): { previousCwd?: string } {
+  let previousCwd: string | undefined;
+  if (opts.perfTrace) enablePerfTrace();
   if (opts.verbose) {
     config.verbose = true;
     config.logLevel = 'debug';
@@ -60,6 +63,7 @@ export function applyCliOptions(opts: any): void {
 
   if (opts.cwd) {
     try {
+      previousCwd = config.cwd;
       process.chdir(opts.cwd);
       config.cwd = process.cwd();
     } catch (e: any) {
@@ -68,10 +72,19 @@ export function applyCliOptions(opts: any): void {
     }
   }
   if (opts.model) config.defaultModel = opts.model;
+  return { previousCwd };
 }
 
 export async function run(opts: any): Promise<void> {
-  applyCliOptions(opts);
+  const { previousCwd } = applyCliOptions(opts);
+  await initializeLifecycleHooks(config.cwd);
+  if (previousCwd && previousCwd !== config.cwd) {
+    await hookManager.emit('cwdChanged', {
+      previousCwd,
+      newCwd: config.cwd,
+      source: 'cli-option',
+    });
+  }
 
   if (opts.serve !== undefined) {
     const port = normalizeServePort(opts.serve);
@@ -96,7 +109,7 @@ export async function run(opts: any): Promise<void> {
   }
 
   if (opts.prompt) {
-    markFirstPrompt('startup');
+    markFirstPrompt();
     if (opts.autopilot) {
       await runAutopilot(opts.prompt, { model: opts.model, cwd: config.cwd });
       return;
@@ -107,7 +120,7 @@ export async function run(opts: any): Promise<void> {
   if (opts.autopilot) {
     throw new Error('--autopilot requires --prompt.');
   }
-  markFirstPrompt('startup');
+  markFirstPrompt();
   if (opts.tui) {
     await runTui(opts.plan ? 'plan' : 'ask');
     return;
@@ -185,6 +198,10 @@ export function createProgram(): Command {
     try {
       await run(opts);
     } catch (err) {
+      await hookManager.emit('errorOccurred', {
+        scope: 'cli',
+        message: err instanceof Error ? err.message : String(err),
+      });
       process.stderr.write(theme.err(friendlyError(err)) + '\n');
       process.exit(1);
     }
@@ -212,8 +229,15 @@ if (process.env.ICOPILOT_DISABLE_AUTO_MAIN !== '1') {
 
   if (launchedFromBin || entry) {
     main().catch((err) => {
-      process.stderr.write(theme.err(friendlyError(err)) + '\n');
-      process.exit(1);
+      hookManager
+        .emit('errorOccurred', {
+          scope: 'main',
+          message: err instanceof Error ? err.message : String(err),
+        })
+        .finally(() => {
+          process.stderr.write(theme.err(friendlyError(err)) + '\n');
+          process.exit(1);
+        });
     });
   }
 }

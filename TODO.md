@@ -200,6 +200,63 @@
 - ✅ Code generation with tests — auto-generate test file for new modules
 - ✅ Live error watching — monitor build output, auto-suggest fixes
 - ✅ Stack trace analysis — AI-powered root cause diagnosis
+
+## Phase 18 — Workflow Automation (v1.7) ✅
+
+- ✅ Workflow definitions — `.icopilot/workflows/*.yaml` declarative task chains
+- ✅ Built-in workflows — `review-and-commit`, `test-fix-loop`, `release-prep`
+- ✅ Conditional steps — if/then/else based on tool outputs
+- ✅ Loop constructs — repeat steps until condition met
+- ✅ GitHub Actions helper — generate/edit workflow YAML from natural language
+- ✅ Pipeline debugging — analyze CI failure logs and suggest fixes
+- ✅ Pre-commit hook — optional git hook running `/review` + `/security` before commit
+
+## Phase 19 — Knowledge & Learning (v1.8) ✅
+
+- ✅ Knowledge graph — project-wide entity/relationship graph
+- ✅ Semantic code search — natural language queries over codebase
+- ✅ Learning system — track successful approaches, prefer them in future
+- ✅ Pattern recognition — detect recurring code patterns and suggest abstractions
+- ✅ Documentation generation — auto-generate docs from code analysis
+
+## Phase 20 — Enterprise & Security (v1.9) ✅
+
+- ✅ Audit logging — structured logs for compliance
+- ✅ Policy enforcement — organization-level guardrails
+- ✅ Secrets detection — scan for leaked credentials/tokens
+- ✅ RBAC integration — role-based command access
+- ✅ Compliance reporting — generate security/compliance reports
+
+## Phase 21 — The Complete Agentic OS (v2.0) ✅
+
+- ✅ Goal-driven development — end-to-end feature implementation
+- ✅ Self-healing builds — detect, diagnose, fix build failures automatically
+- ✅ Test-driven agent — write tests first, implement until green
+- ✅ Multi-repo orchestration — coordinate changes across repositories
+- ✅ Chain-of-thought planning — visible reasoning with intervention points
+- ✅ Custom model providers — plug in any OpenAI-compatible endpoint
+- ✅ API server mode — expose iCopilot as HTTP API
+- ✅ Multi-language REPL — execute Python/JS/Rust snippets inline
+
+## Phase 22 — Competitive Parity (v2.1) ✅
+
+- ✅ Image input — vision model detection, base64 encoding, screenshot context
+- ✅ Git undo — AI commit tracking, `git reset --soft`, safety guards
+- ✅ Web scraping — `/web <url> [focus]`, HTML→markdown, truncation
+- ✅ Lifecycle hooks — 10 event types, preToolUse deny/modify, JSON stdin/stdout
+- ✅ Diff-based editing — SEARCH/REPLACE parsing, fuzzy matching, `/edit-format`
+- ✅ External editor — `$VISUAL`/`$EDITOR` detection, `.md` temp files
+- ✅ Reasoning control — `/reasoning`, `/think-tokens`, API wiring
+- ✅ Auto-lint & auto-test — run linter/tests after AI edits, auto-fix loop
+- ✅ Per-message mode switching — `/ask`, `/code`, `/architect` prefixes
+- ✅ Mid-session diff — `/changes` with per-turn git snapshots
+- ✅ Runtime settings — `/settings KEY VALUE`, `~/.icopilotrc.json` persistence
+- ✅ User feedback — `/feedback` with offline storage, optional GitHub issue
+- ✅ Context visualization — visual `/context` usage view + `/usage` alias
+- ✅ Auto-memory — AI self-learning with 28-day retention, `/memory auto`
+- ✅ Scheduled prompts — `/every`, `/after` for recurring/delayed tasks
+- ✅ Read-only files — `/read-only` with file protection
+- ✅ Clipboard operations — `/paste`, `/copy-context`, `/run` with output injection
 - ✅ Dead code detection — identify unused exports/functions
 
 ## Phase 18 — Workflow Automation (v1.7) ✅

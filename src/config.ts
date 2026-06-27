@@ -6,12 +6,16 @@ import { providerRegistry, resolveProviderApiKey } from './providers/custom-prov
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type ThemeName = 'auto' | 'light' | 'dark' | 'none';
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
 
 export interface Config {
   provider: string;
   endpoint: string;
   token: string | undefined;
   defaultModel: string;
+  editFormat: 'whole' | 'diff';
+  autoLint: boolean;
+  autoTest: boolean;
   sessionDir: string;
   // Conservative cap; real ceiling depends on selected model.
   contextWindow: number;
@@ -28,6 +32,11 @@ export interface Config {
   jsonOutput: boolean;
   quiet: boolean;
   autoApprove: boolean;
+  autoFix: boolean;
+  lintCmd: string;
+  testCmd: string;
+  reasoningEffort?: ReasoningEffort;
+  thinkTokens?: number;
 }
 
 const HOME = os.homedir();
@@ -37,6 +46,9 @@ const DEFAULT_CONFIG: Config = {
   endpoint: 'https://models.inference.ai.azure.com',
   token: undefined,
   defaultModel: 'gpt-4o-mini',
+  editFormat: 'diff',
+  autoLint: false,
+  autoTest: false,
   sessionDir: path.join(HOME, '.terminal-copilot', 'sessions'),
   contextWindow: 120_000,
   contextWarn: 0.75,
@@ -51,6 +63,11 @@ const DEFAULT_CONFIG: Config = {
   jsonOutput: false,
   quiet: false,
   autoApprove: false,
+  autoFix: true,
+  lintCmd: '',
+  testCmd: '',
+  reasoningEffort: undefined,
+  thinkTokens: undefined,
 };
 
 function parseBool(value: string | undefined): boolean | undefined {
@@ -72,12 +89,43 @@ function parseTheme(value: unknown): ThemeName | undefined {
     : undefined;
 }
 
+function parseEditFormat(value: unknown): Config['editFormat'] | undefined {
+  return value === 'whole' || value === 'diff' ? value : undefined;
+}
+
+function parseReasoningEffort(value: unknown): ReasoningEffort | undefined {
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'max'
+    ? value
+    : undefined;
+}
+
+function parseThinkTokens(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+    return Math.floor(value);
+  }
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)([kKmM]?)$/);
+  if (!match) return undefined;
+  const amount = Number(match[1]);
+  if (!Number.isFinite(amount) || amount < 0) return undefined;
+  const suffix = match[2].toLowerCase();
+  const multiplier = suffix === 'k' ? 1024 : suffix === 'm' ? 1024 * 1024 : 1;
+  return Math.round(amount * multiplier);
+}
+
 function normalizeConfig(raw: Record<string, unknown>): Partial<Config> {
   const out: Partial<Config> = {};
   if (typeof raw.provider === 'string') out.provider = raw.provider;
   if (typeof raw.endpoint === 'string') out.endpoint = raw.endpoint;
   if (typeof raw.token === 'string') out.token = raw.token;
   if (typeof raw.defaultModel === 'string') out.defaultModel = raw.defaultModel;
+  if (typeof raw.model === 'string') out.defaultModel = raw.model;
+  const editFormat = parseEditFormat(raw.editFormat);
+  if (editFormat) out.editFormat = editFormat;
+  if (typeof raw.autoLint === 'boolean') out.autoLint = raw.autoLint;
+  if (typeof raw.autoTest === 'boolean') out.autoTest = raw.autoTest;
   if (typeof raw.sessionDir === 'string') out.sessionDir = raw.sessionDir;
   if (typeof raw.contextWindow === 'number') out.contextWindow = raw.contextWindow;
   if (typeof raw.contextWarn === 'number') out.contextWarn = raw.contextWarn;
@@ -90,15 +138,33 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<Config> {
   if (typeof raw.jsonOutput === 'boolean') out.jsonOutput = raw.jsonOutput;
   if (typeof raw.quiet === 'boolean') out.quiet = raw.quiet;
   if (typeof raw.autoApprove === 'boolean') out.autoApprove = raw.autoApprove;
+  if (typeof raw.autoFix === 'boolean') out.autoFix = raw.autoFix;
+  if (typeof raw.lintCmd === 'string') out.lintCmd = raw.lintCmd;
+  if (typeof raw.testCmd === 'string') out.testCmd = raw.testCmd;
   const logLevel = parseLogLevel(raw.logLevel);
   if (logLevel) out.logLevel = logLevel;
   const theme = parseTheme(raw.theme);
   if (theme) out.theme = theme;
+  const reasoningEffort = parseReasoningEffort(raw.reasoningEffort);
+  if (reasoningEffort) out.reasoningEffort = reasoningEffort;
+  const thinkTokens = parseThinkTokens(raw.thinkTokens);
+  if (thinkTokens !== undefined) out.thinkTokens = thinkTokens;
   return out;
 }
 
+export function rcFilePath(): string {
+  const configured = process.env.ICOPILOT_RC_PATH || path.join(HOME, '.icopilotrc.json');
+  if (configured === '~') return os.homedir();
+  if (/^~[\\/]/.test(configured)) return path.join(os.homedir(), configured.slice(2));
+  return path.resolve(configured);
+}
+
+export function getDefaultConfig(): Config {
+  return { ...DEFAULT_CONFIG };
+}
+
 export function loadRcFile(): Partial<Config> {
-  const rcPath = path.join(HOME, '.icopilotrc.json');
+  const rcPath = rcFilePath();
   try {
     if (!fs.existsSync(rcPath)) return {};
     const parsed = JSON.parse(fs.readFileSync(rcPath, 'utf8'));
@@ -118,6 +184,12 @@ function envConfig(): Partial<Config> {
   if (process.env.ICOPILOT_ENDPOINT) out.endpoint = process.env.ICOPILOT_ENDPOINT;
   if (process.env.ICOPILOT_TOKEN) out.token = process.env.ICOPILOT_TOKEN;
   if (process.env.ICOPILOT_MODEL) out.defaultModel = process.env.ICOPILOT_MODEL;
+  const editFormat = parseEditFormat(process.env.ICOPILOT_EDIT_FORMAT);
+  if (editFormat) out.editFormat = editFormat;
+  const autoLint = parseBool(process.env.ICOPILOT_AUTO_LINT);
+  if (autoLint !== undefined) out.autoLint = autoLint;
+  const autoTest = parseBool(process.env.ICOPILOT_AUTO_TEST);
+  if (autoTest !== undefined) out.autoTest = autoTest;
   if (process.env.ICOPILOT_SESSION_DIR) out.sessionDir = process.env.ICOPILOT_SESSION_DIR;
   if (process.env.ICOPILOT_CTX_WINDOW) out.contextWindow = Number(process.env.ICOPILOT_CTX_WINDOW);
   const autoCompact = parseBool(process.env.ICOPILOT_AUTO_COMPACT);
@@ -140,6 +212,14 @@ function envConfig(): Partial<Config> {
   if (quiet !== undefined) out.quiet = quiet;
   const autoApprove = parseBool(process.env.ICOPILOT_AUTO_APPROVE);
   if (autoApprove !== undefined) out.autoApprove = autoApprove;
+  const autoFix = parseBool(process.env.ICOPILOT_AUTO_FIX);
+  if (autoFix !== undefined) out.autoFix = autoFix;
+  if (process.env.ICOPILOT_LINT_CMD) out.lintCmd = process.env.ICOPILOT_LINT_CMD;
+  if (process.env.ICOPILOT_TEST_CMD) out.testCmd = process.env.ICOPILOT_TEST_CMD;
+  const reasoningEffort = parseReasoningEffort(process.env.ICOPILOT_REASONING_EFFORT);
+  if (reasoningEffort) out.reasoningEffort = reasoningEffort;
+  const thinkTokens = parseThinkTokens(process.env.ICOPILOT_THINK_TOKENS);
+  if (thinkTokens !== undefined) out.thinkTokens = thinkTokens;
   return out;
 }
 

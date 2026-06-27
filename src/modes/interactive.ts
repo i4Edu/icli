@@ -9,12 +9,19 @@ import { handlePostTurnContextBudget } from './auto-compact.js';
 import { runTurn } from './turn.js';
 import { config } from '../config.js';
 import { backgroundTaskManager } from './background.js';
+import { hookManager } from '../hooks/lifecycle.js';
 
 const VERSION = '1.3.0';
 
 export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
+  await hookManager.emit('sessionStart', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    mode: session.state.mode,
+    model: session.state.model,
+  });
   const metrics = new MetricsCollector();
   if (!config.quiet) {
     process.stdout.write(banner(VERSION, session.state.model));
@@ -22,7 +29,9 @@ export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
   const rl = createPrompt();
 
   let running = true;
+  let processing = false;
   let currentAbort: AbortController | null = null;
+  const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
 
   // SIGINT: abort streaming, but never exit (unless pressed at idle twice).
   let lastSigintAt = 0;
@@ -37,76 +46,128 @@ export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
       process.stdout.write(theme.dim('\nbye.\n'));
       running = false;
       rl.close();
-      process.exit(0);
+      return;
     }
     lastSigintAt = now;
     process.stdout.write(theme.dim('\n(press Ctrl-C again to exit)\n'));
   };
   process.on('SIGINT', onSigint);
 
-  while (running) {
-    let line: string;
-    try {
-      line = await rl.read(prefix(session.state.mode));
-    } catch {
-      break;
-    }
-    if (!line || !line.trim()) continue;
+  const enqueueInput = (line: string, scheduled = false) => {
+    pendingInputs.push({ line, scheduled });
+    void processQueue();
+  };
 
-    const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
-    currentAbort = new AbortController();
+  const processQueue = async () => {
+    if (processing) return;
+    processing = true;
     try {
-      const slash = await handleSlash(resolvedLine, {
-        session,
-        abort: currentAbort,
-        metrics,
-        exit: () => {
-          running = false;
-        },
-      });
-      if (slash.consumed) continue;
+      while (running && pendingInputs.length) {
+        const next = pendingInputs.shift();
+        if (!next) continue;
+        const resolvedLine = resolveAlias(next.line, loadAliases()) ?? next.line;
+        currentAbort = new AbortController();
+        try {
+          if (next.scheduled) {
+            process.stdout.write(theme.dim(`\n[schedule] ${next.line}\n`));
+          }
+          const slash = await handleSlash(resolvedLine, {
+            session,
+            abort: currentAbort,
+            metrics,
+            schedulePrompt: (prompt) => enqueueInput(prompt, true),
+            exit: () => {
+              running = false;
+            },
+          });
+          if (slash.consumed) continue;
 
-      const trimmedLine = resolvedLine.trim();
-      if (trimmedLine.endsWith('&')) {
-        const goal = trimmedLine.slice(0, -1).trim();
-        if (!goal) {
-          process.stdout.write(theme.warn('\nusage: <prompt> &\n'));
-          continue;
+          const input = slash.forwardInput ?? resolvedLine;
+          if (slash.handled && slash.forwardInput !== undefined) {
+            process.stdout.write(formatMessagePreview(slash.forwardInput));
+          }
+
+          const trimmedInput = input.trim();
+          if (trimmedInput.endsWith('&')) {
+            const goal = trimmedInput.slice(0, -1).trim();
+            if (!goal) {
+              process.stdout.write(theme.warn('\nusage: <prompt> &\n'));
+              continue;
+            }
+
+            const id = backgroundTaskManager.startTask(goal);
+            process.stdout.write(
+              theme.ok(`\n↳ started background task ${id.slice(0, 8)} for: ${goal}\n`),
+            );
+            continue;
+          }
+
+          const turnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null }).turnMode;
+
+          if (session.state.autopilotEnabled && !turnMode) {
+            await runAutopilot(input, {
+              session,
+              signal: currentAbort.signal,
+            });
+          } else {
+            await runTurn({
+              session,
+              userInput: input,
+              metrics,
+              signal: currentAbort.signal,
+              turnMode: turnMode ?? undefined,
+            });
+            await handlePostTurnContextBudget(session, currentAbort.signal);
+          }
+        } catch (e: any) {
+          if (e?.name === 'AbortError' || currentAbort.signal.aborted) {
+            // already messaged
+          } else {
+            await hookManager.emit('errorOccurred', {
+              scope: 'interactive',
+              sessionId: session.state.id,
+              message: e?.message || String(e),
+            });
+            process.stdout.write(theme.err(`\nerror: ${e?.message || e}\n`));
+          }
+        } finally {
+          currentAbort = null;
         }
-
-        const id = backgroundTaskManager.startTask(goal);
-        process.stdout.write(
-          theme.ok(`\n↳ started background task ${id.slice(0, 8)} for: ${goal}\n`),
-        );
-        continue;
-      }
-
-      const input = slash.forwardInput ?? resolvedLine;
-      if (session.state.autopilotEnabled) {
-        await runAutopilot(input, {
-          session,
-          signal: currentAbort.signal,
-        });
-      } else {
-        await runTurn({
-          session,
-          userInput: input,
-          metrics,
-          signal: currentAbort.signal,
-        });
-        await handlePostTurnContextBudget(session, currentAbort.signal);
-      }
-    } catch (e: any) {
-      if (e?.name === 'AbortError' || currentAbort.signal.aborted) {
-        // already messaged
-      } else {
-        process.stdout.write(theme.err(`\nerror: ${e?.message || e}\n`));
       }
     } finally {
-      currentAbort = null;
+      processing = false;
     }
-  }
+  };
 
-  process.off('SIGINT', onSigint);
-  rl.close();
+  try {
+    while (running) {
+      let line: string;
+      try {
+        line = await rl.read(prefix(session.state.mode));
+      } catch {
+        break;
+      }
+      if (!line || !line.trim()) continue;
+      enqueueInput(line);
+    }
+  } finally {
+    process.off('SIGINT', onSigint);
+    rl.close();
+    await hookManager.emit('sessionEnd', {
+      sessionId: session.state.id,
+      cwd: session.state.cwd,
+      mode: session.state.mode,
+      model: session.state.model,
+    });
+  }
+}
+
+function formatMessagePreview(message: string): string {
+  const lines = message.trim().split(/\r?\n/);
+  const preview = lines.slice(0, 8);
+  const suffix =
+    lines.length > preview.length
+      ? `\n${theme.dim(`… ${lines.length - preview.length} more line(s)`)}`
+      : '';
+  return `\n${theme.brand('Message preview')}\n${preview.join('\n')}${suffix}\n\n`;
 }

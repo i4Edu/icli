@@ -4,15 +4,19 @@ import { createPatch } from 'diff';
 import { confirm } from '@inquirer/prompts';
 import { config } from '../config.js';
 import { theme } from '../ui/theme.js';
+import { formatAutoCheckResult, runAutoLint, type AutoCheckResult } from './auto-check.js';
 import { toolMemory } from './memory.js';
 import { loadPolicy, writePathAllowed } from './policy.js';
 import { assertSandbox } from './sandbox.js';
+import { isReadOnly } from '../context/read-only.js';
+import { hookManager } from '../hooks/lifecycle.js';
 
 export interface WriteResult {
   wrote: boolean;
   path: string;
   bytes: number;
   error?: string;
+  autoLint?: AutoCheckResult;
 }
 
 /** Show a unified diff and ask the user before writing the file. */
@@ -63,13 +67,20 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
 
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, newContent, 'utf8');
+  await hookManager.emit('fileChanged', {
+    cwd: config.cwd,
+    path: relPath,
+    absolutePath: abs,
+    bytes: Buffer.byteLength(newContent),
+  });
   if (!config.jsonOutput) process.stdout.write(theme.ok(`  ✔ wrote ${relPath}\n`));
-  return { wrote: true, path: abs, bytes: Buffer.byteLength(newContent) };
+  const autoLint = await maybeRunAutoLint([relPath]);
+  return { wrote: true, path: abs, bytes: Buffer.byteLength(newContent), ...(autoLint ? { autoLint } : {}) };
 }
 
 export async function proposeWriteBatch(
   items: Array<{ path: string; content: string }>,
-): Promise<{ wrote: boolean; results: WriteResult[] }> {
+): Promise<{ wrote: boolean; results: WriteResult[]; autoLint?: AutoCheckResult }> {
   const prepared: Array<{
     relPath: string;
     abs: string;
@@ -141,10 +152,17 @@ export async function proposeWriteBatch(
     for (const item of prepared) {
       fs.mkdirSync(path.dirname(item.abs), { recursive: true });
       fs.writeFileSync(item.abs, item.content, 'utf8');
+      await hookManager.emit('fileChanged', {
+        cwd: config.cwd,
+        path: item.relPath,
+        absolutePath: item.abs,
+        bytes: Buffer.byteLength(item.content),
+      });
       written.push(item);
       results.push({ wrote: true, path: item.abs, bytes: Buffer.byteLength(item.content) });
     }
-    return { wrote: true, results };
+    const autoLint = await maybeRunAutoLint(prepared.map((item) => item.relPath));
+    return { wrote: true, results, ...(autoLint ? { autoLint } : {}) };
   } catch (e: any) {
     const error = e?.message || String(e);
     for (const item of written.reverse()) {
@@ -171,12 +189,13 @@ export function readFileSafe(relPath: string): string {
   return fs.readFileSync(abs, 'utf8');
 }
 
-function ensureWriteAllowed(abs: string): string | undefined {
+export function ensureWriteAllowed(abs: string): string | undefined {
   try {
     assertSandbox(abs, config.cwd);
   } catch (e: any) {
     return e?.message || String(e);
   }
+  if (isReadOnly(abs)) return 'read-only file';
   if (!writePathAllowed(abs, loadPolicy(config.cwd), config.cwd)) return 'policy denied';
   return undefined;
 }
@@ -192,4 +211,13 @@ function colorizePatch(p: string): string {
       return l;
     })
     .join('\n');
+}
+
+async function maybeRunAutoLint(changedFiles: string[]): Promise<AutoCheckResult | undefined> {
+  if (!config.autoLint) return undefined;
+  const result = await runAutoLint(changedFiles);
+  if (!config.quiet && !config.jsonOutput) {
+    process.stdout.write(`${theme.dim(formatAutoCheckResult('lint', result, changedFiles))}\n`);
+  }
+  return result;
 }

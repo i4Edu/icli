@@ -4,10 +4,13 @@ import { confirm } from '@inquirer/prompts';
 import { createPatch } from 'diff';
 import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { config } from '../config.js';
+import { hookManager } from '../hooks/lifecycle.js';
 import { theme } from '../ui/theme.js';
+import { formatAutoCheckResult, runAutoLint, type AutoCheckResult } from './auto-check.js';
 import { toolMemory } from './memory.js';
 import { loadPolicy, writePathAllowed } from './policy.js';
 import { assertSandbox } from './sandbox.js';
+import { ensureWriteAllowed } from './file-ops.js';
 
 export interface FileEdit {
   file: string;
@@ -149,7 +152,8 @@ export async function multiEditTool(rawPlan: MultiEditPlan): Promise<string> {
     }
 
     const result = applyPreparedMultiEdit(prepared, plan.rollbackable);
-    return JSON.stringify({ ...result, preview });
+    const autoLint = result.success ? await maybeRunAutoLint(result.applied) : undefined;
+    return JSON.stringify({ ...result, preview, ...(autoLint ? { autoLint } : {}) });
   } catch (error: unknown) {
     return JSON.stringify({
       success: false,
@@ -194,10 +198,10 @@ function prepareMultiEdit(
     }
 
     const absPath = path.resolve(config.cwd, filePlan.file);
+    const denied = ensureWriteAllowed(absPath);
+    if (denied) throw new Error(`${denied}: ${filePlan.file}`);
     assertSandbox(absPath, config.cwd);
-    if (!writePathAllowed(absPath, policy, config.cwd)) {
-      throw new Error(`policy denied: ${filePlan.file}`);
-    }
+    if (!writePathAllowed(absPath, policy, config.cwd)) throw new Error(`policy denied: ${filePlan.file}`);
     if (!fs.existsSync(absPath)) {
       throw new Error(`file not found: ${filePlan.file}`);
     }
@@ -243,6 +247,12 @@ function applyPreparedMultiEdit(
     try {
       fs.mkdirSync(path.dirname(file.absPath), { recursive: true });
       fs.writeFileSync(file.absPath, file.nextContent, 'utf8');
+      void hookManager.emit('fileChanged', {
+        cwd: config.cwd,
+        path: file.path,
+        absolutePath: file.absPath,
+        bytes: Buffer.byteLength(file.nextContent),
+      });
       result.applied.push(file.path);
     } catch (error: unknown) {
       result.failed = [
@@ -339,6 +349,15 @@ function displayPreview(description: string, preview: MultiEditPreview): void {
   for (const file of preview.files) {
     process.stdout.write(colorizePatch(file.diff) + '\n');
   }
+}
+
+async function maybeRunAutoLint(changedFiles: string[]): Promise<AutoCheckResult | undefined> {
+  if (!config.autoLint || changedFiles.length === 0) return undefined;
+  const result = await runAutoLint(changedFiles);
+  if (!config.quiet && !config.jsonOutput) {
+    process.stdout.write(`${theme.dim(formatAutoCheckResult('lint', result, changedFiles))}\n`);
+  }
+  return result;
 }
 
 function colorizePatch(patch: string): string {

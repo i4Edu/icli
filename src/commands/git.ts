@@ -6,6 +6,7 @@ import { Session } from '../session/session.js';
 import { streamChat } from '../api/github-models.js';
 import { theme } from '../ui/theme.js';
 import { renderMarkdownString } from '../ui/render.js';
+import { registerAiCommit } from './git-undo-cmd.js';
 
 function git(): SimpleGit {
   return simpleGit({ baseDir: config.cwd });
@@ -77,6 +78,7 @@ export async function commitFromStaged(session: Session, signal?: AbortSignal) {
   if (!ok) return;
   try {
     const res = await git().commit(msg);
+    registerAiCommit(res.commit);
     process.stdout.write(theme.ok(`✔ committed ${res.commit}\n`));
   } catch (e: any) {
     process.stdout.write(theme.err(`commit failed: ${e?.message}\n`));

@@ -1,6 +1,7 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { activeProvider, client } from '../api/github-models.js';
 import { getAgentConfig, type AgentType } from '../commands/agent-cmd.js';
+import { aggregateResults, type AggregatedOutput } from './aggregator.js';
 
 export interface AgentTask {
   name: string;
@@ -23,6 +24,11 @@ export interface AgentProgressEvent {
   completed: number;
   total: number;
   result?: AgentResult;
+}
+
+export interface ParallelAgentRunResult {
+  results: AgentResult[];
+  aggregated: AggregatedOutput;
 }
 
 export interface ParallelAgentRunnerOptions {
@@ -56,8 +62,13 @@ export class ParallelAgentRunner {
     this.executeTask = options.executeTask ?? defaultExecuteTask;
   }
 
-  async runParallel(agents: AgentTask[]): Promise<AgentResult[]> {
-    if (!agents.length) return [];
+  async runParallel(agents: AgentTask[]): Promise<ParallelAgentRunResult> {
+    if (!agents.length) {
+      return {
+        results: [],
+        aggregated: aggregateResults([]),
+      };
+    }
 
     const total = agents.length;
     let completed = 0;
@@ -98,7 +109,7 @@ export class ParallelAgentRunner {
     );
 
     const settled = await Promise.allSettled(executions);
-    return settled.map((entry, index) => {
+    const results = settled.map((entry, index) => {
       if (entry.status === 'fulfilled') return entry.value;
       return {
         name: agents[index]?.name ?? `agent-${index + 1}`,
@@ -107,6 +118,17 @@ export class ParallelAgentRunner {
         duration: 0,
       } satisfies AgentResult;
     });
+    return {
+      results,
+      aggregated: aggregateResults(
+        results
+          .filter((result) => result.status === 'success')
+          .map((result) => ({
+            name: result.name,
+            output: result.output,
+          })),
+      ),
+    };
   }
 
   private async runSingle(task: AgentTask): Promise<AgentResult> {

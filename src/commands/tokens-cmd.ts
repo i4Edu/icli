@@ -1,4 +1,4 @@
-import { ASK_SYSTEM, PLAN_SYSTEM } from './prompts.js';
+import { PLAN_SYSTEM, getAskSystemPrompt } from './prompts.js';
 import { loadMemoryBlock } from '../context/memory.js';
 import { loadConventionPromptContext } from '../knowledge/conventions.js';
 import { loadStylePromptContext } from '../knowledge/style-learner.js';
@@ -30,7 +30,7 @@ interface MessageBreakdown {
 const FILE_REF_HEADER = '### Referenced files';
 
 export function tokensCommand(session: Session): string {
-  const baseSystemPrompt = session.state.mode === 'plan' ? PLAN_SYSTEM : ASK_SYSTEM;
+  const baseSystemPrompt = session.state.mode === 'plan' ? PLAN_SYSTEM : getAskSystemPrompt();
   const memoryBlock = loadMemoryBlock(session.state.cwd) ?? '';
   const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
   const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
