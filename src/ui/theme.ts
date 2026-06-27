@@ -33,26 +33,26 @@ export function selectTheme(): ThemeName {
 }
 
 export const theme: Record<string, Styler> & { badge: Styler } = {
-  brand: style((c, name) => (name === 'light' ? c.hex('#5B21B6').bold : c.hex('#7C3AED').bold)),
-  user: style((c, name) => (name === 'light' ? c.blue.bold : c.cyan.bold)),
+  brand: style((c, name) => (name === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
+  user: style((c, name) => (name === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
   assistant: style((c, name) => (name === 'light' ? c.green.bold : c.green)),
   system: style((c) => c.gray.italic),
   warn: style((c, name) => (name === 'light' ? c.hex('#92400E') : c.yellow)),
   err: style((c) => c.red.bold),
   ok: style((c, name) => (name === 'light' ? c.hex('#166534').bold : c.green.bold)),
   dim: style((c) => c.gray),
-  hl: style((c, name) => (name === 'light' ? c.hex('#B45309') : c.hex('#FBBF24'))),
+  hl: style((c, name) => (name === 'light' ? c.hex('#0A5CA8') : c.hex('#79C0FF'))),
   badge: (s: string) => {
     if (!colorEnabled()) return ` ${s} `;
     const p = palette();
     return p.name === 'light'
-      ? p.c.bgHex('#5B21B6').white.bold(` ${s} `)
-      : p.c.bgHex('#7C3AED').white.bold(` ${s} `);
+      ? p.c.bgHex('#0F6CBD').white.bold(` ${s} `)
+      : p.c.bgHex('#1F6FEB').white.bold(` ${s} `);
   },
 };
 
 export function banner(version: string, model: string): string {
-  const title = theme.brand('iCopilot');
+  const title = theme.brand('GitHub Copilot');
   const sep = colorEnabled() ? '•' : '-';
   const sub = theme.dim(`v${version}  ${sep}  model: ${theme.hl(model)}`);
   return `\n${title}  ${sub}\n${theme.dim(

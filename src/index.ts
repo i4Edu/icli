@@ -17,13 +17,22 @@ import { Marketplace } from './plugins/marketplace.js';
 function friendlyError(err: any): string {
   const message = String(err?.message || err);
   const status = err?.status ?? err?.response?.status;
-  if (/GITHUB_TOKEN|ICOPILOT_TOKEN/i.test(message)) {
-    return (
-      `Authentication is not configured for provider "${config.provider}".\n` +
-      '  Set the provider-specific API key env var, ICOPILOT_TOKEN, or add `token` to ~/.icopilotrc.json.'
-    );
+  if (/GITHUB_TOKEN|ICOPILOT_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY/i.test(message)) {
+    if (config.provider === 'github') {
+      return (
+        'Authentication is not configured for provider "github".\n' +
+        '  Set GITHUB_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
+      );
+    }
+    return `Authentication is not configured for provider "${config.provider}".\n  Set the provider-specific API key env var, ICOPILOT_TOKEN, or add \`token\` to ~/.icopilotrc.json.`;
   }
   if (/ECONNREFUSED|ENOTFOUND|ETIMEDOUT|fetch failed|network/i.test(message)) {
+    if (config.provider === 'ollama') {
+      return (
+        `Cannot reach ${config.endpoint}.\n` +
+        '  Ollama is selected but no local server responded. Start it with `ollama serve` or switch providers with `/provider set github`.'
+      );
+    }
     return `Cannot reach ${config.endpoint} — check your network, --base-url, or ICOPILOT_ENDPOINT.`;
   }
   if (status === 401 || status === 403) {

@@ -29,10 +29,7 @@ export function createPrompt(): ReplPrompt {
 
 export function prefix(mode: 'ask' | 'plan'): string {
   const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
-  const tag = safeUnicode
-    ? mode === 'plan'
-      ? theme.badge('PLAN')
-      : theme.badge('ASK')
-    : `[${mode === 'plan' ? 'PLAN' : 'ASK'}]`;
+  const label = mode === 'plan' ? 'Plan' : 'Copilot';
+  const tag = safeUnicode ? theme.badge(label) : `[${label}]`;
   return `${tag} ${theme.user(safeUnicode ? '›' : '>')} `;
 }

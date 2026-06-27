@@ -8,6 +8,10 @@ const openAIMocks = vi.hoisted(() => ({
   chatCreate: vi.fn(),
 }));
 
+const childProcessMocks = vi.hoisted(() => ({
+  execFileSync: vi.fn(),
+}));
+
 vi.mock('openai', () => ({
   default: vi.fn((options: Record<string, unknown>) => {
     openAIMocks.constructorCalls.push(options);
@@ -16,6 +20,10 @@ vi.mock('openai', () => ({
       chat: { completions: { create: openAIMocks.chatCreate } },
     };
   }),
+}));
+
+vi.mock('node:child_process', () => ({
+  execFileSync: childProcessMocks.execFileSync,
 }));
 
 const originalEnv = { ...process.env };
@@ -34,6 +42,7 @@ beforeEach(() => {
   openAIMocks.constructorCalls.length = 0;
   openAIMocks.modelsList.mockReset();
   openAIMocks.chatCreate.mockReset();
+  childProcessMocks.execFileSync.mockReset();
   vi.restoreAllMocks();
   vi.resetModules();
 });
@@ -118,6 +127,25 @@ describe('ProviderRegistry', () => {
       apiKey: 'proxy-key',
       baseURL: 'https://proxy.example/v1',
       defaultHeaders: { 'X-Proxy': 'enabled' },
+    });
+  });
+
+  it('falls back to gh auth token for github when env vars are absent', async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.ICOPILOT_TOKEN;
+    childProcessMocks.execFileSync.mockReturnValueOnce('gh-cli-token\n');
+
+    const { ProviderRegistry, resolveProviderApiKey } = await import('../../src/providers/custom-provider.js');
+    const registry = new ProviderRegistry({ configPath: providersPath });
+    const github = registry.get('github');
+
+    expect(github).toBeDefined();
+    expect(resolveProviderApiKey(github!)).toBe('gh-cli-token');
+    expect(resolveProviderApiKey(github!)).toBe('gh-cli-token');
+    expect(childProcessMocks.execFileSync).toHaveBeenCalledTimes(1);
+    expect(childProcessMocks.execFileSync).toHaveBeenCalledWith('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     });
   });
 

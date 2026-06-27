@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import OpenAI from 'openai';
@@ -27,6 +28,7 @@ export interface ProviderTestResult {
 }
 
 const DEFAULT_PROVIDER_NAME = 'github';
+let cachedGithubCliToken: string | null | undefined;
 
 const BUILTIN_PROVIDERS: ProviderConfig[] = [
   {
@@ -126,11 +128,26 @@ export function providerConfigPath(): string {
   return process.env.ICOPILOT_PROVIDERS_PATH || path.join(os.homedir(), '.icopilot', 'providers.json');
 }
 
+function resolveGitHubCliToken(): string | undefined {
+  if (cachedGithubCliToken !== undefined) return cachedGithubCliToken || undefined;
+  try {
+    const token = execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    cachedGithubCliToken = token || null;
+    return cachedGithubCliToken || undefined;
+  } catch {
+    cachedGithubCliToken = null;
+    return undefined;
+  }
+}
+
 export function resolveProviderApiKey(provider: ProviderConfig): string | undefined {
   if (provider.apiKey) return provider.apiKey;
   switch (provider.name) {
     case 'github':
-      return process.env.GITHUB_TOKEN || process.env.ICOPILOT_TOKEN;
+      return process.env.GITHUB_TOKEN || process.env.ICOPILOT_TOKEN || resolveGitHubCliToken();
     case 'openai':
       return process.env.OPENAI_API_KEY || process.env.ICOPILOT_TOKEN;
     case 'anthropic':

@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { Session } from '../session/session.js';
 import { theme, banner } from '../ui/theme.js';
 import { createPrompt, prefix } from '../ui/prompt.js';
@@ -11,7 +12,8 @@ import { config } from '../config.js';
 import { backgroundTaskManager } from './background.js';
 import { hookManager } from '../hooks/lifecycle.js';
 
-const VERSION = '1.3.0';
+const require = createRequire(import.meta.url);
+const VERSION = require('../../package.json').version as string;
 
 export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
   const session = new Session({ mode: initialMode });
