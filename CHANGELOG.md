@@ -5,6 +5,93 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] — 2026-06-27
+
+### Added — v1.4 Multi-Agent Orchestration
+- Parallel agent runner with concurrent sub-agent execution
+- Agent result aggregation with merged multi-agent output
+- Custom agent definitions via `.icopilot/agents/*.yaml`
+- Agent routing with automatic delegation by query type
+- `run_in_terminal` tool for interactive PTY command execution
+- `list_directory` tool for structured directory listing
+- `search_symbols` tool for AST-aware symbol search
+- Tool retry logic with automatic retry on transient failures
+
+### Added — v1.5 Copilot Spaces & Teams
+- Project spaces with isolated context sandboxes per project/branch
+- Session handoff for exporting state to another developer
+- Shared team memory via `.icopilot/team-memory.md`
+- Smart file selection with model-driven relevant file picking
+- Git-aware context auto-including recently modified files
+- Dependency-aware context following imports to include related files
+- Context priority scoring with relevance-ranked sources
+
+### Added — v1.6 IDE-Grade Intelligence
+- Symbol index for project-wide function/class/type table
+- Cross-file navigation (go-to-definition, find-references)
+- Multi-file atomic edits reviewed holistically
+- Code generation with automatic test file creation
+- Live error watching with auto-suggested fixes
+- Stack trace analysis for AI-powered root cause diagnosis
+- Dead code detection identifying unused exports/functions
+
+### Added — v1.7 Workflow Automation
+- Workflow engine with `.icopilot/workflows/*.yaml` definitions
+- Built-in workflows (review-and-commit, test-fix-loop, release-prep)
+- GitHub Actions helper generating workflow YAML from natural language
+- Pre-commit hook with `/review` + `/security` before commit
+- File watch triggers running workflows on change
+- Release automation (version bump → changelog → tag → publish)
+
+### Added — v1.8 Knowledge & Learning
+- Project RAG with chunked document indexing and retrieval
+- `/doc` command for generating JSDoc/docstring
+- README generation from project analysis
+- Architecture diagram generation (mermaid from code)
+- Style learning adapting to user's coding patterns
+- Correction memory remembering user corrections
+- Project conventions learning and enforcement
+
+### Added — v1.9 Enterprise & Security
+- Role-based tool access restricting by user role
+- Audit logging with full trail of tool executions
+- Proxy support (HTTP/HTTPS/SOCKS5)
+- Air-gapped mode with local models (Ollama, vLLM)
+- Content filtering preventing PII in prompts
+- Retention policies with auto-delete after N days
+
+### Added — v2.0 The Complete Agentic OS
+- Goal-driven development (describe feature → implement end-to-end)
+- Self-healing builds (detect failure → diagnose → fix → retry)
+- TDD agent (write tests first, implement until green)
+- Multi-repo orchestration coordinating across repositories
+- Plugin marketplace (`icopilot install <plugin>`)
+- Custom model providers (any OpenAI-compatible endpoint)
+- IDE bridge for bidirectional VS Code / Neovim communication
+- API server mode exposing as HTTP API (`--serve`)
+- Container sandbox for Docker-based isolated execution
+- Cloud sessions for remote access from any terminal
+
+## [1.3.0] — 2026-06-27
+
+### Added — Agent Runtime & Extensibility
+- Agent system prompt framework with persona + tool binding
+- Background agent tasks with `&` suffix syntax
+- Agent memory (persistent knowledge across sessions)
+- Custom slash-command plugins via `.icopilot/plugins/`
+- Streaming tool output with real-time display
+- Tool composition (pipe output of one tool into another)
+- Multi-model routing (different models per task type)
+- Context-aware model switching
+- Agent self-reflection and correction loop
+- Conversation branching (fork conversation, explore alternatives)
+- Undo/redo for file edits
+- Checkpoint/restore for session state
+- Interactive conflict resolution for file edits
+- Rate-limit-aware request scheduling
+- Token-budget auto-split for long conversations
+- Project-wide semantic search
+
 ## [Unreleased] — v0.2 / v0.3 / v0.4 / v0.5 / v0.6 / v0.7 / v1.0 / Beyond-1.0 rollups
 
 ### Added — v0.2 Quality & DX
