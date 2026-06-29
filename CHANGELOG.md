@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.4] — 2026-06-29
+
+### Fixed
+- **Screen stacking / infinite box loop** — input box borders no longer stack on every submission; `drawBoxTop()` now erases the previous bottom border with ANSI cursor-up + clear-line sequences before drawing a fresh frame
+- **`/m` slash command tokenizer** — commands like `/model`, `/provider set <name>`, and `/plan` were truncated to their first character; replaced `indexOf`-based slicing with `split(/\s+/)` so the full command name is always parsed correctly
+
+### Changed
+- **Splash banner** — replaced pixel-art block logo with the standard figlet-style ASCII logo rendered in bold cyan (`#58A6FF`); status indicators updated to `● Provider: GitHub Models (default: …)` and `● Session: Active (…)` with a dim divider
+- **Hotkey dock** — updated footer to `Ctrl+C Exit  │  Ctrl+R Clear History  │  Tab Autocomplete`
+- **Terminal resize** — `process.stdout.on('resize')` added alongside `SIGWINCH` for portability (e.g. Windows ConPTY); resize also resets the pending-erase counter to avoid misaligned cursors
+
+### Added
+- **`src/ui/spinner.ts`** — `Spinner` class with `start(label)`, `update(label)`, `stop(success?)` using braille frames at 80 ms; degrades gracefully to plain text in non-TTY environments
+- **`src/ui/select.ts`** — `selectMenu(choices, initial?)` arrow-key `❯` selection menu; auto-selects the first item in non-TTY mode
+- **Autopilot progress UX** — each step now shows a live spinner that resolves to `✔` or `✖`; when `requireApproval` is enabled a between-step `selectMenu` asks "Continue / Abort" instead of running blindly
+- **Plan-mode file confirmations** — `confirm()` Y/N prompts replaced with `select()` arrow-key menus (`❯ Apply changes / Skip`) for all file write proposals
+- **`@file` mention hint** — ghost text shows `file/path` after a bare `@` token in the input field
+
 ## [2.1.0] — 2026-06-28
 
 ### Added — v2.1 Competitive Parity
