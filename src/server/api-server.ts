@@ -511,7 +511,8 @@ export class APIServer {
       const handler = getNotificationHandler();
 
       if (handler instanceof TeamsNotificationHandler) {
-        const userId = (JSON.parse(body) as Record<string, unknown>)?.from?.id as string | undefined;
+        const parsedBody = JSON.parse(body) as Record<string, unknown>;
+        const userId = (parsedBody.from as Record<string, unknown> | undefined)?.id as string | undefined;
         handler.handleApprovalResponse(id, approved, userId);
       }
 

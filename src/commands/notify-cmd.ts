@@ -3,11 +3,10 @@ import { theme } from '../ui/theme.js';
 import { getNotificationManager, initializeNotificationManager } from '../notifications/manager.js';
 import type { NotificationConfig } from '../extensions/team.js';
 
-const colors = theme.colors || {};
-const ok = colors.green || ((s: string) => s);
-const info = colors.blue || ((s: string) => s);
-const warn = colors.yellow || ((s: string) => s);
-const error = colors.red || ((s: string) => s);
+const ok = theme.ok;
+const info = theme.hl;
+const warn = theme.warn;
+const error = theme.err;
 
 interface NotificationConfigFile {
   notifications?: NotificationConfig;
