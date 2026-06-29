@@ -381,10 +381,13 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     return done(false, modePrefix.forwardInput, modePrefix.turnMode ?? null);
   }
 
-  const spaceIndex = trimmed.indexOf(' ');
-  const cmd = (spaceIndex === -1 ? trimmed.slice(1) : trimmed.slice(1, spaceIndex)).trim();
-  const arg = spaceIndex === -1 ? '' : trimmed.slice(spaceIndex + 1).trim();
-  const rest = arg ? arg.split(/\s+/) : [];
+  // Tokenize: split on whitespace so "/model gpt-4o" → ["model","gpt-4o"]
+  // This avoids premature character slicing that truncated commands like
+  // "/model" to "/m" when multi-byte or invisible whitespace was present.
+  const tokens = trimmed.slice(1).split(/\s+/);
+  const cmd = tokens[0] ?? '';
+  const rest = tokens.slice(1);
+  const arg = rest.join(' ');
   const s = ctx.session;
   const roleManager = getRoleManager(s.state.cwd);
   const normalizedCommand = cmd.toLowerCase();

@@ -2,6 +2,8 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import { Session } from '../session/session.js';
 import { hookManager } from '../hooks/lifecycle.js';
 import { theme } from '../ui/theme.js';
+import { Spinner } from '../ui/spinner.js';
+import { selectMenu } from '../ui/select.js';
 import { runTurn } from './turn.js';
 
 export const AUTOPILOT_MAX_STEPS = 10;
@@ -135,17 +137,47 @@ export async function runAutopilot(goal: string, opts: RunAutopilotOptions = {})
   session.setMode('ask');
   session.setSystemPrompt(buildAutopilotSystemPrompt(normalizedGoal));
 
+  const requireApproval = opts.requireApproval ?? AUTOPILOT_REQUIRE_APPROVAL_DEFAULT;
+
   try {
     for (let step = 1; step <= maxSteps; step++) {
-      process.stdout.write(theme.dim(`\n[autopilot] step ${step} of ${maxSteps}\n`));
-      await runTurn({
-        session,
-        userInput: buildAutopilotTurnPrompt(normalizedGoal, step, maxSteps),
-        signal,
-      });
+      const spinner = new Spinner();
+      spinner.start(`Step ${step} of ${maxSteps} …`);
+
+      let stepError: unknown;
+      try {
+        await runTurn({
+          session,
+          userInput: buildAutopilotTurnPrompt(normalizedGoal, step, maxSteps),
+          signal,
+        });
+      } catch (err) {
+        stepError = err;
+      }
+
+      const success = stepError == null;
+      spinner.stop(success);
+
+      if (!success) {
+        process.stdout.write(theme.err(`\n✖ step ${step} failed: ${(stepError as Error)?.message ?? stepError}\n`));
+        break;
+      }
 
       if (isAutopilotComplete(findLastAssistantMessage(session.state.messages))) {
         return session;
+      }
+
+      // When requireApproval is on, pause between steps so the user can review.
+      if (requireApproval && step < maxSteps) {
+        process.stdout.write('\n');
+        const choice = await selectMenu([
+          'Continue to next step',
+          'Abort autopilot',
+        ]);
+        if (choice !== 0) {
+          process.stdout.write(theme.dim('\nautopilot aborted by user.\n'));
+          return session;
+        }
       }
     }
 

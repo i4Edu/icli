@@ -53,30 +53,16 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
 
 export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
-// ─── Pixel-art logo ────────────────────────────────────────────────────────
-// 5-row "ICOPILOT" in full-block characters (2-space gaps between letters).
-//   I=2   C=4   O=4   P=4   I=2   L=4   O=4   T=4
-const LOGO_ROWS = [
-  '██  ████  ████  ████  ██  █     ████  ████',
-  '██  ██    █  █  █  █  ██  █     █  █   ██ ',
-  '██  ██    █  █  ████  ██  █     █  █   ██ ',
-  '██  ██    █  █  █     ██  █     █  █   ██ ',
-  '██  ████  ████  █     ██  ████  ████   ██ ',
+// ─── ASCII logo (figlet "iCopilot") ──────────────────────────────────────────
+// Rendered in cyan/light-blue to match GitHub Copilot's design language.
+const ASCII_LOGO_LINES = [
+  ' ___               _ _       _   ',
+  '|_ _|___ ___  _ __(_) | ___ | |_ ',
+  ' | |/ __/ _ \\| \'_ \\ | |/ _ \\| __|',
+  ' | | (_| (_) | |_) | | | (_) | |_ ',
+  '|___\\___\\___/| .__/|_|_|\\___/ \\__|',
+  '             |_|                  ',
 ];
-
-// ─── Pilot mascot (5 rows) ─────────────────────────────────────────────────
-// Purple frame (#A371F7), cyan accents (#39D2D2).
-function buildMascot(c: ChalkInstance): string[] {
-  const fr = (s: string) => c.hex('#A371F7')(s);
-  const cy = (s: string) => c.hex('#39D2D2')(s);
-  return [
-    fr(' ╭─────╮ '),
-    fr(' │') + cy('◉') + fr('   ') + cy('◉') + fr('│ '),
-    fr(' │') + c.hex('#A371F7')(' ─── ') + fr('│ '),
-    fr(' ╰──') + cy('┬') + fr('──╯ '),
-    cy('  ▶') + c.hex('#A371F7')(' pilot '),
-  ];
-}
 
 export function banner(version: string, model: string, sessionDir?: string): string {
   if (!colorEnabled()) {
@@ -90,24 +76,22 @@ export function banner(version: string, model: string, sessionDir?: string): str
 
   const { c, name } = palette();
   const green = name === 'light' ? '#166534' : '#3FB950';
+  const blue = '#58A6FF';
 
-  // Render logo rows in light-blue (#58A6FF)
-  const logoRows = LOGO_ROWS.map((r) => c.hex('#58A6FF').bold(r));
-  const mascotRows = buildMascot(c);
-
-  // Side-by-side: mascot (10 visible chars) + logo
-  const combined = logoRows.map((lr, i) => `  ${mascotRows[i] ?? '          '}  ${lr}`).join('\n');
+  // Render ASCII logo in cyan/light-blue
+  const logo = ASCII_LOGO_LINES.map((row) => `  ${c.hex(blue).bold(row)}`).join('\n');
 
   const sessDir = sessionDir ?? '~/.icopilot/sessions/';
+  const divider = `  ${c.gray('─'.repeat(50))}`;
 
   const diag1 =
     `  ${c.hex(green)('●')} ` +
-    `${c.gray('Connected to')} ${c.hex('#58A6FF').bold('GitHub Models')} ` +
-    `${c.gray('[' + model + ']')}`;
+    `${c.gray('Provider:')} ${c.hex(blue).bold('GitHub Models')} ` +
+    `${c.gray('(default: ' + model + ')')}`;
 
   const diag2 =
     `  ${c.hex(green)('●')} ` +
-    `${c.gray('Session:')} ${c.hex('#58A6FF')('Active')} ` +
+    `${c.gray('Session: ')} ${c.hex(blue)('Active')} ` +
     `${c.gray('(' + sessDir + ')')}`;
 
   const hints = safeUnicode
@@ -116,13 +100,13 @@ export function banner(version: string, model: string, sessionDir?: string): str
 
   return [
     '',
-    combined,
-    '',
-    `  ${c.gray('v' + version)}  ${c.gray('·')}  ${c.hex('#58A6FF')(model)}`,
+    logo,
     '',
     diag1,
     diag2,
+    divider,
     '',
+    `  ${c.gray('v' + version)}  ${c.gray('·')}  ${c.hex(blue)(model)}`,
     `  ${hints}`,
     '',
   ].join('\n');

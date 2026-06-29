@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Session } from '../session/session.js';
 import { theme, banner } from '../ui/theme.js';
-import { createPrompt, prefix } from '../ui/prompt.js';
+import { createPrompt, prefix, invalidateBoxBottom } from '../ui/prompt.js';
 import { handleSlash } from '../commands/slash.js';
 import { loadAliases, resolveAlias } from '../commands/alias-cmd.js';
 import { MetricsCollector } from '../commands/metrics-cmd.js';
@@ -93,6 +93,10 @@ export async function runInteractive(
         const resolvedLine = resolveAlias(next.line, loadAliases()) ?? next.line;
         currentAbort = new AbortController();
         try {
+          // Any output printed during processing must not be erased by the
+          // next input-box render, so invalidate the pending-erase counter.
+          invalidateBoxBottom();
+
           if (next.scheduled) {
             process.stdout.write(theme.dim(`\n[schedule] ${next.line}\n`));
           }

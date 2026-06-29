@@ -94,8 +94,9 @@ describe('runAutopilot', () => {
 
     expect(result).toBe(session);
     expect(runTurnMock).toHaveBeenCalledTimes(2);
-    expect(output).toContain('step 1 of 3');
-    expect(output).toContain('step 2 of 3');
+    // Spinner uses "Step N of M" format in non-TTY environments
+    expect(output.toLowerCase()).toContain('step 1 of 3');
+    expect(output.toLowerCase()).toContain('step 2 of 3');
     expect(session.state.mode).toBe('plan');
     expect(session.state.autopilotEnabled).toBe(true);
     expect(session.state.systemPrompt).toBeUndefined();

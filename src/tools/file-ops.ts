@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createPatch } from 'diff';
-import { confirm } from '@inquirer/prompts';
+import { select } from '@inquirer/prompts';
 import { config } from '../config.js';
 import { theme } from '../ui/theme.js';
 import { formatAutoCheckResult, runAutoLint, type AutoCheckResult } from './auto-check.js';
@@ -47,10 +47,14 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
   const ok =
     config.autoApprove ||
     remembered ||
-    (await confirm({
+    ((await select({
       message: exists ? 'Apply this patch?' : 'Create this new file?',
+      choices: [
+        { name: '❯ Apply changes', value: true },
+        { name: '  Skip', value: false },
+      ],
       default: false,
-    }).catch(() => false));
+    }).catch(() => false)) as boolean);
 
   if (!ok) {
     if (!config.jsonOutput) process.stdout.write(theme.warn('  skipped.\n'));
@@ -58,10 +62,14 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
   }
 
   if (!config.autoApprove && !remembered) {
-    const remember = await confirm({
+    const remember = (await select({
       message: 'Remember this write path for the session?',
+      choices: [
+        { name: '  Yes — skip confirmation next time', value: true },
+        { name: '  No', value: false },
+      ],
       default: false,
-    }).catch(() => false);
+    }).catch(() => false)) as boolean;
     if (remember) toolMemory.rememberWrite(abs);
   }
 
@@ -130,10 +138,14 @@ export async function proposeWriteBatch(
   const ok =
     config.autoApprove ||
     remembered ||
-    (await confirm({
+    ((await select({
       message: 'Apply all patches?',
+      choices: [
+        { name: '❯ Apply all changes', value: true },
+        { name: '  Skip all', value: false },
+      ],
       default: false,
-    }).catch(() => false));
+    }).catch(() => false)) as boolean);
 
   if (!ok) {
     if (!config.jsonOutput) process.stdout.write(theme.warn('  skipped.\n'));
@@ -144,10 +156,14 @@ export async function proposeWriteBatch(
   }
 
   if (!config.autoApprove && !remembered) {
-    const remember = await confirm({
+    const remember = (await select({
       message: 'Remember these write paths for the session?',
+      choices: [
+        { name: '  Yes — skip confirmation next time', value: true },
+        { name: '  No', value: false },
+      ],
       default: false,
-    }).catch(() => false);
+    }).catch(() => false)) as boolean;
     if (remember) prepared.forEach((item) => toolMemory.rememberWrite(item.abs));
   }
 

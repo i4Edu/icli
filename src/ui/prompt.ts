@@ -13,6 +13,15 @@ export interface ReplPrompt {
   getKeybindingMode?(): KeybindingMode;
 }
 
+/**
+ * Call this whenever content is written to stdout between two read() calls
+ * (e.g. streamed LLM output) so we don't accidentally erase that content
+ * when the next input box is rendered.
+ */
+export function invalidateBoxBottom(): void {
+  pendingEraseLines = 0;
+}
+
 // ─── Slash command completer ───────────────────────────────────────────────
 function slashCompleter(line: string): [string[], string] {
   const ctx = defaultContext();
@@ -39,7 +48,19 @@ function boxWidth(): number {
   return Math.max(60, (process.stdout.columns || 80) - 6);
 }
 
+// Track lines printed by drawBoxBottom() so the next read() can erase them
+// before drawing a fresh top border (prevents infinite box stacking).
+let pendingEraseLines = 0;
+
 function drawBoxTop(): void {
+  if (pendingEraseLines > 0 && process.stdout.isTTY) {
+    // Erase the bottom border printed by the previous submission:
+    //   drawBoxBottom writes "\n<border>\n" = 2 extra lines below the readline line.
+    for (let i = 0; i < pendingEraseLines; i++) {
+      process.stdout.write('\x1b[1A\x1b[2K'); // cursor up + clear line
+    }
+    pendingEraseLines = 0;
+  }
   const w = boxWidth();
   const colorEnabled = theme.dim('') !== ''; // cheap color-enabled check
   const line = colorEnabled ? theme.dim(`  ╭${'─'.repeat(w)}╮`) : `  ╭${'─'.repeat(w)}╮`;
@@ -50,12 +71,16 @@ function drawBoxBottom(): void {
   const w = boxWidth();
   const line = theme.dim(`  ╰${'─'.repeat(w)}╯`);
   process.stdout.write('\n' + line + '\n');
+  // Two lines were added below the readline line: the blank line (\n) and the
+  // border line itself.  The trailing \n moves the cursor one further line down,
+  // so we need to go back 2 lines on the next drawBoxTop() call.
+  pendingEraseLines = 2;
 }
 
 // ─── Persistent footer (scroll-region docked) ──────────────────────────────
 const FOOTER_KEYS = safeUnicode
-  ? '  Ctrl+C Exit  │  Tab Autocomplete  │  @file Context  │  Ctrl+R Clear'
-  : '  Ctrl+C Exit  |  Tab Autocomplete  |  @file Context  |  Ctrl+R Clear';
+  ? '  Ctrl+C Exit  │  Ctrl+R Clear History  │  Tab Autocomplete'
+  : '  Ctrl+C Exit  |  Ctrl+R Clear History  |  Tab Autocomplete';
 
 let footerInstalled = false;
 
@@ -103,9 +128,15 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
   if (isTTY) installFooter();
 
   const onResize = () => {
-    if (isTTY && footerInstalled) installFooter();
+    if (isTTY && footerInstalled) {
+      pendingEraseLines = 0; // can't reliably erase across a resize
+      installFooter();
+    }
   };
   process.on('SIGWINCH', onResize);
+  // Also listen on stdout directly for environments that emit 'resize'
+  // instead of (or in addition to) SIGWINCH (e.g. Windows ConPTY).
+  if (isTTY) process.stdout.on('resize', onResize);
 
   // ── Ghost text helpers ────────────────────────────────────────────────
   const clearGhost = () => {
@@ -157,6 +188,13 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
         return;
       }
 
+      // Hint after a partial @mention: show "→ @<token>" in dim text.
+      const atMatch = line.match(/@([\w./\\-]*)$/);
+      if (atMatch) {
+        drawGhost(atMatch[0].length > 1 ? '' : 'file/path');
+        return;
+      }
+
       if (!/^\/\w/.test(line)) return;
 
       const [hits] = slashCompleter(line);
@@ -197,6 +235,7 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
       removeFooter();
       process.off('SIGWINCH', onResize);
       if (isTTY) {
+        process.stdout.off('resize', onResize);
         process.stdin.removeListener('keypress', onKeypressClear);
         process.stdin.removeListener('keypress', onKeypressDraw);
       }

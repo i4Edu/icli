@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { confirm } from '@inquirer/prompts';
+import { select } from '@inquirer/prompts';
 import { config } from '../../src/config.js';
 import { toolMemory } from '../../src/tools/memory.js';
 import { editFileTool } from '../../src/tools/edit-file.js';
 
-vi.mock('@inquirer/prompts', () => ({ confirm: vi.fn() }));
+vi.mock('@inquirer/prompts', () => ({ select: vi.fn(), confirm: vi.fn() }));
 
 let tmpDir: string;
 let originalCwd: string;
@@ -19,7 +19,7 @@ beforeEach(() => {
   config.cwd = tmpDir;
   stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   toolMemory.allowWritePath.clear();
-  vi.mocked(confirm).mockReset();
+  vi.mocked(select).mockReset();
 });
 
 afterEach(() => {
@@ -81,7 +81,7 @@ describe('editFileTool', () => {
 
   it('replaces the requested lines when approved', async () => {
     fs.writeFileSync(path.join(tmpDir, 'example.txt'), 'alpha\nbeta\ngamma\ndelta\n', 'utf8');
-    vi.mocked(confirm).mockResolvedValue(true);
+    vi.mocked(select).mockResolvedValue(true as never);
 
     const result = JSON.parse(
       await editFileTool({
@@ -96,9 +96,8 @@ describe('editFileTool', () => {
     expect(fs.readFileSync(path.join(tmpDir, 'example.txt'), 'utf8')).toBe(
       'alpha\nBETA\nGAMMA\ndelta\n',
     );
-    expect(confirm).toHaveBeenNthCalledWith(1, {
-      message: 'Apply this patch?',
-      default: false,
-    });
+    expect(select).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Apply this patch?' }),
+    );
   });
 });
