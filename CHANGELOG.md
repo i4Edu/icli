@@ -117,7 +117,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token-budget auto-split for long conversations
 - Project-wide semantic search
 
-## [Unreleased] — v0.2 / v0.3 / v0.4 / v0.5 / v0.6 / v0.7 / v1.0 / Beyond-1.0 rollups
+## [Unreleased]
+
+## [2.2.0] - 2026-06-29
+
 
 ### Added — v0.2 Quality & DX
 
