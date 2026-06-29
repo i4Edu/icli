@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import fg from 'fast-glob';
 
-export interface Symbol {
+export interface CodeSymbol {
   name: string;
   kind: 'function' | 'class' | 'interface' | 'type' | 'variable' | 'enum' | 'method';
   file: string;
@@ -20,7 +20,7 @@ export interface IndexOptions {
 interface PersistedIndex {
   rootDir: string;
   createdAt: string;
-  symbols: Symbol[];
+  symbols: CodeSymbol[];
 }
 
 const DEFAULT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs'];
@@ -32,7 +32,7 @@ const DEFAULT_EXCLUDE = [
   '**/.icopilot/**',
 ];
 
-const TOP_LEVEL_PATTERNS: Array<{ kind: Symbol['kind']; regex: RegExp }> = [
+const TOP_LEVEL_PATTERNS: Array<{ kind: CodeSymbol['kind']; regex: RegExp }> = [
   {
     kind: 'function',
     regex:
@@ -67,7 +67,7 @@ const METHOD_PATTERN =
 export class SymbolIndex {
   private rootDir = '';
   private cachePath = '';
-  private symbols: Symbol[] = [];
+  private symbols: CodeSymbol[] = [];
 
   async build(rootDir: string, options: IndexOptions = {}): Promise<void> {
     const resolvedRoot = path.resolve(rootDir);
@@ -80,7 +80,7 @@ export class SymbolIndex {
       ignore: [...DEFAULT_EXCLUDE, ...(options.exclude ?? [])],
     });
 
-    const collected: Symbol[] = [];
+    const collected: CodeSymbol[] = [];
     for (const file of files.sort()) {
       const absolute = path.join(resolvedRoot, file);
       let content = '';
@@ -94,39 +94,39 @@ export class SymbolIndex {
     }
 
     this.rootDir = resolvedRoot;
-    this.cachePath = path.join(resolvedRoot, '.icopilot', 'symbol-index.json');
+    this.cachePath = path.join(resolvedRoot, '.icopilot', 'CodeSymbol-index.json');
     this.symbols = normalizeSymbols(collected);
     this.save(this.cachePath);
   }
 
-  search(query: string): Symbol[] {
+  search(query: string): CodeSymbol[] {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
 
     return this.symbols
-      .map((symbol) => ({ symbol, score: scoreSymbolName(symbol.name, needle) }))
+      .map((CodeSymbol) => ({ CodeSymbol, score: scoreSymbolName(CodeSymbol.name, needle) }))
       .filter((item) => item.score > 0)
       .sort(
         (a, b) =>
           b.score - a.score ||
-          a.symbol.name.localeCompare(b.symbol.name) ||
-          a.symbol.file.localeCompare(b.symbol.file) ||
-          a.symbol.line - b.symbol.line,
+          a.CodeSymbol.name.localeCompare(b.CodeSymbol.name) ||
+          a.CodeSymbol.file.localeCompare(b.CodeSymbol.file) ||
+          a.CodeSymbol.line - b.CodeSymbol.line,
       )
-      .map((item) => item.symbol);
+      .map((item) => item.CodeSymbol);
   }
 
-  getByFile(file: string): Symbol[] {
+  getByFile(file: string): CodeSymbol[] {
     const normalized = normalizeFileKey(file, this.rootDir);
-    return this.symbols.filter((symbol) => path.normalize(symbol.file) === normalized);
+    return this.symbols.filter((CodeSymbol) => path.normalize(CodeSymbol.file) === normalized);
   }
 
-  getByKind(kind: string): Symbol[] {
-    return this.symbols.filter((symbol) => symbol.kind === kind);
+  getByKind(kind: string): CodeSymbol[] {
+    return this.symbols.filter((CodeSymbol) => CodeSymbol.kind === kind);
   }
 
-  getExported(): Symbol[] {
-    return this.symbols.filter((symbol) => symbol.exported);
+  getExported(): CodeSymbol[] {
+    return this.symbols.filter((CodeSymbol) => CodeSymbol.exported);
   }
 
   save(filePath: string): void {
@@ -144,7 +144,7 @@ export class SymbolIndex {
   load(filePath: string): void {
     const absolute = path.resolve(filePath);
     const raw = fs.readFileSync(absolute, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | Symbol[];
+    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | CodeSymbol[];
     const payload = Array.isArray(parsed)
       ? { rootDir: this.rootDir, symbols: parsed }
       : {
@@ -158,10 +158,10 @@ export class SymbolIndex {
   }
 }
 
-function extractSymbols(content: string, file: string, includePrivate: boolean): Symbol[] {
+function extractSymbols(content: string, file: string, includePrivate: boolean): CodeSymbol[] {
   const lineStarts = buildLineStarts(content);
   const depthMap = buildBraceDepthMap(content);
-  const symbols: Symbol[] = [];
+  const symbols: CodeSymbol[] = [];
 
   for (const { kind, regex } of TOP_LEVEL_PATTERNS) {
     regex.lastIndex = 0;
@@ -223,8 +223,8 @@ function extractMethods(
   bodyStart: number,
   file: string,
   includePrivate: boolean,
-): Symbol[] {
-  const methods: Symbol[] = [];
+): CodeSymbol[] {
+  const methods: CodeSymbol[] = [];
   let depth = 0;
   let current = '';
   let currentStart = 0;
@@ -309,17 +309,18 @@ function toPatterns(extensions?: string[]): string[] {
   return patterns.filter(Boolean);
 }
 
-function normalizeSymbols(symbols: Symbol[]): Symbol[] {
-  const byKey = new Map<string, Symbol>();
-  for (const symbol of symbols) {
-    if (!symbol || typeof symbol.name !== 'string' || typeof symbol.file !== 'string') continue;
-    const normalized: Symbol = {
-      name: symbol.name,
-      kind: symbol.kind,
-      file: path.normalize(symbol.file),
-      line: Number.isFinite(symbol.line) ? Math.max(1, Math.trunc(symbol.line)) : 1,
-      signature: symbol.signature,
-      exported: Boolean(symbol.exported),
+function normalizeSymbols(symbols: CodeSymbol[]): CodeSymbol[] {
+  const byKey = new Map<string, CodeSymbol>();
+  for (const CodeSymbol of symbols) {
+    if (!CodeSymbol || typeof CodeSymbol.name !== 'string' || typeof CodeSymbol.file !== 'string')
+      continue;
+    const normalized: CodeSymbol = {
+      name: CodeSymbol.name,
+      kind: CodeSymbol.kind,
+      file: path.normalize(CodeSymbol.file),
+      line: Number.isFinite(CodeSymbol.line) ? Math.max(1, Math.trunc(CodeSymbol.line)) : 1,
+      signature: CodeSymbol.signature,
+      exported: Boolean(CodeSymbol.exported),
     };
     byKey.set(
       `${normalized.file}:${normalized.line}:${normalized.kind}:${normalized.name}`,
