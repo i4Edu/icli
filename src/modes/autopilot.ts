@@ -159,7 +159,9 @@ export async function runAutopilot(goal: string, opts: RunAutopilotOptions = {})
       spinner.stop(success);
 
       if (!success) {
-        process.stdout.write(theme.err(`\n✖ step ${step} failed: ${(stepError as Error)?.message ?? stepError}\n`));
+        process.stdout.write(
+          theme.err(`\n✖ step ${step} failed: ${(stepError as Error)?.message ?? stepError}\n`),
+        );
         break;
       }
 
@@ -170,10 +172,7 @@ export async function runAutopilot(goal: string, opts: RunAutopilotOptions = {})
       // When requireApproval is on, pause between steps so the user can review.
       if (requireApproval && step < maxSteps) {
         process.stdout.write('\n');
-        const choice = await selectMenu([
-          'Continue to next step',
-          'Abort autopilot',
-        ]);
+        const choice = await selectMenu(['Continue to next step', 'Abort autopilot']);
         if (choice !== 0) {
           process.stdout.write(theme.dim('\nautopilot aborted by user.\n'));
           return session;
