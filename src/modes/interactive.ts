@@ -1,4 +1,6 @@
 import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
 import { Session } from '../session/session.js';
 import { theme, banner } from '../ui/theme.js';
 import { createPrompt, prefix } from '../ui/prompt.js';
@@ -43,7 +45,9 @@ export async function runInteractive(
   const keybindingMode = applyKeybindingConfig();
 
   if (!config.quiet) {
-    process.stdout.write(banner(VERSION, session.state.model));
+    const sessionDir = config.sessionDir
+      ?? path.join(os.homedir(), '.icopilot', 'sessions');
+    process.stdout.write(banner(VERSION, session.state.model, sessionDir));
     if (keybindingMode !== 'default') {
       process.stdout.write(getKeybindingHelp(keybindingMode));
     }

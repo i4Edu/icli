@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { confirm, input } from '@inquirer/prompts';
+import { select, input } from '@inquirer/prompts';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { config } from '../../src/config.js';
 import { toolMemory } from '../../src/tools/memory.js';
@@ -8,7 +8,7 @@ import { checkCommandSafety } from '../../src/tools/safety.js';
 import { proposeAndRun } from '../../src/tools/shell.js';
 
 vi.mock('@inquirer/prompts', () => ({
-  confirm: vi.fn(),
+  select: vi.fn(),
   input: vi.fn(),
 }));
 
@@ -27,7 +27,7 @@ vi.mock('../../src/tools/safety.js', async () => {
 });
 
 const spawnMock = vi.mocked(spawn);
-const confirmMock = vi.mocked(confirm);
+const selectMock = vi.mocked(select);
 const inputMock = vi.mocked(input);
 const safetyMock = vi.mocked(checkCommandSafety);
 
@@ -40,7 +40,7 @@ beforeEach(() => {
   stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   toolMemory.allowShell.clear();
-  confirmMock.mockReset();
+  selectMock.mockReset();
   inputMock.mockReset();
   spawnMock.mockReset();
   safetyMock.mockReset();
@@ -54,23 +54,23 @@ afterEach(() => {
 });
 
 describe('proposeAndRun safety integration', () => {
-  it('shows a warning and uses the normal confirmation prompt for warn-level commands', async () => {
+  it('shows a warning and uses the action menu for warn-level commands', async () => {
     safetyMock.mockReturnValue({
       dangerous: true,
       level: 'warn',
       reason: 'force push may overwrite remote history',
     });
-    confirmMock.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+    // User picks "run", then "No" to remember
+    selectMock.mockResolvedValueOnce('run').mockResolvedValueOnce(false);
     mockSpawnSuccess();
 
     const result = await proposeAndRun('git push --force origin main');
 
     expect(result).toMatchObject({ ran: true, exitCode: 0 });
     expect(safetyMock).toHaveBeenCalledWith('git push --force origin main');
-    expect(confirmMock).toHaveBeenNthCalledWith(1, {
-      message: 'Run this command?',
-      default: false,
-    });
+    expect(selectMock).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'What would you like to do?' }),
+    );
     expect(output()).toContain('Warning: force push may overwrite remote history');
   });
 
@@ -81,24 +81,25 @@ describe('proposeAndRun safety integration', () => {
       reason: 'recursive delete of root/home',
     });
     inputMock.mockResolvedValueOnce('yes');
-    confirmMock.mockResolvedValueOnce(false);
+    // After critical approval, "remember" select is shown
+    selectMock.mockResolvedValueOnce(false);
     mockSpawnSuccess();
 
     const result = await proposeAndRun('rm -rf /');
 
     expect(result).toMatchObject({ ran: true, exitCode: 0 });
-    expect(inputMock).toHaveBeenCalledWith({
-      message: 'Type "yes" to run this critical command:',
-      default: '',
-    });
-    expect(confirmMock).toHaveBeenCalledWith({
-      message: 'Remember this command for the session?',
-      default: false,
-    });
+    expect(inputMock).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('yes') }),
+    );
     expect(output()).toContain('!!! CRITICAL COMMAND WARNING !!!');
     expect(output()).toContain('Reason: recursive delete of root/home');
   });
 });
+
+vi.mock('@inquirer/prompts', () => ({
+  select: vi.fn(),
+  input: vi.fn(),
+}));
 
 function mockSpawnSuccess(): void {
   spawnMock.mockImplementation(() => {

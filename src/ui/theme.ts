@@ -4,8 +4,6 @@ import { config, type ThemeName } from '../config.js';
 
 type Styler = (text: string) => string;
 
-const plain: Styler = (text) => text;
-
 function colorEnabled(): boolean {
   if (config.theme === 'none') return false;
   if (process.env.FORCE_COLOR !== undefined) return true;
@@ -33,17 +31,17 @@ export function selectTheme(): ThemeName {
 }
 
 export const theme: Record<string, Styler> & { badge: Styler } = {
-  brand: style((c, name) => (name === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
-  user: style((c, name) => (name === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
-  assistant: style((c, name) => (name === 'light' ? c.green.bold : c.green)),
-  system: style((c) => c.gray.italic),
-  warn: style((c, name) => (name === 'light' ? c.hex('#92400E') : c.yellow)),
-  err: style((c) => c.red.bold),
-  ok: style((c, name) => (name === 'light' ? c.hex('#166534').bold : c.green.bold)),
-  dim: style((c) => c.gray),
-  hl: style((c, name) => (name === 'light' ? c.hex('#0A5CA8') : c.hex('#79C0FF'))),
-  ghost: style((c) => c.gray.dim),
-  hint: style((c) => c.gray.italic),
+  brand:     style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold  : c.hex('#58A6FF').bold)),
+  user:      style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold  : c.hex('#58A6FF').bold)),
+  assistant: style((c, n) => (n === 'light' ? c.green.bold           : c.green)),
+  system:    style((c)    => c.gray.italic),
+  warn:      style((c, n) => (n === 'light' ? c.hex('#92400E')       : c.yellow)),
+  err:       style((c)    => c.red.bold),
+  ok:        style((c, n) => (n === 'light' ? c.hex('#166534').bold  : c.green.bold)),
+  dim:       style((c)    => c.gray),
+  hl:        style((c, n) => (n === 'light' ? c.hex('#0A5CA8')       : c.hex('#79C0FF'))),
+  ghost:     style((c)    => c.gray.dim),
+  hint:      style((c)    => c.gray.italic),
   badge: (s: string) => {
     if (!colorEnabled()) return `[${s}]`;
     const p = palette();
@@ -53,54 +51,83 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
   },
 };
 
-const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
+export const safeUnicode =
+  process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
-export function banner(version: string, model: string): string {
+// ─── Pixel-art logo ────────────────────────────────────────────────────────
+// 5-row "ICOPILOT" in full-block characters (2-space gaps between letters).
+//   I=2   C=4   O=4   P=4   I=2   L=4   O=4   T=4
+const LOGO_ROWS = [
+  '██  ████  ████  ████  ██  █     ████  ████',
+  '██  ██    █  █  █  █  ██  █     █  █   ██ ',
+  '██  ██    █  █  ████  ██  █     █  █   ██ ',
+  '██  ██    █  █  █     ██  █     █  █   ██ ',
+  '██  ████  ████  █     ██  ████  ████   ██ ',
+];
+
+// ─── Pilot mascot (5 rows) ─────────────────────────────────────────────────
+// Purple frame (#A371F7), cyan accents (#39D2D2).
+function buildMascot(c: ChalkInstance): string[] {
+  const fr = (s: string) => c.hex('#A371F7')(s);
+  const cy = (s: string) => c.hex('#39D2D2')(s);
+  return [
+    fr(' ╭─────╮ '),
+    fr(' │') + cy('◉') + fr('   ') + cy('◉') + fr('│ '),
+    fr(' │') + c.hex('#A371F7')(' ─── ') + fr('│ '),
+    fr(' ╰──') + cy('┬') + fr('──╯ '),
+    cy('  ▶') + c.hex('#A371F7')(' pilot '),
+  ];
+}
+
+export function banner(version: string, model: string, sessionDir?: string): string {
   if (!colorEnabled()) {
-    return `\niCopilot  v${version}  model: ${model}\n/help · @file · Tab to autocomplete\n\n`;
+    return [
+      '',
+      'iCopilot  v' + version + '  model: ' + model,
+      '/help for commands · @file to add context · Tab to autocomplete',
+      '',
+    ].join('\n');
   }
 
   const { c, name } = palette();
-  const blue = name === 'light' ? '#0F6CBD' : '#58A6FF';
-  const boxColor = (s: string) => c.hex(blue)(s);
-  const dim = (s: string) => c.gray(s);
-  const hl = (s: string) => c.hex(name === 'light' ? '#0A5CA8' : '#79C0FF')(s);
+  const green = name === 'light' ? '#166534' : '#3FB950';
 
-  // Box dimensions
-  const icon = safeUnicode ? '⬡' : '*';
-  const title = `${icon}  iCopilot`;
-  const versionStr = `v${version}`;
-  const modelStr = model;
-  const innerWidth = Math.max(title.length + versionStr.length + 4, modelStr.length + 4, 34);
+  // Render logo rows in light-blue (#58A6FF)
+  const logoRows  = LOGO_ROWS.map((r) => c.hex('#58A6FF').bold(r));
+  const mascotRows = buildMascot(c);
 
-  const top    = boxColor(`╭${'─'.repeat(innerWidth + 2)}╮`);
-  const bottom = boxColor(`╰${'─'.repeat(innerWidth + 2)}╯`);
-  const side   = boxColor('│');
+  // Side-by-side: mascot (10 visible chars) + logo
+  const combined = logoRows
+    .map((lr, i) => `  ${mascotRows[i] ?? '          '}  ${lr}`)
+    .join('\n');
 
-  const padLine = (left: string, right: string, rawLeft: number, rawRight: number) => {
-    const gap = innerWidth - rawLeft - rawRight;
-    return `${side} ${left}${' '.repeat(Math.max(0, gap))}${right} ${side}`;
-  };
+  const sessDir = sessionDir ?? '~/.icopilot/sessions/';
 
-  const row1Left  = c.hex(blue).bold(title);
-  const row1Right = dim(versionStr);
-  const row1 = padLine(row1Left, row1Right, title.length, versionStr.length);
+  const diag1 =
+    `  ${c.hex(green)('●')} ` +
+    `${c.gray('Connected to')} ${c.hex('#58A6FF').bold('GitHub Models')} ` +
+    `${c.gray('[' + model + ']')}`;
 
-  const row2Left  = dim('model: ') + hl(modelStr);
-  const row2 = padLine(row2Left, '', `model: `.length + modelStr.length, 0);
+  const diag2 =
+    `  ${c.hex(green)('●')} ` +
+    `${c.gray('Session:')} ${c.hex('#58A6FF')('Active')} ` +
+    `${c.gray('(' + sessDir + ')')}`;
 
   const hints = safeUnicode
-    ? `${dim('/help')} for commands  ${dim('@file')} to add context  ${dim('Tab')} to autocomplete`
+    ? `${c.gray('/help')} for commands  ${c.gray('@file')} to add context  ${c.gray('Tab')} to autocomplete`
     : `/help for commands  @file to add context  Tab to autocomplete`;
 
   return [
     '',
-    `  ${top}`,
-    `  ${row1}`,
-    `  ${row2}`,
-    `  ${bottom}`,
+    combined,
+    '',
+    `  ${c.gray('v' + version)}  ${c.gray('·')}  ${c.hex('#58A6FF')(model)}`,
+    '',
+    diag1,
+    diag2,
     '',
     `  ${hints}`,
     '',
   ].join('\n');
 }
+

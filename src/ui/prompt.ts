@@ -1,5 +1,5 @@
 import readline from 'node:readline';
-import { theme } from './theme.js';
+import { theme, safeUnicode } from './theme.js';
 import { defaultContext } from '../util/completion.js';
 import {
   attachKeybindings,
@@ -13,11 +13,9 @@ export interface ReplPrompt {
   getKeybindingMode?(): KeybindingMode;
 }
 
-/** Returns matching slash completions for readline Tab completion and ghost text. */
+// ─── Slash command completer ───────────────────────────────────────────────
 function slashCompleter(line: string): [string[], string] {
   const ctx = defaultContext();
-
-  // /command — at least one char after slash for ghost text, full list for Tab
   if (/^\/[\w-]*$/.test(line)) {
     const partial = line.slice(1).toLowerCase();
     const hits = ctx.slashCommands
@@ -25,8 +23,6 @@ function slashCompleter(line: string): [string[], string] {
       .map((cmd) => `/${cmd}`);
     return [hits, line];
   }
-
-  // /command subcommand — e.g. /memory li
   const subMatch = line.match(/^(\/[\w-]+)\s+(\S*)$/);
   if (subMatch) {
     const cmd = subMatch[1].slice(1);
@@ -37,11 +33,71 @@ function slashCompleter(line: string): [string[], string] {
       .map((h) => `${subMatch[1]} ${h}`);
     if (hits.length) return [hits, line];
   }
-
   return [[], line];
 }
 
-/** Prompt with ghost-text suggestions for slash commands and Tab completion. */
+// ─── Input box helpers ─────────────────────────────────────────────────────
+const PLACEHOLDER = 'Enter @ to mention files or / for commands...';
+
+function boxWidth(): number {
+  return Math.max(60, (process.stdout.columns || 80) - 6);
+}
+
+function drawBoxTop(): void {
+  const w = boxWidth();
+  const colorEnabled = theme.dim('') !== '';   // cheap color-enabled check
+  const line = colorEnabled
+    ? theme.dim(`  ╭${'─'.repeat(w)}╮`)
+    : `  ╭${'─'.repeat(w)}╮`;
+  process.stdout.write(line + '\n');
+}
+
+function drawBoxBottom(): void {
+  const w = boxWidth();
+  const line = theme.dim(`  ╰${'─'.repeat(w)}╯`);
+  process.stdout.write('\n' + line + '\n');
+}
+
+// ─── Persistent footer (scroll-region docked) ──────────────────────────────
+const FOOTER_KEYS = safeUnicode
+  ? '  Ctrl+C Exit  │  Tab Autocomplete  │  @file Context  │  Ctrl+R Clear'
+  : '  Ctrl+C Exit  |  Tab Autocomplete  |  @file Context  |  Ctrl+R Clear';
+
+let footerInstalled = false;
+
+function footerLine(cols: number): string {
+  const text = FOOTER_KEYS;
+  // Dim the key names and leave separators brighter
+  const formatted = text
+    .replace(/Ctrl\+[A-Z]/g, (m) => `\x1b[1m${m}\x1b[0m\x1b[2m`)
+    .replace(/Tab/g, '\x1b[1mTab\x1b[0m\x1b[2m')
+    .replace(/@file/g, '\x1b[1m@file\x1b[0m\x1b[2m');
+  const pad = Math.max(0, cols - text.length);
+  return `\x1b[2m${formatted}${' '.repeat(pad)}\x1b[0m`;
+}
+
+function installFooter(): void {
+  if (!process.stdout.isTTY) return;
+  const rows = process.stdout.rows ?? 24;
+  const cols = process.stdout.columns ?? 80;
+  // Reserve bottom 2 rows: separator + hotkey bar
+  process.stdout.write(`\x1b[1;${rows - 2}r`);   // set scroll region
+  process.stdout.write('\x1b7');                   // save cursor (DEC)
+  process.stdout.write(`\x1b[${rows - 1};1H\x1b[2K`);
+  process.stdout.write(theme.dim('─'.repeat(cols)));
+  process.stdout.write(`\x1b[${rows};1H\x1b[2K`);
+  process.stdout.write(footerLine(cols));
+  process.stdout.write('\x1b8');                   // restore cursor (DEC)
+  footerInstalled = true;
+}
+
+function removeFooter(): void {
+  if (!footerInstalled) return;
+  process.stdout.write('\x1b[r');  // reset scroll region to full terminal
+  footerInstalled = false;
+}
+
+// ─── Main factory ──────────────────────────────────────────────────────────
 export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
   const mode = keybindingMode ?? applyKeybindingConfig();
   const isTTY = Boolean(process.stdin.isTTY && process.stdout.isTTY);
@@ -49,21 +105,28 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
   let promptActive = false;
   let activeGhost = '';
 
-  // Erase the currently visible ghost text (spaces + cursor back).
+  // Install the sticky footer + handle terminal resize
+  if (isTTY) installFooter();
+
+  const onResize = () => {
+    if (isTTY && footerInstalled) installFooter();
+  };
+  process.on('SIGWINCH', onResize);
+
+  // ── Ghost text helpers ────────────────────────────────────────────────
   const clearGhost = () => {
     if (!activeGhost || !isTTY) return;
     process.stdout.write(`${' '.repeat(activeGhost.length)}\x1b[${activeGhost.length}D`);
     activeGhost = '';
   };
 
-  // Write dim ghost text after cursor, then move cursor back so it stays on the typed text.
   const drawGhost = (suffix: string) => {
     if (!suffix || !isTTY) return;
     activeGhost = suffix;
     process.stdout.write(`\x1b[2m${suffix}\x1b[0m\x1b[${suffix.length}D`);
   };
 
-  // STEP 1 — clear ghost BEFORE readline rewrites the line (prependListener fires first).
+  // STEP 1 — clear ghost BEFORE readline redraws (prependListener fires first)
   const onKeypressClear = (_ch: unknown, key: readline.Key | undefined) => {
     if (!promptActive) return;
     if (key?.name === 'return' || key?.name === 'enter') return;
@@ -75,7 +138,7 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
     process.stdin.prependListener('keypress', onKeypressClear);
   }
 
-  // STEP 2 — create readline (registers its own keypress handler after ours).
+  // STEP 2 — readline (registers its own keypress handler after ours)
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -84,7 +147,7 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
     historySize: 500,
   });
 
-  // STEP 3 — draw ghost AFTER readline finishes its redraw (setImmediate).
+  // STEP 3 — draw ghost AFTER readline finishes its redraw (setImmediate)
   const onKeypressDraw = (_ch: unknown, key: readline.Key | undefined) => {
     if (!promptActive || !isTTY) return;
     if (key?.ctrl || key?.meta) return;
@@ -95,7 +158,11 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
       if (!promptActive) return;
       const line: string = (rl as any).line ?? '';
 
-      // Only suggest when user has typed at least one char after /
+      if (line === '') {
+        drawGhost(PLACEHOLDER);
+        return;
+      }
+
       if (!/^\/\w/.test(line)) return;
 
       const [hits] = slashCompleter(line);
@@ -108,28 +175,33 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
     });
   };
 
-  if (isTTY) {
-    process.stdin.on('keypress', onKeypressDraw);
-  }
-
-  if (mode !== 'default') {
-    attachKeybindings(rl, mode);
-  }
+  if (isTTY) process.stdin.on('keypress', onKeypressDraw);
+  if (mode !== 'default') attachKeybindings(rl, mode);
 
   return {
-    read(prompt: string): Promise<string> {
+    read(promptStr: string): Promise<string> {
       return new Promise((resolve) => {
         promptActive = true;
-        rl.question(prompt, (answer) => {
+        drawBoxTop();
+        rl.question(promptStr, (answer) => {
           promptActive = false;
           clearGhost();
+          drawBoxBottom();
           resolve(answer);
+        });
+        // Show placeholder after readline renders the empty prompt
+        setImmediate(() => {
+          if (promptActive && !((rl as any).line as string)) {
+            drawGhost(PLACEHOLDER);
+          }
         });
       });
     },
     close() {
       promptActive = false;
       clearGhost();
+      removeFooter();
+      process.off('SIGWINCH', onResize);
       if (isTTY) {
         process.stdin.removeListener('keypress', onKeypressClear);
         process.stdin.removeListener('keypress', onKeypressDraw);
@@ -142,12 +214,12 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
   };
 }
 
-const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
-
+// ─── Prompt prefix (left border of input box) ─────────────────────────────
 export function prefix(mode: 'ask' | 'plan'): string {
   const arrow = safeUnicode ? '❯' : '>';
+  const border = theme.dim('│');
   if (mode === 'plan') {
-    return `${theme.badge('plan')} ${theme.user(arrow)} `;
+    return `  ${border} ${theme.badge('plan')} ${theme.user(arrow)} `;
   }
-  return `${theme.user(arrow)} `;
+  return `  ${border} ${theme.user(arrow)} `;
 }

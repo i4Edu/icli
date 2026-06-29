@@ -28,9 +28,12 @@ export async function ensureMarkdown(): Promise<{ parse: (md: string) => string 
  *  Tracks fenced ``` code blocks across token boundaries and renders the
  *  inside of a fence in `theme.hl` so the user can visually distinguish code
  *  from prose during streaming, without waiting for the full markdown render. */
+import { syntaxHighlightShell } from '../tools/shell.js';
+
 export class StreamSink {
   private buf = '';
   private inCode = false;
+  private codeLang = '';
   private lineBuf = '';
 
   write(token: string) {
@@ -48,13 +51,24 @@ export class StreamSink {
     this.lineBuf = '';
     const trimmed = line.trimStart();
     if (trimmed.startsWith('```')) {
-      // toggle on the fence boundary; print fence dimmed
-      this.inCode = !this.inCode;
+      // Toggle fence; capture the language tag
+      if (!this.inCode) {
+        this.codeLang = trimmed.slice(3).trim().toLowerCase();
+        this.inCode = true;
+      } else {
+        this.inCode = false;
+        this.codeLang = '';
+      }
       process.stdout.write(theme.dim(line));
       return;
     }
     if (this.inCode) {
-      process.stdout.write(theme.hl(line));
+      const isShell = ['sh', 'bash', 'zsh', 'shell', 'fish', ''].includes(this.codeLang);
+      if (isShell) {
+        process.stdout.write(syntaxHighlightShell(line));
+      } else {
+        process.stdout.write(theme.hl(line));
+      }
       return;
     }
     process.stdout.write(line);
