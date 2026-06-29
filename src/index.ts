@@ -181,8 +181,10 @@ export async function run(opts: any): Promise<void> {
 }
 
 export function createProgram(): Command {
+  const invokedAs = path.basename(process.argv[1] ?? 'icopilot').replace(/\.js$/, '');
+  const cliName = ['icopilot', 'icli'].includes(invokedAs) ? invokedAs : 'icopilot';
   const program = new Command()
-    .name('icopilot')
+    .name(cliName)
     .description('iCopilot — terminal-native agentic CLI powered by GitHub Models')
     .version('2.0.0')
     .option('-p, --prompt <text>', 'one-shot mode: run a single prompt and exit')
