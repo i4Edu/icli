@@ -132,9 +132,12 @@ export async function suggestCommand(
   let command = await generateCommand(trimmedQuery, shell, session, signal);
 
   // Post-suggestion action loop — mirrors GitHub Copilot CLI's interactive UX
-  while (true) {
+  let running = true;
+  while (running) {
     process.stdout.write('\n');
-    process.stdout.write(box(commandChip(command), { title: 'Suggested command', style: 'command' }));
+    process.stdout.write(
+      box(commandChip(command), { title: 'Suggested command', style: 'command' }),
+    );
 
     type Action = 'execute' | 'copy' | 'explain' | 'revise' | 'exit';
     let action: Action;
@@ -151,46 +154,40 @@ export async function suggestCommand(
       });
     } catch {
       // user Ctrl-C'd the menu
-      break;
+      running = false;
+      continue;
     }
 
     if (action === 'execute') {
       await executeCommand(command);
-      break;
-    }
-
-    if (action === 'copy') {
+      running = false;
+    } else if (action === 'copy') {
       try {
         await copyTextToClipboard(command);
         process.stdout.write(theme.ok('✔ Command copied to clipboard\n'));
       } catch (err: any) {
         process.stdout.write(theme.err(`✖ Copy failed: ${err?.message ?? String(err)}\n`));
       }
-      break;
-    }
-
-    if (action === 'explain') {
+      running = false;
+    } else if (action === 'explain') {
       await explainCommand(command, session, signal);
       // continue loop so user can still execute/copy
-      continue;
-    }
-
-    if (action === 'revise') {
+    } else if (action === 'revise') {
       let feedback: string;
       try {
         feedback = await input({ message: 'What should be different?' });
       } catch {
-        break;
+        running = false;
+        continue;
       }
       if (feedback.trim()) {
         process.stdout.write(theme.dim('\nRefining command…\n'));
         command = await generateCommand(trimmedQuery, shell, session, signal, command, feedback);
       }
-      continue;
+    } else {
+      // exit
+      running = false;
     }
-
-    // exit
-    break;
   }
 
   return '';

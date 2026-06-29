@@ -117,7 +117,11 @@ export async function runTui(
     if (busy) {
       const thinkLabel = ' ◆ Copilot is thinking… ';
       const sideLen = Math.max(0, Math.floor((cols - thinkLabel.length) / 2));
-      writeRaw('─'.repeat(sideLen) + thinkLabel + '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)));
+      writeRaw(
+        '─'.repeat(sideLen) +
+          thinkLabel +
+          '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)),
+      );
     } else {
       writeRaw('─'.repeat(cols));
     }

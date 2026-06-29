@@ -60,11 +60,23 @@ export function box(content: string, opts: BoxOptions = {}): string {
   }
 
   const styleTop =
-    opts.style === 'command' ? theme.hl(top) : opts.style === 'response' ? theme.brand(top) : theme.dim(top);
+    opts.style === 'command'
+      ? theme.hl(top)
+      : opts.style === 'response'
+        ? theme.brand(top)
+        : theme.dim(top);
   const styleBottom =
-    opts.style === 'command' ? theme.hl(bottom) : opts.style === 'response' ? theme.brand(bottom) : theme.dim(bottom);
+    opts.style === 'command'
+      ? theme.hl(bottom)
+      : opts.style === 'response'
+        ? theme.brand(bottom)
+        : theme.dim(bottom);
   const styleSide = (s: string) =>
-    opts.style === 'command' ? theme.hl(s) : opts.style === 'response' ? theme.brand(s) : theme.dim(s);
+    opts.style === 'command'
+      ? theme.hl(s)
+      : opts.style === 'response'
+        ? theme.brand(s)
+        : theme.dim(s);
 
   const styledBody = bodyLines.map((l) => {
     const left = l.slice(0, 1);
