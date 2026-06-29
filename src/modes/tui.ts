@@ -103,7 +103,7 @@ export async function runTui(
     const chatHeight = Math.max(1, chatBottom - chatTop + 1);
 
     writeRaw('\x1b[2J\x1b[H');
-    writeRaw(statusLine(session, cols));
+    writeRaw(statusLine(session, cols, busy));
 
     const lines = wrapLines(chat.trimEnd(), Math.max(1, cols));
     const visible = lines.slice(-chatHeight);
@@ -112,13 +112,25 @@ export async function runTui(
       writeRaw(pad(visible[i] || '', cols));
     }
 
+    // separator with thinking indicator
     writeRaw(`\x1b[${Math.max(1, rows - 2)};1H`);
-    writeRaw('─'.repeat(cols));
+    if (busy) {
+      const thinkLabel = ' ◆ Copilot is thinking… ';
+      const sideLen = Math.max(0, Math.floor((cols - thinkLabel.length) / 2));
+      writeRaw('─'.repeat(sideLen) + thinkLabel + '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)));
+    } else {
+      writeRaw('─'.repeat(cols));
+    }
+
     writeRaw(`\x1b[${Math.max(1, rows - 1)};1H`);
-    const prompt = `${busy ? '…' : '❯'} ${rl.line || ''}`;
+    const promptIcon = busy ? '\x1b[33m◆\x1b[0m' : '\x1b[32m❯\x1b[0m';
+    const prompt = `${promptIcon} ${rl.line || ''}`;
     writeRaw(pad(prompt, cols));
     writeRaw(`\x1b[${rows};1H`);
-    writeRaw(pad(busy ? 'Working…' : 'Enter to send • /help for commands', cols));
+    const hint = busy
+      ? '\x1b[2m Ctrl+C to cancel  \x1b[0m'
+      : '\x1b[2m Enter to send  •  /help for commands  •  /suggest for shell commands \x1b[0m';
+    writeRaw(pad(hint, cols));
   };
 
   const appendCaptured = (chunk: unknown) => {
@@ -260,9 +272,11 @@ export async function runTui(
   }
 }
 
-function statusLine(session: Session, cols: number): string {
+function statusLine(session: Session, cols: number, busy: boolean): string {
   const mode = session.state.mode.toUpperCase();
-  const text = ` iCopilot v${VERSION} • model: ${session.state.model} • mode: ${mode}  Ctrl+C to exit`;
+  const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
+  const busyBadge = busy ? ' \x1b[33m◆ WORKING\x1b[0;7m' : '';
+  const text = ` \x1b[1miCopilot\x1b[0;7m v${VERSION}${busyBadge}  │  model: ${modelShort}  │  mode: ${mode}  │  Ctrl+C to exit `;
   return `\x1b[7m${pad(text, cols)}\x1b[0m`;
 }
 

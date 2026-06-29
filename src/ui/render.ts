@@ -1,4 +1,5 @@
 import { theme } from './theme.js';
+import { box } from './box.js';
 import { lazy } from '../util/lazy.js';
 
 let markdownConfigured = false;
@@ -110,5 +111,17 @@ export async function renderMarkdownString(md: string): Promise<string> {
     return markdown.parse(md).trimEnd();
   } catch {
     return md;
+  }
+}
+
+/** Render an AI response string inside a GitHub Copilot CLI-style bordered panel. */
+export async function boxResponse(md: string): Promise<void> {
+  if (!md.trim()) return;
+  try {
+    const markdown = await ensureMarkdown();
+    const rendered = markdown.parse(md).trimEnd();
+    process.stdout.write(box(rendered, { title: 'Copilot', style: 'response' }));
+  } catch {
+    process.stdout.write(box(md.trimEnd(), { title: 'Copilot', style: 'response' }));
   }
 }
