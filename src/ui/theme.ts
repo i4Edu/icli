@@ -31,17 +31,17 @@ export function selectTheme(): ThemeName {
 }
 
 export const theme: Record<string, Styler> & { badge: Styler } = {
-  brand:     style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold  : c.hex('#58A6FF').bold)),
-  user:      style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold  : c.hex('#58A6FF').bold)),
-  assistant: style((c, n) => (n === 'light' ? c.green.bold           : c.green)),
-  system:    style((c)    => c.gray.italic),
-  warn:      style((c, n) => (n === 'light' ? c.hex('#92400E')       : c.yellow)),
-  err:       style((c)    => c.red.bold),
-  ok:        style((c, n) => (n === 'light' ? c.hex('#166534').bold  : c.green.bold)),
-  dim:       style((c)    => c.gray),
-  hl:        style((c, n) => (n === 'light' ? c.hex('#0A5CA8')       : c.hex('#79C0FF'))),
-  ghost:     style((c)    => c.gray.dim),
-  hint:      style((c)    => c.gray.italic),
+  brand: style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
+  user: style((c, n) => (n === 'light' ? c.hex('#0F6CBD').bold : c.hex('#58A6FF').bold)),
+  assistant: style((c, n) => (n === 'light' ? c.green.bold : c.green)),
+  system: style((c) => c.gray.italic),
+  warn: style((c, n) => (n === 'light' ? c.hex('#92400E') : c.yellow)),
+  err: style((c) => c.red.bold),
+  ok: style((c, n) => (n === 'light' ? c.hex('#166534').bold : c.green.bold)),
+  dim: style((c) => c.gray),
+  hl: style((c, n) => (n === 'light' ? c.hex('#0A5CA8') : c.hex('#79C0FF'))),
+  ghost: style((c) => c.gray.dim),
+  hint: style((c) => c.gray.italic),
   badge: (s: string) => {
     if (!colorEnabled()) return `[${s}]`;
     const p = palette();
@@ -51,8 +51,7 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
   },
 };
 
-export const safeUnicode =
-  process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
+export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
 // ─── Pixel-art logo ────────────────────────────────────────────────────────
 // 5-row "ICOPILOT" in full-block characters (2-space gaps between letters).
@@ -93,13 +92,11 @@ export function banner(version: string, model: string, sessionDir?: string): str
   const green = name === 'light' ? '#166534' : '#3FB950';
 
   // Render logo rows in light-blue (#58A6FF)
-  const logoRows  = LOGO_ROWS.map((r) => c.hex('#58A6FF').bold(r));
+  const logoRows = LOGO_ROWS.map((r) => c.hex('#58A6FF').bold(r));
   const mascotRows = buildMascot(c);
 
   // Side-by-side: mascot (10 visible chars) + logo
-  const combined = logoRows
-    .map((lr, i) => `  ${mascotRows[i] ?? '          '}  ${lr}`)
-    .join('\n');
+  const combined = logoRows.map((lr, i) => `  ${mascotRows[i] ?? '          '}  ${lr}`).join('\n');
 
   const sessDir = sessionDir ?? '~/.icopilot/sessions/';
 
@@ -130,4 +127,3 @@ export function banner(version: string, model: string, sessionDir?: string): str
     '',
   ].join('\n');
 }
-

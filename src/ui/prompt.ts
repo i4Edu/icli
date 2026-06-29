@@ -18,9 +18,7 @@ function slashCompleter(line: string): [string[], string] {
   const ctx = defaultContext();
   if (/^\/[\w-]*$/.test(line)) {
     const partial = line.slice(1).toLowerCase();
-    const hits = ctx.slashCommands
-      .filter((cmd) => cmd.startsWith(partial))
-      .map((cmd) => `/${cmd}`);
+    const hits = ctx.slashCommands.filter((cmd) => cmd.startsWith(partial)).map((cmd) => `/${cmd}`);
     return [hits, line];
   }
   const subMatch = line.match(/^(\/[\w-]+)\s+(\S*)$/);
@@ -28,9 +26,7 @@ function slashCompleter(line: string): [string[], string] {
     const cmd = subMatch[1].slice(1);
     const partial = subMatch[2];
     const subs = ctx.slashSubcommands[cmd] ?? [];
-    const hits = subs
-      .filter((s) => s.startsWith(partial))
-      .map((h) => `${subMatch[1]} ${h}`);
+    const hits = subs.filter((s) => s.startsWith(partial)).map((h) => `${subMatch[1]} ${h}`);
     if (hits.length) return [hits, line];
   }
   return [[], line];
@@ -45,10 +41,8 @@ function boxWidth(): number {
 
 function drawBoxTop(): void {
   const w = boxWidth();
-  const colorEnabled = theme.dim('') !== '';   // cheap color-enabled check
-  const line = colorEnabled
-    ? theme.dim(`  ╭${'─'.repeat(w)}╮`)
-    : `  ╭${'─'.repeat(w)}╮`;
+  const colorEnabled = theme.dim('') !== ''; // cheap color-enabled check
+  const line = colorEnabled ? theme.dim(`  ╭${'─'.repeat(w)}╮`) : `  ╭${'─'.repeat(w)}╮`;
   process.stdout.write(line + '\n');
 }
 
@@ -81,19 +75,19 @@ function installFooter(): void {
   const rows = process.stdout.rows ?? 24;
   const cols = process.stdout.columns ?? 80;
   // Reserve bottom 2 rows: separator + hotkey bar
-  process.stdout.write(`\x1b[1;${rows - 2}r`);   // set scroll region
-  process.stdout.write('\x1b7');                   // save cursor (DEC)
+  process.stdout.write(`\x1b[1;${rows - 2}r`); // set scroll region
+  process.stdout.write('\x1b7'); // save cursor (DEC)
   process.stdout.write(`\x1b[${rows - 1};1H\x1b[2K`);
   process.stdout.write(theme.dim('─'.repeat(cols)));
   process.stdout.write(`\x1b[${rows};1H\x1b[2K`);
   process.stdout.write(footerLine(cols));
-  process.stdout.write('\x1b8');                   // restore cursor (DEC)
+  process.stdout.write('\x1b8'); // restore cursor (DEC)
   footerInstalled = true;
 }
 
 function removeFooter(): void {
   if (!footerInstalled) return;
-  process.stdout.write('\x1b[r');  // reset scroll region to full terminal
+  process.stdout.write('\x1b[r'); // reset scroll region to full terminal
   footerInstalled = false;
 }
 

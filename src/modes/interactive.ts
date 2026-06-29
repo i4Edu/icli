@@ -45,8 +45,7 @@ export async function runInteractive(
   const keybindingMode = applyKeybindingConfig();
 
   if (!config.quiet) {
-    const sessionDir = config.sessionDir
-      ?? path.join(os.homedir(), '.icopilot', 'sessions');
+    const sessionDir = config.sessionDir ?? path.join(os.homedir(), '.icopilot', 'sessions');
     process.stdout.write(banner(VERSION, session.state.model, sessionDir));
     if (keybindingMode !== 'default') {
       process.stdout.write(getKeybindingHelp(keybindingMode));

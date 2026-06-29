@@ -191,7 +191,9 @@ export function createProgram(): Command {
   } catch {
     try {
       pkgVersion = (_require('../../package.json') as { version: string }).version;
-    } catch { /* fallback */ }
+    } catch {
+      /* fallback */
+    }
   }
   const invokedAs = path.basename(process.argv[1] ?? 'icopilot').replace(/\.js$/, '');
   const cliName = ['icopilot', 'icli'].includes(invokedAs) ? invokedAs : 'icopilot';

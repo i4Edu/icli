@@ -155,7 +155,11 @@ export function syntaxHighlightShell(line: string): string {
   while (rest.length > 0) {
     // Whitespace
     const ws = rest.match(/^(\s+)/);
-    if (ws) { parts.push(ws[1]); rest = rest.slice(ws[1].length); continue; }
+    if (ws) {
+      parts.push(ws[1]);
+      rest = rest.slice(ws[1].length);
+      continue;
+    }
 
     // Pipeline / logical operators — next word is a command
     const pipe = rest.match(/^(\|{1,2}|&&|\|\||;;|;)/);
@@ -201,7 +205,7 @@ export function syntaxHighlightShell(line: string): string {
         parts.push('\x1b[92m\x1b[1m' + w + '\x1b[0m'); // bright green bold
         isCmd = false;
       } else if (/^[./~]/.test(w) || /\//.test(w)) {
-        parts.push('\x1b[32m' + w + '\x1b[0m');         // green (path)
+        parts.push('\x1b[32m' + w + '\x1b[0m'); // green (path)
       } else {
         parts.push(w);
       }
