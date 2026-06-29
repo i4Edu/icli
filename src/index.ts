@@ -1,5 +1,6 @@
 import './util/perf.js';
 import { enablePerfTrace, markFirstPrompt } from './util/perf.js';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { Command } from 'commander';
 import { runInteractive } from './modes/interactive.js';
@@ -181,12 +182,23 @@ export async function run(opts: any): Promise<void> {
 }
 
 export function createProgram(): Command {
+  const _require = createRequire(import.meta.url);
+  // dist/index.js → ../../package.json won't work; resolve from CWD or use __dirname equivalent
+  let pkgVersion = '0.0.0';
+  try {
+    const pkgPath = new URL('../package.json', import.meta.url).pathname;
+    pkgVersion = (_require(pkgPath) as { version: string }).version;
+  } catch {
+    try {
+      pkgVersion = (_require('../../package.json') as { version: string }).version;
+    } catch { /* fallback */ }
+  }
   const invokedAs = path.basename(process.argv[1] ?? 'icopilot').replace(/\.js$/, '');
   const cliName = ['icopilot', 'icli'].includes(invokedAs) ? invokedAs : 'icopilot';
   const program = new Command()
     .name(cliName)
     .description('iCopilot — terminal-native agentic CLI powered by GitHub Models')
-    .version('2.0.0')
+    .version(pkgVersion)
     .option('-p, --prompt <text>', 'one-shot mode: run a single prompt and exit')
     .option('-m, --model <name>', 'model id (default: gpt-4o-mini)')
     .option('--local', 'use the default local OpenAI-compatible provider (ollama)')
