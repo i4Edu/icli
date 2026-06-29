@@ -94,7 +94,7 @@ export class SymbolIndex {
     }
 
     this.rootDir = resolvedRoot;
-    this.cachePath = path.join(resolvedRoot, '.icopilot', 'CodeSymbol-index.json');
+    this.cachePath = path.join(resolvedRoot, '.icopilot', 'symbol-index.json');
     this.symbols = normalizeSymbols(collected);
     this.save(this.cachePath);
   }
@@ -104,29 +104,29 @@ export class SymbolIndex {
     if (!needle) return [];
 
     return this.symbols
-      .map((CodeSymbol) => ({ CodeSymbol, score: scoreSymbolName(CodeSymbol.name, needle) }))
+      .map((symbol) => ({ symbol, score: scoreSymbolName(symbol.name, needle) }))
       .filter((item) => item.score > 0)
       .sort(
         (a, b) =>
           b.score - a.score ||
-          a.CodeSymbol.name.localeCompare(b.CodeSymbol.name) ||
-          a.CodeSymbol.file.localeCompare(b.CodeSymbol.file) ||
-          a.CodeSymbol.line - b.CodeSymbol.line,
+          a.symbol.name.localeCompare(b.symbol.name) ||
+          a.symbol.file.localeCompare(b.symbol.file) ||
+          a.symbol.line - b.symbol.line,
       )
-      .map((item) => item.CodeSymbol);
+      .map((item) => item.symbol);
   }
 
   getByFile(file: string): CodeSymbol[] {
     const normalized = normalizeFileKey(file, this.rootDir);
-    return this.symbols.filter((CodeSymbol) => path.normalize(CodeSymbol.file) === normalized);
+    return this.symbols.filter((symbol) => path.normalize(symbol.file) === normalized);
   }
 
   getByKind(kind: string): CodeSymbol[] {
-    return this.symbols.filter((CodeSymbol) => CodeSymbol.kind === kind);
+    return this.symbols.filter((symbol) => symbol.kind === kind);
   }
 
   getExported(): CodeSymbol[] {
-    return this.symbols.filter((CodeSymbol) => CodeSymbol.exported);
+    return this.symbols.filter((symbol) => symbol.exported);
   }
 
   save(filePath: string): void {
