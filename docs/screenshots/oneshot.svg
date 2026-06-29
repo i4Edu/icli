@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="terminal" baseProfile="full" viewBox="0 0 1007 911" width="1007" version="1.1">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="terminal" baseProfile="full" viewBox="0 0 1007 486" width="1007" version="1.1">
     <defs>
         <termtosvg:template_settings xmlns:termtosvg="https://github.com/nbedos/termtosvg">
-            <termtosvg:screen_geometry columns="120" rows="45"/>
+            <termtosvg:screen_geometry columns="120" rows="20"/>
             <termtosvg:animation type="waapi"/>
         </termtosvg:template_settings>
         <style type="text/css" id="generated-style"><![CDATA[
@@ -77,8 +77,8 @@
     <circle cx="24" cy="23" r="7" class="color1"/>
     <circle cx="44" cy="23" r="7" class="color3"/>
     <circle cx="64" cy="23" r="7" class="color2"/>
-    <svg id="screen" width="960" height="765" x="23" y="50" viewBox="0 0 960 765" preserveAspectRatio="xMidYMin slice">
-        <rect class="background" height="100%" width="100%" x="0" y="0"/><defs><g id="g1"><text x="0" textLength="40" class="foreground">2.0.0</text></g><g id="g2"><text x="0" textLength="8" class="background"> </text></g></defs><g id="screen_view"><g><use xlink:href="#g1" y="0"/><rect x="0" y="17" width="8" height="17" class="foreground"/><use xlink:href="#g2" y="17"/></g></g></svg>
+    <svg id="screen" width="960" height="340" x="23" y="50" viewBox="0 0 960 340" preserveAspectRatio="xMidYMin slice">
+        <rect class="background" height="100%" width="100%" x="0" y="0"/><defs><g id="g1"><text x="0" textLength="16" class="color2">&#9679; </text><text x="16" textLength="8" class="background"> </text></g><g id="g2"><text x="0" textLength="16" class="color2">&#9679; </text><text x="16" textLength="944" class="foreground">A closure is a function that retains access to its lexical scope, even when the function is executed outside that scop</text></g><g id="g3"><text x="0" textLength="960" class="foreground">e. This allows the function to remember the environment in which it was created, enabling it to access variables from th</text></g><g id="g4"><text x="0" textLength="432" class="foreground">at environment even after they have gone out of scope.</text></g><g id="g5"><text x="0" textLength="8" class="background"> </text></g></defs><g id="screen_view"><g><rect x="16" y="17" width="8" height="17" class="foreground"/><use xlink:href="#g1" y="17"/></g><g><use xlink:href="#g2" y="391"/><use xlink:href="#g3" y="408"/><use xlink:href="#g4" y="425"/><rect x="0" y="442" width="8" height="17" class="foreground"/><use xlink:href="#g5" y="442"/></g></g></svg>
     <text id="timer" class="foreground">0:00/0:00</text>
     <!-- Invisible, wider track to make frame seeking easier -->
     <use xlink:href="#slider_wide_track" id="wide_track" class="background"/>
@@ -91,10 +91,11 @@
         var termtosvg_vars = {
             transforms: [
                 {transform: 'translate3D(0, 0px, 0)', easing: 'steps(1, end)'},
-{transform: 'translate3D(0, 0px, 0)', easing: 'steps(1, end)'}
+{transform: 'translate3D(0, -374px, 0)', easing: 'steps(1, end)', offset: 0.771},
+{transform: 'translate3D(0, -374px, 0)', easing: 'steps(1, end)'}
             ],
             timings: {
-                duration: 1000,
+                duration: 4373,
                 iterations: Infinity
             }
         };]]></script>
