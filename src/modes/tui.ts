@@ -21,6 +21,7 @@ import {
   magentaSeparator,
   renderFooter,
 } from '../ui/tui-layout.js';
+import { safeUnicode } from '../ui/theme.js';
 import { handlePostTurnContextBudget } from './auto-compact.js';
 import { backgroundTaskManager } from './background.js';
 import { runAutopilot } from './autopilot.js';
@@ -67,10 +68,14 @@ export async function runTui(
   let currentAbort: AbortController | null = null;
   let activeTab = 0;
   let gitBranch = '';
+  let branchInFlight = false;
   const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
 
   // Resolve the current git branch once (and on cwd change) for the status dock.
+  // A simple in-flight guard avoids overlapping lookups racing to set gitBranch.
   const refreshBranch = () => {
+    if (branchInFlight) return;
+    branchInFlight = true;
     void (async () => {
       try {
         const git = simpleGit(session.state.cwd);
@@ -80,6 +85,8 @@ export async function runTui(
         }
       } catch {
         /* not a git repo — leave the branch blank */
+      } finally {
+        branchInFlight = false;
       }
     })();
   };
@@ -318,6 +325,8 @@ export async function runTui(
   altScreenEnter();
   hideCursor();
   clear();
+  // An empty timeline makes the renderer show the hero/branding canvas (with its
+  // tip bulletins) until the first turn produces conversation output.
   chat = '';
   refreshBranch();
 
@@ -361,7 +370,9 @@ function heroCanvas(session: Session, cols: number): string[] {
 
 function statusDock(session: Session, branch: string, cols: number, busy: boolean): string {
   const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
-  const branchLabel = branch ? ` [\u{F02A2} ${branch}]` : '';
+  // Nerd-font git branch glyph (U+F02A2) when supported, plain label otherwise.
+  const branchIcon = safeUnicode ? '\u{F02A2} ' : 'git:';
+  const branchLabel = branch ? ` [${branchIcon}${branch}]` : '';
   const left = `${session.state.cwd}${branchLabel}`;
   const used = Math.min(CREDIT_BUDGET, Math.ceil(session.tokenUsage() / 1000));
   const working = busy ? ' \x1b[33m◆ WORKING\x1b[0m  │ ' : '';
