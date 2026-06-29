@@ -19,6 +19,15 @@ import { openBrowser } from './util/browser.js';
 function friendlyError(err: any): string {
   const message = String(err?.message || err);
   const status = err?.status ?? err?.response?.status;
+
+  // No token configured at all — catch this before any network error
+  if (!config.token && config.provider === 'github') {
+    return (
+      'Authentication is not configured for provider "github".\n' +
+      '  Set GITHUB_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
+    );
+  }
+
   if (/GITHUB_TOKEN|ICOPILOT_TOKEN|OPENAI_API_KEY|ANTHROPIC_API_KEY/i.test(message)) {
     if (config.provider === 'github') {
       return (
