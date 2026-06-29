@@ -135,7 +135,8 @@ describe('ProviderRegistry', () => {
     delete process.env.ICOPILOT_TOKEN;
     childProcessMocks.execFileSync.mockReturnValueOnce('gh-cli-token\n');
 
-    const { ProviderRegistry, resolveProviderApiKey } = await import('../../src/providers/custom-provider.js');
+    const { ProviderRegistry, resolveProviderApiKey } =
+      await import('../../src/providers/custom-provider.js');
     const registry = new ProviderRegistry({ configPath: providersPath });
     const github = registry.get('github');
 

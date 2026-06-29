@@ -106,7 +106,7 @@ export function sessionToMarkdown(session: Session): string {
     const role = typeof message?.role === 'string' ? message.role : 'message';
     const suffix =
       role === 'tool'
-        ? ` ${(typeof message?.tool_call_id === 'string' ? message.tool_call_id : '')}`.trimEnd()
+        ? ` ${typeof message?.tool_call_id === 'string' ? message.tool_call_id : ''}`.trimEnd()
         : typeof message?.name === 'string'
           ? ` ${message.name}`
           : '';
@@ -116,7 +116,14 @@ export function sessionToMarkdown(session: Session): string {
     lines.push(content || '_[no content]_');
 
     if (Array.isArray(message?.tool_calls) && message.tool_calls.length) {
-      lines.push('', '#### Tool calls', '', '```json', JSON.stringify(message.tool_calls, null, 2), '```');
+      lines.push(
+        '',
+        '#### Tool calls',
+        '',
+        '```json',
+        JSON.stringify(message.tool_calls, null, 2),
+        '```',
+      );
     }
 
     lines.push('');
@@ -159,7 +166,10 @@ export function shareCommand(args: string[], session: Session): string {
 
   if (action === 'export') {
     const requestedPath = rest.join(' ').trim();
-    const target = path.resolve(session.state.cwd, requestedPath || `session-${session.state.id}.json`);
+    const target = path.resolve(
+      session.state.cwd,
+      requestedPath || `session-${session.state.id}.json`,
+    );
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, `${JSON.stringify(exportSessionBundle(session), null, 2)}\n`, 'utf8');
     return `${theme.ok('✔ exported shared session')} ${target}\n`;
@@ -328,7 +338,9 @@ function cloneTodos(value: unknown): TodoItem[] {
         text: candidate.text,
         done: candidate.done,
         createdAt: candidate.createdAt,
-        ...(typeof candidate.completedAt === 'string' ? { completedAt: candidate.completedAt } : {}),
+        ...(typeof candidate.completedAt === 'string'
+          ? { completedAt: candidate.completedAt }
+          : {}),
       },
     ];
   });

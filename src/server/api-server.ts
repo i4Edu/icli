@@ -472,7 +472,11 @@ export class APIServer {
         const signature = req.headers['x-slack-signature'] as string | undefined;
         const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
 
-        if (!signature || !timestamp || !this.validateSlackSignature(signature, timestamp, body, slackSigningSecret)) {
+        if (
+          !signature ||
+          !timestamp ||
+          !this.validateSlackSignature(signature, timestamp, body, slackSigningSecret)
+        ) {
           this.writeJson(res, 401, { error: 'Invalid signature' });
           return;
         }
@@ -497,7 +501,8 @@ export class APIServer {
   private async handleTeamsWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
     try {
       const body = await readBody(req);
-      const queryParams = new URL(`http://localhost${req.url || '/'}`, 'http://localhost').searchParams;
+      const queryParams = new URL(`http://localhost${req.url || '/'}`, 'http://localhost')
+        .searchParams;
       const id = queryParams.get('id');
       const approved = req.url?.includes('/approve') ?? false;
 
@@ -512,7 +517,9 @@ export class APIServer {
 
       if (handler instanceof TeamsNotificationHandler) {
         const parsedBody = JSON.parse(body) as Record<string, unknown>;
-        const userId = (parsedBody.from as Record<string, unknown> | undefined)?.id as string | undefined;
+        const userId = (parsedBody.from as Record<string, unknown> | undefined)?.id as
+          | string
+          | undefined;
         handler.handleApprovalResponse(id, approved, userId);
       }
 
@@ -524,7 +531,12 @@ export class APIServer {
     }
   }
 
-  private validateSlackSignature(signature: string, timestamp: string, body: string, secret: string): boolean {
+  private validateSlackSignature(
+    signature: string,
+    timestamp: string,
+    body: string,
+    secret: string,
+  ): boolean {
     const baseString = `v0:${timestamp}:${body}`;
     const computed = `v0=${createHmac('sha256', secret).update(baseString).digest('hex')}`;
     return computed === signature;

@@ -35,7 +35,13 @@ const CONVENTION_PATTERNS = [
   '*.cjs',
 ];
 
-const CONVENTION_IGNORE = ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/.icopilot/**', '**/coverage/**'];
+const CONVENTION_IGNORE = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/.git/**',
+  '**/.icopilot/**',
+  '**/coverage/**',
+];
 const BUILTIN_MODULES = new Set([
   'assert',
   'buffer',
@@ -98,7 +104,7 @@ export class ConventionManager {
         name: 'Use semicolons',
         description: 'Terminate statements with semicolons.',
         rule: 'End statements with semicolons.',
-        example: "const answer = 42;",
+        example: 'const answer = 42;',
         severity: 'required',
       });
     }
@@ -128,7 +134,10 @@ export class ConventionManager {
       });
     }
 
-    if (stats.nodeProtocolImports > 0 && stats.nodeProtocolImports >= Math.max(1, Math.floor(stats.builtinImports / 2))) {
+    if (
+      stats.nodeProtocolImports > 0 &&
+      stats.nodeProtocolImports >= Math.max(1, Math.floor(stats.builtinImports / 2))
+    ) {
       detected.push({
         id: 'prefer-node-protocol-imports',
         name: 'Prefer node: protocol imports',
@@ -187,7 +196,10 @@ export class ConventionManager {
     for (const convention of this.set.conventions) {
       violations.push(...checkConvention(code, convention));
     }
-    return violations.sort((left, right) => (left.line ?? Number.MAX_SAFE_INTEGER) - (right.line ?? Number.MAX_SAFE_INTEGER));
+    return violations.sort(
+      (left, right) =>
+        (left.line ?? Number.MAX_SAFE_INTEGER) - (right.line ?? Number.MAX_SAFE_INTEGER),
+    );
   }
 
   toPromptContext(): string {
@@ -262,7 +274,8 @@ function normalizeConventionSet(value: unknown, fallbackName: string): Conventio
   }
 
   const record = value as Record<string, unknown>;
-  const name = typeof record.name === 'string' && record.name.trim() ? record.name.trim() : fallbackName;
+  const name =
+    typeof record.name === 'string' && record.name.trim() ? record.name.trim() : fallbackName;
   const conventions = Array.isArray(record.conventions)
     ? record.conventions
         .filter((entry) => entry && typeof entry === 'object')
@@ -292,21 +305,28 @@ function normalizeConvention(value: Convention): Convention {
   };
 }
 
-function normalizeSeverity(value: Convention['severity'] | string | undefined): Convention['severity'] {
+function normalizeSeverity(
+  value: Convention['severity'] | string | undefined,
+): Convention['severity'] {
   if (value === 'required' || value === 'recommended' || value === 'optional') return value;
   return 'recommended';
 }
 
 function slugify(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'convention';
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'convention'
+  );
 }
 
 function compareConventions(left: Convention, right: Convention): number {
-  return severityRank(left.severity) - severityRank(right.severity) || left.name.localeCompare(right.name);
+  return (
+    severityRank(left.severity) - severityRank(right.severity) ||
+    left.name.localeCompare(right.name)
+  );
 }
 
 function severityRank(severity: Convention['severity']): number {
@@ -338,9 +358,9 @@ function collectDetectionStats(files: string[]): DetectionStats {
     const source = fs.readFileSync(file, 'utf8');
     stats.singleQuotes += source.match(/'([^'\\]|\\.)*'/g)?.length ?? 0;
     stats.doubleQuotes += source.match(/"([^"\\]|\\.)*"/g)?.length ?? 0;
-    stats.esmImports += source.match(/^\s*(?:import|export)\s/mg)?.length ?? 0;
+    stats.esmImports += source.match(/^\s*(?:import|export)\s/gm)?.length ?? 0;
     stats.nodeProtocolImports += source.match(/from\s+['"]node:[^'"]+['"]/g)?.length ?? 0;
-    stats.typeImports += source.match(/^\s*import\s+type\b/mg)?.length ?? 0;
+    stats.typeImports += source.match(/^\s*import\s+type\b/gm)?.length ?? 0;
     stats.vitestImports += source.match(/from\s+['"]vitest['"]/g)?.length ?? 0;
 
     for (const line of source.split(/\r?\n/)) {
@@ -353,7 +373,9 @@ function collectDetectionStats(files: string[]): DetectionStats {
       }
     }
 
-    for (const match of source.matchAll(/(?:from\s+['"]|require\(\s*['"])([^'"]+)(?:['"]\s*\)?)/g)) {
+    for (const match of source.matchAll(
+      /(?:from\s+['"]|require\(\s*['"])([^'"]+)(?:['"]\s*\)?)/g,
+    )) {
       const moduleName = match[1];
       if (!moduleName || moduleName.startsWith('node:')) continue;
       if (BUILTIN_MODULES.has(moduleName)) {
@@ -366,7 +388,8 @@ function collectDetectionStats(files: string[]): DetectionStats {
 }
 
 function checkConvention(code: string, convention: Convention): ConventionViolation[] {
-  const lowered = `${convention.id} ${convention.name} ${convention.description} ${convention.rule}`.toLowerCase();
+  const lowered =
+    `${convention.id} ${convention.name} ${convention.description} ${convention.rule}`.toLowerCase();
   if (lowered.includes('forbid:') || lowered.includes('forbid-regex:')) {
     return checkForbiddenPattern(code, convention);
   }
@@ -439,7 +462,11 @@ function checkSemicolons(code: string, convention: Convention): ConventionViolat
   return violations;
 }
 
-function checkStringQuotes(code: string, convention: Convention, preferred: 'single' | 'double'): ConventionViolation[] {
+function checkStringQuotes(
+  code: string,
+  convention: Convention,
+  preferred: 'single' | 'double',
+): ConventionViolation[] {
   const regex = preferred === 'single' ? /"([^"\\]|\\.)*"/g : /'([^'\\]|\\.)*'/g;
   const violations: ConventionViolation[] = [];
   for (const match of code.matchAll(regex)) {
@@ -455,7 +482,9 @@ function checkStringQuotes(code: string, convention: Convention, preferred: 'sin
 
 function checkEsmImports(code: string, convention: Convention): ConventionViolation[] {
   const violations: ConventionViolation[] = [];
-  for (const match of code.matchAll(/\brequire\(\s*['"][^'"]+['"]\s*\)|\bmodule\.exports\b|\bexports\.[A-Za-z0-9_]+/g)) {
+  for (const match of code.matchAll(
+    /\brequire\(\s*['"][^'"]+['"]\s*\)|\bmodule\.exports\b|\bexports\.[A-Za-z0-9_]+/g,
+  )) {
     const index = match.index ?? 0;
     violations.push({
       convention,

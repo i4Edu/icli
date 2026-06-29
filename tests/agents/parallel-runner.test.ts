@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ParallelAgentRunner, type AgentProgressEvent, type AgentTask } from '../../src/agents/parallel-runner.js';
+import {
+  ParallelAgentRunner,
+  type AgentProgressEvent,
+  type AgentTask,
+} from '../../src/agents/parallel-runner.js';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -58,23 +62,27 @@ describe('ParallelAgentRunner', () => {
       { name: 'broken', type: 'review', prompt: 'fail' },
     ]);
 
-    expect(results[0]).toEqual(expect.objectContaining({ name: 'healthy', status: 'success', output: 'healthy ok' }));
-    expect(results[1]).toEqual(expect.objectContaining({ name: 'broken', status: 'error', output: 'boom' }));
+    expect(results[0]).toEqual(
+      expect.objectContaining({ name: 'healthy', status: 'success', output: 'healthy ok' }),
+    );
+    expect(results[1]).toEqual(
+      expect.objectContaining({ name: 'broken', status: 'error', output: 'boom' }),
+    );
     expect(aggregated.summary).toContain('healthy ok');
     expect(aggregated.summary).not.toContain('boom');
   });
 
   it('aborts agents that exceed the timeout and falls back to the built-in system prompt', async () => {
-    const executeTask = vi.fn(async (_task: AgentTask, options: { systemPrompt: string; signal: AbortSignal }) => {
-      expect(options.systemPrompt).toContain('planning agent');
-      await new Promise<never>((_resolve, reject) => {
-        options.signal.addEventListener(
-          'abort',
-          () => reject(new Error('aborted by signal')),
-          { once: true },
-        );
-      });
-    });
+    const executeTask = vi.fn(
+      async (_task: AgentTask, options: { systemPrompt: string; signal: AbortSignal }) => {
+        expect(options.systemPrompt).toContain('planning agent');
+        await new Promise<never>((_resolve, reject) => {
+          options.signal.addEventListener('abort', () => reject(new Error('aborted by signal')), {
+            once: true,
+          });
+        });
+      },
+    );
 
     const runner = new ParallelAgentRunner({
       model: 'gpt-test',

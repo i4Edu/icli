@@ -857,7 +857,8 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'copy-context': {
       try {
         const scope = (rest[0] ?? '').toLowerCase() === 'last' ? 'last' : 'all';
-        const selectedMessages = scope === 'last' ? selectLastExchange(s.state.messages) : s.state.messages;
+        const selectedMessages =
+          scope === 'last' ? selectLastExchange(s.state.messages) : s.state.messages;
         const summary = buildClipboardSystemSummary(s);
         const fileContext = buildClipboardFileContext(s);
         const synthetic: ChatCompletionMessageParam[] = [];

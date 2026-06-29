@@ -45,10 +45,7 @@ export class TeamsNotificationFormatter implements NotificationFormatter {
     };
   }
 
-  formatApprovalRequest(
-    action: string,
-    details: Record<string, unknown>,
-  ): Record<string, unknown> {
+  formatApprovalRequest(action: string, details: Record<string, unknown>): Record<string, unknown> {
     const card: AdaptiveCard = {
       type: 'AdaptiveCard',
       body: [
@@ -199,23 +196,21 @@ export class TeamsNotificationHandler implements NotificationHandler {
 
     await this.callTeamsApi(channel, payload);
 
-    return new Promise<{ approved: boolean; approver?: string; timestamp?: string }>(
-      (resolve) => {
-        const timeoutHandle = setTimeout(() => {
-          this.pendingApprovals.delete(id);
-          resolve({ approved: false });
-        }, timeout);
+    return new Promise<{ approved: boolean; approver?: string; timestamp?: string }>((resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        this.pendingApprovals.delete(id);
+        resolve({ approved: false });
+      }, timeout);
 
-        const approval: PendingApproval = {
-          id,
-          action,
-          timeout: timeoutHandle,
-          resolve,
-        };
+      const approval: PendingApproval = {
+        id,
+        action,
+        timeout: timeoutHandle,
+        resolve,
+      };
 
-        this.pendingApprovals.set(id, approval);
-      },
-    );
+      this.pendingApprovals.set(id, approval);
+    });
   }
 
   async getStatus(): Promise<{ connected: boolean; error?: string }> {

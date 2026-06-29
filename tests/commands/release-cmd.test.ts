@@ -121,7 +121,9 @@ describe('release-cmd', () => {
       tag: 'v1.3.1',
       published: false,
     });
-    expect(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8')).toContain('"version": "1.3.0"');
+    expect(fs.readFileSync(path.join(tmpDir, 'package.json'), 'utf8')).toContain(
+      '"version": "1.3.0"',
+    );
     expect(addMock).not.toHaveBeenCalled();
     expect(commitMock).not.toHaveBeenCalled();
     expect(addTagMock).not.toHaveBeenCalled();

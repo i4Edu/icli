@@ -98,9 +98,15 @@ function ensureTriggerHandler(manager: FileTriggerManager): void {
   triggerHandlers.add(manager);
 }
 
-async function executeTriggerAction(trigger: FileTrigger, file: string, cwd: string): Promise<void> {
+async function executeTriggerAction(
+  trigger: FileTrigger,
+  file: string,
+  cwd: string,
+): Promise<void> {
   const renderedTarget = renderTriggerTarget(trigger.target, file, cwd);
-  process.stdout.write(theme.dim(`\n[file-trigger] ${file} → ${trigger.action}:${renderedTarget}\n`));
+  process.stdout.write(
+    theme.dim(`\n[file-trigger] ${file} → ${trigger.action}:${renderedTarget}\n`),
+  );
 
   try {
     switch (trigger.action) {
@@ -111,7 +117,9 @@ async function executeTriggerAction(trigger: FileTrigger, file: string, cwd: str
         await runTriggeredCommand(renderedTarget, file, cwd);
         break;
       case 'prompt':
-        process.stdout.write(`${theme.brand('Trigger prompt')} ${theme.dim(file)}\n${renderedTarget}\n`);
+        process.stdout.write(
+          `${theme.brand('Trigger prompt')} ${theme.dim(file)}\n${renderedTarget}\n`,
+        );
         break;
     }
   } catch (error) {
@@ -154,7 +162,8 @@ function formatTriggerRunResult(name: string, result: WorkflowResult): string {
 
   for (const step of result.steps) {
     lines.push(`  - ${step.stepId}: ${step.success ? theme.ok('ok') : theme.err('failed')}`);
-    if (typeof step.output === 'string' && step.output.trim()) lines.push(`    ${step.output.trim()}`);
+    if (typeof step.output === 'string' && step.output.trim())
+      lines.push(`    ${step.output.trim()}`);
     if (typeof step.error === 'string' && step.error.trim()) lines.push(`    ${step.error.trim()}`);
   }
 

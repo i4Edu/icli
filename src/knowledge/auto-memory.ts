@@ -35,7 +35,9 @@ export class AutoMemory {
     if (!normalizedFact || !normalizedSource) return null;
 
     const now = new Date();
-    const existing = this.memories.find((entry) => entry.fact.toLowerCase() === normalizedFact.toLowerCase());
+    const existing = this.memories.find(
+      (entry) => entry.fact.toLowerCase() === normalizedFact.toLowerCase(),
+    );
     if (existing) {
       existing.fact = normalizedFact;
       existing.source = normalizedSource;
@@ -79,7 +81,9 @@ export class AutoMemory {
   }
 
   prune(maxAge = DEFAULT_PRUNE_AGE_DAYS): void {
-    const maxAgeDays = Number.isFinite(maxAge) ? Math.max(0, Math.trunc(maxAge)) : DEFAULT_PRUNE_AGE_DAYS;
+    const maxAgeDays = Number.isFinite(maxAge)
+      ? Math.max(0, Math.trunc(maxAge))
+      : DEFAULT_PRUNE_AGE_DAYS;
     const cutoff = Date.now() - maxAgeDays * 24 * 60 * 60 * 1000;
     this.memories = this.memories.filter((entry) => {
       const freshest = Math.max(entry.createdAt.getTime(), entry.lastUsedAt.getTime());
@@ -149,7 +153,10 @@ export function learnAutoMemories(userMessage: string, aiResponse: string): Memo
   }
 }
 
-export function loadAutoMemoryPromptContext(context: string, limit = DEFAULT_PROMPT_LIMIT): string | null {
+export function loadAutoMemoryPromptContext(
+  context: string,
+  limit = DEFAULT_PROMPT_LIMIT,
+): string | null {
   try {
     const memory = new AutoMemory();
     memory.load();
@@ -164,7 +171,8 @@ export function loadAutoMemoryPromptContext(context: string, limit = DEFAULT_PRO
 
 export function resolveAutoMemoryPath(): string {
   const configured =
-    process.env.ICOPILOT_AUTO_MEMORY_PATH || path.join(os.homedir(), '.icopilot', 'auto-memory.json');
+    process.env.ICOPILOT_AUTO_MEMORY_PATH ||
+    path.join(os.homedir(), '.icopilot', 'auto-memory.json');
   if (configured === '~') return os.homedir();
   if (/^~[\\/]/.test(configured)) return path.join(os.homedir(), configured.slice(2));
   return path.resolve(configured);
@@ -183,8 +191,7 @@ function extractCorrectionCandidates(message: string): MemoryCandidate[] {
   if (!trimmed) return [];
 
   const candidates: MemoryCandidate[] = [];
-  const useInsteadPattern =
-    /\b(?:use|prefer)\s+(.+?)\s+instead of\s+(.+?)(?:[.!?]|$)/gi;
+  const useInsteadPattern = /\b(?:use|prefer)\s+(.+?)\s+instead of\s+(.+?)(?:[.!?]|$)/gi;
   for (const match of trimmed.matchAll(useInsteadPattern)) {
     const preferred = cleanupClause(match[1]);
     const previous = cleanupClause(match[2]);
@@ -254,7 +261,11 @@ function extractDiscoveryCandidates(response: string): MemoryCandidate[] {
 
   for (const sentence of splitSentences(text)) {
     if (!/[A-Za-z0-9._-]+[\\/][A-Za-z0-9._/-]+/.test(sentence)) continue;
-    if (!/\b(?:lives?|located|under|contains?|entry point|root|folder|directory|structure)\b/i.test(sentence)) {
+    if (
+      !/\b(?:lives?|located|under|contains?|entry point|root|folder|directory|structure)\b/i.test(
+        sentence,
+      )
+    ) {
       continue;
     }
     const fact = normalizeFact(sentence);
@@ -267,10 +278,16 @@ function extractDiscoveryCandidates(response: string): MemoryCandidate[] {
 }
 
 function classifyCommandMemory(command: string, lower: string): string | null {
-  if (/\b(?:vitest|jest|mocha|ava|pytest|cargo test|go test|npm test|pnpm test|yarn test)\b/.test(lower)) {
+  if (
+    /\b(?:vitest|jest|mocha|ava|pytest|cargo test|go test|npm test|pnpm test|yarn test)\b/.test(
+      lower,
+    )
+  ) {
     return `Project test command: ${command}.`;
   }
-  if (/\b(?:tsc|build|compile|webpack|vite build|mvn package|gradle build|cargo build)\b/.test(lower)) {
+  if (
+    /\b(?:tsc|build|compile|webpack|vite build|mvn package|gradle build|cargo build)\b/.test(lower)
+  ) {
     return `Project build command: ${command}.`;
   }
   if (/\b(?:eslint|lint|ruff|flake8|golangci-lint|clippy)\b/.test(lower)) {
@@ -283,10 +300,7 @@ function formatMemoriesAsPrompt(memories: MemoryEntry[]): string {
   if (memories.length === 0) return '';
   return [
     'Auto-learned project memories:',
-    ...memories.map(
-      (entry) =>
-        `- [${entry.source}, ${entry.confidence.toFixed(2)}] ${entry.fact}`,
-    ),
+    ...memories.map((entry) => `- [${entry.source}, ${entry.confidence.toFixed(2)}] ${entry.fact}`),
   ].join('\n');
 }
 
@@ -353,7 +367,10 @@ function scoreMemory(entry: MemoryEntry, context: string): number {
 }
 
 function tokenize(value: string): string[] {
-  return value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 }
 
 function cleanupClause(value: string): string {

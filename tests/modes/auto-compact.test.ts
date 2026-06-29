@@ -24,10 +24,12 @@ describe('handlePostTurnContextBudget', () => {
     config.autoCompactThreshold = 0.95;
     output = '';
     compactSessionMock.mockResolvedValue('compacted summary');
-    stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
-      output += String(chunk);
-      return true;
-    });
+    stdoutSpy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation((chunk: string | Uint8Array) => {
+        output += String(chunk);
+        return true;
+      });
   });
 
   afterEach(() => {

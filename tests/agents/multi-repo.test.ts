@@ -19,8 +19,16 @@ describe('MultiRepoOrchestrator', { timeout: 30_000 }, () => {
     fs.mkdirSync(repoOneDir, { recursive: true });
     fs.mkdirSync(repoTwoDir, { recursive: true });
     fs.writeFileSync(path.join(repoOneDir, 'README.md'), '# Repo One\nshared token\n', 'utf8');
-    fs.writeFileSync(path.join(repoOneDir, 'src.ts'), 'export const primaryToken = "shared token";\n', 'utf8');
-    fs.writeFileSync(path.join(repoTwoDir, 'index.ts'), 'export const helper = "shared token";\n', 'utf8');
+    fs.writeFileSync(
+      path.join(repoOneDir, 'src.ts'),
+      'export const primaryToken = "shared token";\n',
+      'utf8',
+    );
+    fs.writeFileSync(
+      path.join(repoTwoDir, 'index.ts'),
+      'export const helper = "shared token";\n',
+      'utf8',
+    );
   });
 
   afterEach(() => {

@@ -84,7 +84,13 @@ function matchesRetryableError(error: unknown, retryableErrors: string[]): boole
   ];
 
   const cause = err.cause as
-    | { code?: unknown; name?: unknown; message?: unknown; status?: unknown; response?: { status?: unknown } }
+    | {
+        code?: unknown;
+        name?: unknown;
+        message?: unknown;
+        status?: unknown;
+        response?: { status?: unknown };
+      }
     | undefined;
   if (cause) {
     parts.push(

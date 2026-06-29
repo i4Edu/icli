@@ -1,8 +1,6 @@
-import type { ChatCompletionTool } from 'openai/resources/chat/completions';
 import { TOOL_SCHEMAS, dispatchTool } from '../tools/registry.js';
 import {
   type AcpCapabilities,
-  type AcpError,
   type AcpRequest,
   type AcpResponse,
   type AcpTool,
@@ -23,7 +21,11 @@ export interface AcpRouterOptions {
 
 export class AcpRouter {
   private version: string;
-  private onLog: (level: 'debug' | 'info' | 'warn' | 'error', message: string, data?: unknown) => void;
+  private onLog: (
+    level: 'debug' | 'info' | 'warn' | 'error',
+    message: string,
+    data?: unknown,
+  ) => void;
 
   constructor(options?: AcpRouterOptions) {
     this.version = options?.version ?? VERSION;
@@ -209,11 +211,7 @@ export class AcpRouter {
     return {
       version: this.version,
       protocolVersion: '1.0',
-      supportedMethods: [
-        'tools/list',
-        'tool/call',
-        'capabilities/get',
-      ],
+      supportedMethods: ['tools/list', 'tool/call', 'capabilities/get'],
       name: 'iCopilot ACP Server',
     };
   }

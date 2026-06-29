@@ -85,7 +85,7 @@ export class TDDAgent {
         '  });',
         '',
         '  for (const behavior of spec.expectedBehaviors) {',
-        "    it(`tracks behavior: ${behavior}`, () => {",
+        '    it(`tracks behavior: ${behavior}`, () => {',
         '      expect(buildArtifact().expectedBehaviors).toContain(behavior);',
         '    });',
         '  }',
@@ -113,7 +113,7 @@ export class TDDAgent {
         '  });',
         '',
         '  for (const behavior of spec.expectedBehaviors) {',
-        "    it(`tracks behavior: ${behavior}`, () => {",
+        '    it(`tracks behavior: ${behavior}`, () => {',
         '      assert.equal(buildArtifact().expectedBehaviors.includes(behavior), true);',
         '    });',
         '  }',
@@ -139,7 +139,7 @@ export class TDDAgent {
       '  });',
       '',
       '  for (const behavior of spec.expectedBehaviors) {',
-      "    it(`tracks behavior: ${behavior}`, () => {",
+      '    it(`tracks behavior: ${behavior}`, () => {',
       '      expect(buildArtifact().expectedBehaviors).toContain(behavior);',
       '    });',
       '  }',
@@ -296,7 +296,9 @@ export class TDDAgent {
 
 function normalizeSpec(spec: TDDSpec): TDDSpec {
   const description = spec.description.trim();
-  const inputExamples = [...new Set((spec.inputExamples ?? []).map((item) => item.trim()).filter(Boolean))];
+  const inputExamples = [
+    ...new Set((spec.inputExamples ?? []).map((item) => item.trim()).filter(Boolean)),
+  ];
   const expectedBehaviors = [
     ...new Set(spec.expectedBehaviors.map((item) => item.trim()).filter(Boolean)),
   ];

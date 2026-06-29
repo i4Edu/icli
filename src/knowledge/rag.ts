@@ -186,7 +186,8 @@ export class RAGIndex {
     this.documents.clear();
 
     for (const document of Array.isArray(parsed.documents) ? parsed.documents : []) {
-      if (!document || typeof document.path !== 'string' || typeof document.content !== 'string') continue;
+      if (!document || typeof document.path !== 'string' || typeof document.content !== 'string')
+        continue;
       const chunks = Array.isArray(document.chunks) ? document.chunks.filter(isChunk) : [];
       const doc: Document = {
         id: typeof document.id === 'string' ? document.id : hashId(document.path),
@@ -204,7 +205,12 @@ export class RAGIndex {
     const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(this.rootDir, filePath);
     const storedPath = this.toStoredPath(absolute);
     const content = fs.readFileSync(absolute, 'utf8');
-    const chunks = buildChunks(storedPath, content, this.options.maxChunkTokens, this.options.overlap);
+    const chunks = buildChunks(
+      storedPath,
+      content,
+      this.options.maxChunkTokens,
+      this.options.overlap,
+    );
     const document: Document = {
       id: hashId(storedPath),
       path: storedPath,
@@ -221,7 +227,10 @@ export class RAGIndex {
   private toStoredPath(filePath: string): string {
     const absolute = path.isAbsolute(filePath) ? filePath : path.resolve(this.rootDir, filePath);
     const relative = path.relative(this.rootDir, absolute);
-    const normalized = (relative && !relative.startsWith('..') ? relative : absolute).replace(/\\/g, '/');
+    const normalized = (relative && !relative.startsWith('..') ? relative : absolute).replace(
+      /\\/g,
+      '/',
+    );
     return normalized.replace(/^\.\//, '');
   }
 
@@ -331,7 +340,12 @@ function buildPatterns(extensions: string[]): string[] {
   return extensions.map((extension) => `**/*${extension}`);
 }
 
-function buildChunks(file: string, content: string, maxTokens: number, overlapTokens: number): Chunk[] {
+function buildChunks(
+  file: string,
+  content: string,
+  maxTokens: number,
+  overlapTokens: number,
+): Chunk[] {
   const segments = packSegments(
     splitOversizedSegments(splitIntoSegments(file, content), maxTokens),
     maxTokens,
@@ -340,7 +354,10 @@ function buildChunks(file: string, content: string, maxTokens: number, overlapTo
 
   return segments.map((segmentSet, index) => ({
     id: `${hashId(file)}:${index}`,
-    text: segmentSet.map((segment) => segment.text).join('\n\n').trim(),
+    text: segmentSet
+      .map((segment) => segment.text)
+      .join('\n\n')
+      .trim(),
     tokens: segmentSet.reduce((sum, segment) => sum + segment.tokens, 0),
     metadata: {
       file,
@@ -535,7 +552,10 @@ function pushSegment(
   endIndex: number,
 ): void {
   if (startIndex > endIndex) return;
-  const text = lines.slice(startIndex, endIndex + 1).join('\n').trim();
+  const text = lines
+    .slice(startIndex, endIndex + 1)
+    .join('\n')
+    .trim();
   if (!text) return;
   segments.push({
     text,

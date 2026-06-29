@@ -54,10 +54,7 @@ describe('skill-cmd', () => {
 
     saveSkills(skills);
 
-    expect(loadSkills()).toEqual([
-      skills[0],
-      skills[1],
-    ]);
+    expect(loadSkills()).toEqual([skills[0], skills[1]]);
   });
 
   it('adds file, directory, and file-url skills', () => {
@@ -66,7 +63,11 @@ describe('skill-cmd', () => {
 
     const dirPath = path.join(testDir, 'deploy-skill');
     fs.mkdirSync(dirPath);
-    fs.writeFileSync(path.join(dirPath, 'README.md'), '# Deploy guide\nUse safe rollout.\n', 'utf8');
+    fs.writeFileSync(
+      path.join(dirPath, 'README.md'),
+      '# Deploy guide\nUse safe rollout.\n',
+      'utf8',
+    );
     fs.writeFileSync(path.join(dirPath, 'checks.txt'), 'Verify health checks.\n', 'utf8');
 
     const urlPath = path.join(testDir, 'review.md');

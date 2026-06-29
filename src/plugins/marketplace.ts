@@ -165,7 +165,11 @@ export class Marketplace {
   private async writeInstalledPlugin(plugin: Plugin): Promise<void> {
     const dir = this.pluginDir(plugin.name);
     await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(path.join(dir, 'plugin.json'), `${JSON.stringify(plugin, null, 2)}\n`, 'utf8');
+    await fs.writeFile(
+      path.join(dir, 'plugin.json'),
+      `${JSON.stringify(plugin, null, 2)}\n`,
+      'utf8',
+    );
   }
 
   private pluginDir(name: string): string {
@@ -261,7 +265,9 @@ function mergeWithSeed(plugins: Plugin[], seedPlugins: Plugin[]): Plugin[] {
 function parseRegistryPlugins(value: unknown): Plugin[] {
   const rawPlugins = Array.isArray(value)
     ? value
-    : value && typeof value === 'object' && Array.isArray((value as { plugins?: unknown[] }).plugins)
+    : value &&
+        typeof value === 'object' &&
+        Array.isArray((value as { plugins?: unknown[] }).plugins)
       ? (value as { plugins: unknown[] }).plugins
       : [];
 

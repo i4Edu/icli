@@ -220,7 +220,8 @@ function renderInstall(ctx: ReadmeContext): string {
 }
 
 function renderUsage(ctx: ReadmeContext): string {
-  const examples = ctx.usageExamples.length > 0 ? ctx.usageExamples : defaultUsageExamples(ctx.analysis);
+  const examples =
+    ctx.usageExamples.length > 0 ? ctx.usageExamples : defaultUsageExamples(ctx.analysis);
   return toCodeFence(examples);
 }
 
@@ -267,9 +268,13 @@ function renderScripts(ctx: ReadmeContext): string {
 function renderContributing(ctx: ReadmeContext): string {
   const lines: string[] = [];
   if (ctx.contributingFile) {
-    lines.push(`See [${ctx.contributingFile}](./${ctx.contributingFile}) for project-specific guidelines.`);
+    lines.push(
+      `See [${ctx.contributingFile}](./${ctx.contributingFile}) for project-specific guidelines.`,
+    );
   } else {
-    lines.push('Contributions are welcome. Start by installing dependencies and running the local quality checks:');
+    lines.push(
+      'Contributions are welcome. Start by installing dependencies and running the local quality checks:',
+    );
   }
 
   const checks = buildContributingChecks(ctx.analysis);
@@ -305,7 +310,11 @@ function updateExistingReadme(rootDir: string, opts: ReadmeOptions): string {
   const blocks = renderBlocks(analyzeReadmeContext(rootDir));
   let next = existing;
 
-  if (sections.some((section) => section === 'title' || section === 'badges' || section === 'description')) {
+  if (
+    sections.some(
+      (section) => section === 'title' || section === 'badges' || section === 'description',
+    )
+  ) {
     const preamble = SECTION_ORDER.filter(
       (section) =>
         (section === 'title' || section === 'badges' || section === 'description') &&
@@ -358,7 +367,13 @@ function parseReadmeArgs(args: string[]): ParsedCommand {
 
     if (token === '--template') {
       const value = args[index + 1];
-      if (!value) return { mode, options, error: 'usage: /readme [preview|update] [--template <name>] [--sections a,b] [--overwrite]' };
+      if (!value)
+        return {
+          mode,
+          options,
+          error:
+            'usage: /readme [preview|update] [--template <name>] [--sections a,b] [--overwrite]',
+        };
       options.template = value;
       index += 2;
       continue;
@@ -372,7 +387,13 @@ function parseReadmeArgs(args: string[]): ParsedCommand {
 
     if (token === '--sections') {
       const value = args[index + 1];
-      if (!value) return { mode, options, error: 'usage: /readme [preview|update] [--template <name>] [--sections a,b] [--overwrite]' };
+      if (!value)
+        return {
+          mode,
+          options,
+          error:
+            'usage: /readme [preview|update] [--template <name>] [--sections a,b] [--overwrite]',
+        };
       options.sections = splitSections(value);
       index += 2;
       continue;
@@ -467,7 +488,11 @@ function detectEntry(rootDir: string, packageJson?: PackageJsonShape): string {
   return 'src/index.ts';
 }
 
-function resolveEntrySource(rootDir: string, packageJson: PackageJsonShape | undefined, entry: string): string | undefined {
+function resolveEntrySource(
+  rootDir: string,
+  packageJson: PackageJsonShape | undefined,
+  entry: string,
+): string | undefined {
   if (entry.endsWith('.ts') && fs.existsSync(path.join(rootDir, entry))) {
     return entry;
   }
@@ -501,7 +526,10 @@ function detectLanguage(rootDir: string, packageJson?: PackageJsonShape): string
   if (packageJson?.type === 'module' || fs.existsSync(path.join(rootDir, 'package.json'))) {
     return 'JavaScript';
   }
-  if (fs.existsSync(path.join(rootDir, 'pyproject.toml')) || fs.existsSync(path.join(rootDir, 'requirements.txt'))) {
+  if (
+    fs.existsSync(path.join(rootDir, 'pyproject.toml')) ||
+    fs.existsSync(path.join(rootDir, 'requirements.txt'))
+  ) {
     return 'Python';
   }
   return 'Unknown';
@@ -534,14 +562,28 @@ function buildInstallSteps(analysis: ProjectAnalysis, cliNames: string[]): strin
   switch (analysis.packageManager) {
     case 'npm':
       return cliNames.length > 0
-        ? ['npm install', hasScript(analysis.scripts, 'build') ? 'npm run build' : '', 'npm link'].filter(Boolean)
-        : ['npm install', hasScript(analysis.scripts, 'build') ? 'npm run build' : ''].filter(Boolean);
+        ? [
+            'npm install',
+            hasScript(analysis.scripts, 'build') ? 'npm run build' : '',
+            'npm link',
+          ].filter(Boolean)
+        : ['npm install', hasScript(analysis.scripts, 'build') ? 'npm run build' : ''].filter(
+            Boolean,
+          );
     case 'pnpm':
       return cliNames.length > 0
-        ? ['pnpm install', hasScript(analysis.scripts, 'build') ? 'pnpm run build' : '', 'pnpm link --global'].filter(Boolean)
-        : ['pnpm install', hasScript(analysis.scripts, 'build') ? 'pnpm run build' : ''].filter(Boolean);
+        ? [
+            'pnpm install',
+            hasScript(analysis.scripts, 'build') ? 'pnpm run build' : '',
+            'pnpm link --global',
+          ].filter(Boolean)
+        : ['pnpm install', hasScript(analysis.scripts, 'build') ? 'pnpm run build' : ''].filter(
+            Boolean,
+          );
     case 'yarn':
-      return ['yarn install', hasScript(analysis.scripts, 'build') ? 'yarn build' : ''].filter(Boolean);
+      return ['yarn install', hasScript(analysis.scripts, 'build') ? 'yarn build' : ''].filter(
+        Boolean,
+      );
     case 'pip':
       return ['pip install -r requirements.txt'];
     default:
@@ -601,7 +643,8 @@ function collectExports(packageJson?: PackageJsonShape): string[] {
   if (!packageJson) return [];
   const entries: string[] = [];
   flattenExports(packageJson.exports, '.', entries);
-  if (entries.length === 0 && packageJson.main) entries.push(`main -> ${normalizeRelative(packageJson.main)}`);
+  if (entries.length === 0 && packageJson.main)
+    entries.push(`main -> ${normalizeRelative(packageJson.main)}`);
   return unique(entries);
 }
 
@@ -615,7 +658,9 @@ function flattenExports(value: unknown, key: string, acc: string[]): void {
   if (typeof value !== 'object' || Array.isArray(value)) return;
   for (const [nestedKey, nestedValue] of Object.entries(value as Record<string, unknown>)) {
     if (typeof nestedValue === 'string') {
-      acc.push(`${key === '.' ? nestedKey : `${key}.${nestedKey}`} -> ${normalizeRelative(nestedValue)}`);
+      acc.push(
+        `${key === '.' ? nestedKey : `${key}.${nestedKey}`} -> ${normalizeRelative(nestedValue)}`,
+      );
       continue;
     }
 
@@ -632,9 +677,12 @@ function detectContributingFile(rootDir: string): string | undefined {
 
 function buildContributingChecks(analysis: ProjectAnalysis): string[] {
   const commands: string[] = [];
-  if (hasScript(analysis.scripts, 'lint')) commands.push(runScriptCommand(analysis.packageManager, 'lint'));
-  if (hasScript(analysis.scripts, 'test')) commands.push(runScriptCommand(analysis.packageManager, 'test'));
-  if (hasScript(analysis.scripts, 'build')) commands.push(runScriptCommand(analysis.packageManager, 'build'));
+  if (hasScript(analysis.scripts, 'lint'))
+    commands.push(runScriptCommand(analysis.packageManager, 'lint'));
+  if (hasScript(analysis.scripts, 'test'))
+    commands.push(runScriptCommand(analysis.packageManager, 'test'));
+  if (hasScript(analysis.scripts, 'build'))
+    commands.push(runScriptCommand(analysis.packageManager, 'build'));
   return unique(commands);
 }
 
@@ -688,7 +736,10 @@ function hasFileWithExtension(rootDir: string, extension: string): boolean {
 
 function normalizeRelative(value?: string): string {
   if (!value) return '';
-  return value.replace(/^[.][/\\]/u, '').split(path.sep).join('/');
+  return value
+    .replace(/^[.][/\\]/u, '')
+    .split(path.sep)
+    .join('/');
 }
 
 function unique(values: string[]): string[] {

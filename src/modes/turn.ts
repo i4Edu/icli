@@ -1,4 +1,7 @@
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
+import type {
+  ChatCompletionMessageParam,
+  ChatCompletionTool,
+} from 'openai/resources/chat/completions';
 import { Session } from '../session/session.js';
 import { streamChat } from '../api/github-models.js';
 import { TOOL_SCHEMAS, dispatchTool } from '../tools/registry.js';
@@ -105,9 +108,7 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   if (filterResult.blocked) {
     const blockedRules = [
       ...new Set(
-        filterResult.matches
-          .filter((match) => match.action === 'block')
-          .map((match) => match.name),
+        filterResult.matches.filter((match) => match.action === 'block').map((match) => match.name),
       ),
     ];
     throw new Error(
@@ -116,7 +117,9 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   }
 
   if ((filterResult.changed || filterResult.warnings > 0) && !config.quiet && !config.jsonOutput) {
-    process.stdout.write(theme.warn(`  content filter applied: ${summarizeFilterResult(filterResult)}\n`));
+    process.stdout.write(
+      theme.warn(`  content filter applied: ${summarizeFilterResult(filterResult)}\n`),
+    );
   }
 
   const turnProfile = resolveTurnProfile(session, turnMode);
@@ -161,7 +164,9 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
     const plan = plannerResult.content?.trim() || '';
     if (plan) {
       if (!config.quiet && !config.jsonOutput) {
-        process.stdout.write(`\n${theme.brand('Architect plan')} ${theme.dim(`(${plannerModel})`)}\n${plan}\n\n`);
+        process.stdout.write(
+          `\n${theme.brand('Architect plan')} ${theme.dim(`(${plannerModel})`)}\n${plan}\n\n`,
+        );
       }
       sys.content = `${sys.content}\n\nArchitect plan:\n${plan}`;
     }
@@ -171,14 +176,12 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   const tools = turnProfile.tools;
   const changedFiles = new Set<string>();
   const failedLintFiles = new Set<string>();
-  let lastFailedLint:
-    | {
-        passed: boolean;
-        output: string;
-        fixable: boolean;
-        files: string[];
-      }
-    | null = null;
+  let lastFailedLint: {
+    passed: boolean;
+    output: string;
+    fixable: boolean;
+    files: string[];
+  } | null = null;
   let autoFixRetries = 0;
 
   try {
@@ -241,7 +244,12 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
           autoFixRetries += 1;
           session.push({
             role: 'system',
-            content: buildAutoFixPrompt('lint', lastFailedLint, autoFixRetries, lastFailedLint.files),
+            content: buildAutoFixPrompt(
+              'lint',
+              lastFailedLint,
+              autoFixRetries,
+              lastFailedLint.files,
+            ),
           });
           continue;
         }
@@ -322,11 +330,7 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   }
 }
 
-export function buildSystemPrompt(
-  session: Session,
-  context = '',
-  profile?: TurnProfile,
-): string {
+export function buildSystemPrompt(session: Session, context = '', profile?: TurnProfile): string {
   const pinnedBlock = PinnedContext.fromJSON(session.state.pinned).render();
   const readOnlyBlock = getReadOnlyContext();
   const gitBlock = renderGitContextBlock(session.state.gitContext ?? []);

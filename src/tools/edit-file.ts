@@ -112,6 +112,8 @@ function result(
   error?: string,
   autoLint?: AutoCheckResult,
 ): EditFileResult {
-  const base = error ? { ok, linesReplaced, newLineCount, error } : { ok, linesReplaced, newLineCount };
+  const base = error
+    ? { ok, linesReplaced, newLineCount, error }
+    : { ok, linesReplaced, newLineCount };
   return autoLint ? { ...base, autoLint } : base;
 }

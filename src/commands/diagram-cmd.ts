@@ -59,7 +59,14 @@ const SKIP_DIRS = new Set([
   'node_modules',
   'out',
 ]);
-const FLOW_ENTRY_NAMES = new Set(['main', 'run', 'start', 'bootstrap', 'createProgram', 'handleSlash']);
+const FLOW_ENTRY_NAMES = new Set([
+  'main',
+  'run',
+  'start',
+  'bootstrap',
+  'createProgram',
+  'handleSlash',
+]);
 
 export function diagramCommand(args: string[], cwd: string): string {
   const [subcommand, ...rest] = args;
@@ -111,7 +118,12 @@ function buildArchitectureDiagram(rootDir: string, parsedFiles: ParsedFile[]): s
 
   for (const parsed of parsedFiles) {
     const fromModule = detectModuleBoundary(parsed.relative);
-    upsertNode(nodes, fromModule, entryFiles.has(parsed.file) ? `${fromModule}<br/>entry` : fromModule, 1);
+    upsertNode(
+      nodes,
+      fromModule,
+      entryFiles.has(parsed.file) ? `${fromModule}<br/>entry` : fromModule,
+      1,
+    );
     if (entryFiles.has(parsed.file)) {
       incrementNode(nodes, fromModule, 3);
     }
@@ -140,7 +152,9 @@ function buildDependencyDiagram(parsedFiles: ParsedFile[]): string {
   for (const parsed of parsedFiles) {
     upsertNode(nodes, parsed.relative, parsed.relative, 1);
     for (const imported of parsed.imports) {
-      const relativeImport = toPosixPath(parsedFiles.find((item) => item.file === imported)?.relative ?? '');
+      const relativeImport = toPosixPath(
+        parsedFiles.find((item) => item.file === imported)?.relative ?? '',
+      );
       if (!relativeImport) continue;
       upsertNode(nodes, relativeImport, relativeImport, 1);
       incrementNode(nodes, parsed.relative, 1);
@@ -201,7 +215,12 @@ function buildFlowDiagram(rootDir: string, parsedFiles: ParsedFile[], scope?: st
   const incoming = new Map<string, number>();
   for (const fn of allFunctions) {
     for (const call of fn.calls) {
-      const targetId = resolveFunctionCall(fn, call, functionIdsBySimpleName, functionIdsByFullName);
+      const targetId = resolveFunctionCall(
+        fn,
+        call,
+        functionIdsBySimpleName,
+        functionIdsByFullName,
+      );
       if (!targetId || targetId === fn.id || !functionById.has(targetId)) continue;
       upsertEdge(edges, fn.id, targetId);
       incoming.set(targetId, (incoming.get(targetId) ?? 0) + 1);
@@ -281,7 +300,9 @@ function parseSourceFile(rootDir: string, file: string, fileSet: Set<string>): P
 
     if (ts.isClassDeclaration(node) && node.name) {
       const className = node.name.text;
-      const heritage = node.heritageClauses?.find((clause) => clause.token === ts.SyntaxKind.ExtendsKeyword);
+      const heritage = node.heritageClauses?.find(
+        (clause) => clause.token === ts.SyntaxKind.ExtendsKeyword,
+      );
       const extendsName = heritage?.types[0]?.expression.getText(sourceFile).trim();
       classes.push({
         id: `${relativePath(rootDir, file)}#${className}`,
@@ -295,7 +316,15 @@ function parseSourceFile(rootDir: string, file: string, fileSet: Set<string>): P
 
     if (ts.isFunctionDeclaration(node) && node.name && node.body) {
       functions.push(
-        createFunctionInfo(rootDir, file, node.name.text, node.body, sourceFile, undefined, isNodeExported(node)),
+        createFunctionInfo(
+          rootDir,
+          file,
+          node.name.text,
+          node.body,
+          sourceFile,
+          undefined,
+          isNodeExported(node),
+        ),
       );
       return;
     }
@@ -392,7 +421,11 @@ function collectCallNames(body: ts.Block, sourceFile: ts.SourceFile, className?:
   return Array.from(calls);
 }
 
-function getCallName(node: ts.CallExpression, sourceFile: ts.SourceFile, className?: string): string | null {
+function getCallName(
+  node: ts.CallExpression,
+  sourceFile: ts.SourceFile,
+  className?: string,
+): string | null {
   if (ts.isIdentifier(node.expression)) {
     return node.expression.text;
   }
@@ -570,7 +603,10 @@ function renderClassGraph(nodes: Map<string, GraphNode>, edges: Map<string, Grap
   return `${lines.join('\n')}\n`;
 }
 
-function limitGraph(nodes: Map<string, GraphNode>, edges: Map<string, GraphEdge>): {
+function limitGraph(
+  nodes: Map<string, GraphNode>,
+  edges: Map<string, GraphEdge>,
+): {
   nodes: GraphNode[];
   edges: GraphEdge[];
   omittedCount: number;
@@ -607,7 +643,12 @@ function limitGraph(nodes: Map<string, GraphNode>, edges: Map<string, GraphEdge>
   };
 }
 
-function upsertNode(nodes: Map<string, GraphNode>, key: string, label: string, weight: number): void {
+function upsertNode(
+  nodes: Map<string, GraphNode>,
+  key: string,
+  label: string,
+  weight: number,
+): void {
   const current = nodes.get(key);
   if (current) {
     current.weight += weight;
@@ -689,7 +730,9 @@ function resolveScopeTarget(rootDir: string, scope?: string): string | null {
 }
 
 function detectEntryFiles(rootDir: string, parsedFiles: ParsedFile[]): string[] {
-  const byRelative = new Map(parsedFiles.map((parsed) => [toPosixPath(parsed.relative), parsed.file]));
+  const byRelative = new Map(
+    parsedFiles.map((parsed) => [toPosixPath(parsed.relative), parsed.file]),
+  );
   const candidates = new Set<string>();
   const packageJsonPath = path.join(rootDir, 'package.json');
 
@@ -716,7 +759,10 @@ function detectEntryFiles(rootDir: string, parsedFiles: ParsedFile[]): string[] 
   return Array.from(candidates);
 }
 
-function extractPackageEntryValues(pkg: { main?: string; bin?: string | Record<string, string> }): string[] {
+function extractPackageEntryValues(pkg: {
+  main?: string;
+  bin?: string | Record<string, string>;
+}): string[] {
   const values: string[] = [];
   if (pkg.main) values.push(pkg.main);
   if (typeof pkg.bin === 'string') {
@@ -758,7 +804,11 @@ function detectModuleBoundary(relativeFile: string): string {
   return normalized;
 }
 
-function resolveImportTarget(fromFile: string, moduleSpecifier: string, fileSet: Set<string>): string | null {
+function resolveImportTarget(
+  fromFile: string,
+  moduleSpecifier: string,
+  fileSet: Set<string>,
+): string | null {
   if (!moduleSpecifier.startsWith('.')) return null;
   const base = path.resolve(path.dirname(fromFile), moduleSpecifier);
   const candidates = [

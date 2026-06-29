@@ -13,7 +13,7 @@ describe('stack trace intelligence', () => {
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)`);
 
     expect(parsed.type).toBe('TypeError');
-    expect(parsed.error).toContain("Cannot read properties of undefined");
+    expect(parsed.error).toContain('Cannot read properties of undefined');
     expect(parsed.frames).toHaveLength(3);
     expect(parsed.frames[0]).toMatchObject({
       file: 'E:\\AI\\icli\\src\\app.ts',

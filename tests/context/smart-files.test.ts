@@ -15,7 +15,10 @@ beforeEach(() => {
   config.cwd = tmpDir;
   execFileSync('git', ['init'], { cwd: tmpDir, stdio: 'ignore' });
   execFileSync('git', ['config', 'user.name', 'iCopilot Tests'], { cwd: tmpDir, stdio: 'ignore' });
-  execFileSync('git', ['config', 'user.email', 'tests@example.com'], { cwd: tmpDir, stdio: 'ignore' });
+  execFileSync('git', ['config', 'user.email', 'tests@example.com'], {
+    cwd: tmpDir,
+    stdio: 'ignore',
+  });
 });
 
 afterEach(() => {
@@ -32,7 +35,10 @@ describe('SmartFileSelector', () => {
     writeProjectFile('ignored/smart-files.ts', 'export const ignored = true;\n');
 
     commitAll('initial files');
-    writeProjectFile('src/context/smart-files.ts', 'export const smart = true;\nexport const selector = true;\n');
+    writeProjectFile(
+      'src/context/smart-files.ts',
+      'export const smart = true;\nexport const selector = true;\n',
+    );
     commitAll('refresh smart file');
 
     const selector = new SmartFileSelector(tmpDir);
@@ -63,7 +69,9 @@ describe('SmartFileSelector', () => {
       includeTests: true,
     });
 
-    expect(withoutTests.some((file) => file.path === 'tests/context/smart-files.test.ts')).toBe(false);
+    expect(withoutTests.some((file) => file.path === 'tests/context/smart-files.test.ts')).toBe(
+      false,
+    );
     expect(withTests.some((file) => file.path === 'tests/context/smart-files.test.ts')).toBe(true);
   });
 
@@ -72,7 +80,10 @@ describe('SmartFileSelector', () => {
     writeProjectFile('src/context/smart-files.md', '# smart files\n');
     writeProjectFile('docs/smart-files.md', '# docs\n');
     commitAll('initial smart files');
-    writeProjectFile('src/context/smart-files.ts', 'export const smart = true;\nexport const recent = true;\n');
+    writeProjectFile(
+      'src/context/smart-files.ts',
+      'export const smart = true;\nexport const recent = true;\n',
+    );
     commitAll('recent typescript change');
 
     const selector = new SmartFileSelector(tmpDir);
@@ -100,4 +111,3 @@ function commitAll(message: string): void {
   execFileSync('git', ['add', '.'], { cwd: tmpDir, stdio: 'ignore' });
   execFileSync('git', ['commit', '-m', message], { cwd: tmpDir, stdio: 'ignore' });
 }
-

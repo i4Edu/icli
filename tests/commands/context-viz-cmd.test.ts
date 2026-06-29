@@ -46,7 +46,8 @@ function createSession(): Session {
 describe('showContextUsage', () => {
   it('renders a visual context usage summary', () => {
     memoryState.text = 'Remember to preserve slash commands.';
-    pinnedState.text = '### Pinned context files\n\n#### src/pinned.ts\n```ts\nexport const pinned = true;\n```';
+    pinnedState.text =
+      '### Pinned context files\n\n#### src/pinned.ts\n```ts\nexport const pinned = true;\n```';
 
     const output = showContextUsage(createSession());
 

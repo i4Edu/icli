@@ -85,7 +85,8 @@ const BUILTIN_FILTER_RULES: FilterRule[] = [
   },
   {
     name: 'api-key',
-    pattern: /\b(?:sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z\-_]{35})\b/g,
+    pattern:
+      /\b(?:sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z\-_]{35})\b/g,
     type: 'secret',
     action: 'block',
     replacement: '[BLOCKED:API_KEY]',
@@ -165,7 +166,9 @@ export class ContentFilter {
           type: rule.type,
           action: rule.action,
           replacement:
-            rule.action === 'warn' ? undefined : rule.replacement ?? defaultReplacement(rule.action, rule.type),
+            rule.action === 'warn'
+              ? undefined
+              : (rule.replacement ?? defaultReplacement(rule.action, rule.type)),
         });
       }
     }
@@ -174,9 +177,9 @@ export class ContentFilter {
   }
 
   getRules(): FilterRule[] {
-    return Array.from(this.rules.values()).map(cloneRule).sort((left, right) =>
-      left.name.localeCompare(right.name),
-    );
+    return Array.from(this.rules.values())
+      .map(cloneRule)
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   isClean(text: string): boolean {
@@ -249,8 +252,8 @@ export function removeProjectFilterRule(
   }
 
   if (BUILTIN_RULE_NAMES.has(target)) {
-    nextConfig.disabled = [...new Set([...(nextConfig.disabled ?? []), target])].sort((left, right) =>
-      left.localeCompare(right),
+    nextConfig.disabled = [...new Set([...(nextConfig.disabled ?? []), target])].sort(
+      (left, right) => left.localeCompare(right),
     );
     writeFiltersConfig(configPath, nextConfig);
     return { removed: true, source: 'builtin' };
@@ -317,9 +320,11 @@ export function formatFilterTestResult(result: FilterResult): string {
 
 export function summarizeFilterResult(result: FilterResult): string {
   const parts: string[] = [];
-  if (result.redactions > 0) parts.push(`${result.redactions} redaction${result.redactions === 1 ? '' : 's'}`);
+  if (result.redactions > 0)
+    parts.push(`${result.redactions} redaction${result.redactions === 1 ? '' : 's'}`);
   if (result.blocks > 0) parts.push(`${result.blocks} block${result.blocks === 1 ? '' : 's'}`);
-  if (result.warnings > 0) parts.push(`${result.warnings} warning${result.warnings === 1 ? '' : 's'}`);
+  if (result.warnings > 0)
+    parts.push(`${result.warnings} warning${result.warnings === 1 ? '' : 's'}`);
   return parts.join(', ') || 'no matches';
 }
 
@@ -526,8 +531,12 @@ function writeFiltersConfig(filePath: string, configFile: FiltersConfigFile): vo
   fs.writeFileSync(
     filePath,
     stringify({
-      disabled: [...new Set(configFile.disabled ?? [])].sort((left, right) => left.localeCompare(right)),
-      rules: [...(configFile.rules ?? [])].sort((left, right) => left.name.localeCompare(right.name)),
+      disabled: [...new Set(configFile.disabled ?? [])].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+      rules: [...(configFile.rules ?? [])].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
     } satisfies FiltersConfigFile),
     'utf8',
   );

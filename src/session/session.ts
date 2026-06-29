@@ -169,7 +169,9 @@ export class Session {
     this.persist();
   }
 
-  async initializeGitContext(provider = new GitContextProvider(this.state.cwd)): Promise<GitFile[]> {
+  async initializeGitContext(
+    provider = new GitContextProvider(this.state.cwd),
+  ): Promise<GitFile[]> {
     const files = await provider.getSessionContextFiles().catch(() => []);
     this.state.gitContext = files.map((file) => ({ ...file }));
     this.persist();

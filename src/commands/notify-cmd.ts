@@ -67,7 +67,7 @@ async function configureSlack(): Promise<NotificationConfig> {
 
   const channel = await input({
     message: 'Enter the Slack channel name or ID (e.g., #notifications or C0123456789)',
-    validate: (val) => val.trim().length > 0 ? true : 'Channel is required',
+    validate: (val) => (val.trim().length > 0 ? true : 'Channel is required'),
   });
 
   const config: NotificationConfig = {
@@ -100,12 +100,12 @@ async function configureTeams(): Promise<NotificationConfig> {
 
   const token = await input({
     message: 'Enter your Teams App ID',
-    validate: (val) => val.trim().length > 0 ? true : 'App ID is required',
+    validate: (val) => (val.trim().length > 0 ? true : 'App ID is required'),
   });
 
   const channel = await input({
     message: 'Enter the Teams channel ID',
-    validate: (val) => val.trim().length > 0 ? true : 'Channel ID is required',
+    validate: (val) => (val.trim().length > 0 ? true : 'Channel ID is required'),
   });
 
   const config: NotificationConfig = {
@@ -121,7 +121,11 @@ async function configureTeams(): Promise<NotificationConfig> {
 async function testNotification(): Promise<void> {
   const config = loadNotificationConfig();
   if (!config) {
-    console.log(error('✗ Notifications not configured. Run `/notify configure slack` or `/notify configure teams` first.'));
+    console.log(
+      error(
+        '✗ Notifications not configured. Run `/notify configure slack` or `/notify configure teams` first.',
+      ),
+    );
     return;
   }
 
@@ -142,7 +146,11 @@ async function testNotification(): Promise<void> {
 async function sendMessage(message: string): Promise<void> {
   const config = loadNotificationConfig();
   if (!config) {
-    console.log(error('✗ Notifications not configured. Run `/notify configure slack` or `/notify configure teams` first.'));
+    console.log(
+      error(
+        '✗ Notifications not configured. Run `/notify configure slack` or `/notify configure teams` first.',
+      ),
+    );
     return;
   }
 

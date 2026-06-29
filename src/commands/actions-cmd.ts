@@ -361,25 +361,25 @@ export function validateWorkflowYaml(content: string): string[] {
   }
 
   const jobLines = meaningfulLines.slice(jobsIndex + 1);
-  const jobKeys = jobLines.filter((line) => /^  [A-Za-z0-9_-]+:\s*$/u.test(line));
+  const jobKeys = jobLines.filter((line) => /^ {2}[A-Za-z0-9_-]+:\s*$/u.test(line));
   if (jobKeys.length === 0) {
     errors.push('jobs block must define at least one job');
   }
 
   for (const jobKey of jobKeys) {
-    const match = /^  ([A-Za-z0-9_-]+):\s*$/u.exec(jobKey);
+    const match = /^ {2}([A-Za-z0-9_-]+):\s*$/u.exec(jobKey);
     const jobId = match?.[1];
     if (!jobId) continue;
 
     const jobSection = sliceJobSection(meaningfulLines, jobId);
-    if (!jobSection.some((line) => /^    runs-on:\s+\S/u.test(line))) {
+    if (!jobSection.some((line) => /^ {4}runs-on:\s+\S/u.test(line))) {
       errors.push(`job "${jobId}" is missing "runs-on"`);
     }
-    if (!jobSection.some((line) => /^    steps:\s*$/u.test(line))) {
+    if (!jobSection.some((line) => /^ {4}steps:\s*$/u.test(line))) {
       errors.push(`job "${jobId}" is missing "steps"`);
       continue;
     }
-    if (!jobSection.some((line) => /^      -(?:\s|$)/u.test(line))) {
+    if (!jobSection.some((line) => /^ {6}-(?:\s|$)/u.test(line))) {
       errors.push(`job "${jobId}" must include at least one step`);
     }
   }
@@ -742,7 +742,7 @@ function sliceJobSection(lines: string[], jobId: string): string[] {
   const jobLines: string[] = [];
   for (let index = start; index < lines.length; index += 1) {
     const line = lines[index]!;
-    if (index !== start && /^  [A-Za-z0-9_-]+:\s*$/u.test(line)) {
+    if (index !== start && /^ {2}[A-Za-z0-9_-]+:\s*$/u.test(line)) {
       break;
     }
     jobLines.push(line);

@@ -251,7 +251,9 @@ function shouldIgnore(relativePath: string, isDirectory: boolean, patterns: stri
     return true;
   }
 
-  return patterns.some((pattern) => matchesGitignorePattern(normalized, segments, isDirectory, pattern));
+  return patterns.some((pattern) =>
+    matchesGitignorePattern(normalized, segments, isDirectory, pattern),
+  );
 }
 
 function matchesGitignorePattern(

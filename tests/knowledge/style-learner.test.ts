@@ -88,7 +88,9 @@ describe('StyleLearner', () => {
 
     fs.writeFileSync(
       firstFile,
-      ['class UserName {', '  static buildProfile() {', '    return "Ada";', '  }', '}', ''].join('\n'),
+      ['class UserName {', '  static buildProfile() {', '    return "Ada";', '  }', '}', ''].join(
+        '\n',
+      ),
       'utf8',
     );
     fs.writeFileSync(

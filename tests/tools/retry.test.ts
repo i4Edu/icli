@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  DEFAULT_RETRY_CONFIG,
-  isRetryableError,
-  withRetry,
-} from '../../src/tools/retry.js';
+import { DEFAULT_RETRY_CONFIG, isRetryableError, withRetry } from '../../src/tools/retry.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -11,9 +7,9 @@ afterEach(() => {
 
 describe('isRetryableError', () => {
   it('matches retryable codes, statuses, and messages', () => {
-    expect(isRetryableError(Object.assign(new Error('socket closed'), { code: 'ECONNRESET' }))).toBe(
-      true,
-    );
+    expect(
+      isRetryableError(Object.assign(new Error('socket closed'), { code: 'ECONNRESET' })),
+    ).toBe(true);
     expect(isRetryableError({ status: 503 })).toBe(true);
     expect(isRetryableError(new Error('rate_limit exceeded'))).toBe(true);
     expect(isRetryableError(new Error('validation failed'))).toBe(false);

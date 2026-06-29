@@ -10,7 +10,13 @@ export interface Location {
 }
 
 const SOURCE_PATTERNS = ['**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}'];
-const DEFAULT_IGNORES = ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/coverage/**', '**/*.d.ts'];
+const DEFAULT_IGNORES = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/.git/**',
+  '**/coverage/**',
+  '**/*.d.ts',
+];
 
 export function goToDefinition(symbolName: string, rootDir: string): Location | null {
   const escapedSymbol = escapeRegex(symbolName.trim());
@@ -30,7 +36,13 @@ export function goToDefinition(symbolName: string, rootDir: string): Location | 
       const line = lines[index] ?? '';
       const declarationMatch = declarationRegex.exec(line);
       if (declarationMatch) {
-        return createLocation(file, rootDir, index + 1, declarationMatch.index + declarationMatch[0].indexOf(declarationMatch[1]!), line);
+        return createLocation(
+          file,
+          rootDir,
+          index + 1,
+          declarationMatch.index + declarationMatch[0].indexOf(declarationMatch[1]!),
+          line,
+        );
       }
 
       const assignmentMatch = assignmentRegex.exec(line);
@@ -78,7 +90,9 @@ export function findImplementations(interfaceName: string, rootDir: string): Loc
   const implementsRegex = new RegExp(
     String.raw`\bclass\s+[A-Za-z_$][\w$]*\b[^{\n]*\bimplements\b[^{\n]*\b(${escapedSymbol})\b`,
   );
-  const extendsRegex = new RegExp(String.raw`\bclass\s+[A-Za-z_$][\w$]*\b[^{\n]*\bextends\s+(${escapedSymbol})\b`);
+  const extendsRegex = new RegExp(
+    String.raw`\bclass\s+[A-Za-z_$][\w$]*\b[^{\n]*\bextends\s+(${escapedSymbol})\b`,
+  );
   const locations: Location[] = [];
 
   for (const file of listSourceFiles(rootDir)) {
@@ -90,7 +104,15 @@ export function findImplementations(interfaceName: string, rootDir: string): Loc
       const line = lines[index] ?? '';
       const match = implementsRegex.exec(line) ?? extendsRegex.exec(line);
       if (!match) continue;
-      locations.push(createLocation(file, rootDir, index + 1, match.index + match[0].lastIndexOf(match[1]!), line));
+      locations.push(
+        createLocation(
+          file,
+          rootDir,
+          index + 1,
+          match.index + match[0].lastIndexOf(match[1]!),
+          line,
+        ),
+      );
     }
   }
 
@@ -137,7 +159,13 @@ function isDefinitionLine(line: string, escapedSymbol: string): boolean {
   return declarationRegex.test(line) || assignmentRegex.test(line);
 }
 
-function createLocation(file: string, rootDir: string, line: number, zeroBasedColumn: number, context: string): Location {
+function createLocation(
+  file: string,
+  rootDir: string,
+  line: number,
+  zeroBasedColumn: number,
+  context: string,
+): Location {
   return {
     file: path.relative(rootDir, file),
     line,

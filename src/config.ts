@@ -155,7 +155,8 @@ function normalizeConfig(raw: Record<string, unknown>): Partial<Config> {
   if (typeof raw.contextWindow === 'number') out.contextWindow = raw.contextWindow;
   if (typeof raw.contextWarn === 'number') out.contextWarn = raw.contextWarn;
   if (typeof raw.autoCompact === 'boolean') out.autoCompact = raw.autoCompact;
-  if (typeof raw.autoCompactThreshold === 'number') out.autoCompactThreshold = raw.autoCompactThreshold;
+  if (typeof raw.autoCompactThreshold === 'number')
+    out.autoCompactThreshold = raw.autoCompactThreshold;
   if (typeof raw.cwd === 'string') out.cwd = raw.cwd;
   if (typeof raw.verbose === 'boolean') out.verbose = raw.verbose;
   if (typeof raw.sandbox === 'boolean') out.sandbox = raw.sandbox;
@@ -251,12 +252,11 @@ function envConfig(): Partial<Config> {
 function finalizeConfig(raw: Config): Config {
   const activeProvider = providerRegistry.getActive();
   const requestedProvider =
-    typeof raw.provider === 'string' && raw.provider.trim()
-      ? raw.provider.trim()
-      : undefined;
+    typeof raw.provider === 'string' && raw.provider.trim() ? raw.provider.trim() : undefined;
   const provider =
     (requestedProvider &&
-      (requestedProvider !== DEFAULT_CONFIG.provider || activeProvider.name === DEFAULT_CONFIG.provider)
+    (requestedProvider !== DEFAULT_CONFIG.provider ||
+      activeProvider.name === DEFAULT_CONFIG.provider)
       ? providerRegistry.get(requestedProvider)
       : undefined) ||
     activeProvider ||
@@ -268,7 +268,8 @@ function finalizeConfig(raw: Config): Config {
   const useProviderModel =
     !raw.defaultModel ||
     (raw.defaultModel === DEFAULT_CONFIG.defaultModel &&
-      (provider.defaultModel || provider.models[0] || DEFAULT_CONFIG.defaultModel) !== DEFAULT_CONFIG.defaultModel);
+      (provider.defaultModel || provider.models[0] || DEFAULT_CONFIG.defaultModel) !==
+        DEFAULT_CONFIG.defaultModel);
 
   return {
     ...raw,
@@ -288,7 +289,8 @@ export const config: Config = finalizeConfig({
 });
 
 export function setProvider(name: string, options: { persist?: boolean } = {}): void {
-  const provider = options.persist === false ? providerRegistry.get(name) : providerRegistry.setActive(name);
+  const provider =
+    options.persist === false ? providerRegistry.get(name) : providerRegistry.setActive(name);
   if (!provider) {
     throw new Error(`unknown provider: ${name}`);
   }

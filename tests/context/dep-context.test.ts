@@ -71,7 +71,9 @@ describe('DependencyResolver', () => {
     const resolver = new DependencyResolver({ cwd: projectDir });
     const rootFile = path.join(projectDir, 'src', 'root.ts');
 
-    expect(resolver.getRelatedFiles(rootFile)).toEqual([path.join(projectDir, 'src', 'level-one.ts')]);
+    expect(resolver.getRelatedFiles(rootFile)).toEqual([
+      path.join(projectDir, 'src', 'level-one.ts'),
+    ]);
     expect(resolver.getRelatedFiles(rootFile, 2)).toEqual([
       path.join(projectDir, 'src', 'level-one.ts'),
       path.join(projectDir, 'src', 'level-two.ts'),

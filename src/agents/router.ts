@@ -119,7 +119,10 @@ function scoreRoute(route: AgentRoute, normalizedQuery: string): number {
 
   let score = clampConfidence(route.confidence);
   score += Math.min(0.24, keywordMatches * KEYWORD_BOOST);
-  score += Math.min(0.24, countSignalMatches(route.agentType, normalizedQuery, QUESTION_PATTERNS) * QUESTION_BOOST);
+  score += Math.min(
+    0.24,
+    countSignalMatches(route.agentType, normalizedQuery, QUESTION_PATTERNS) * QUESTION_BOOST,
+  );
 
   if (hasStartsWithSignal(route.agentType, normalizedQuery)) {
     score += STARTS_WITH_BOOST;
@@ -135,7 +138,10 @@ function countMatches(pattern: RegExp | string[], normalizedQuery: string): numb
     return [...normalizedQuery.matchAll(matcher)].length;
   }
 
-  return pattern.reduce((count, keyword) => count + (hasKeywordMatch(keyword, normalizedQuery) ? 1 : 0), 0);
+  return pattern.reduce(
+    (count, keyword) => count + (hasKeywordMatch(keyword, normalizedQuery) ? 1 : 0),
+    0,
+  );
 }
 
 function countSignalMatches(

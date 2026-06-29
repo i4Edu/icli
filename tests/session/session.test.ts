@@ -105,6 +105,9 @@ describe('Session', { timeout: 30_000 }, () => {
     expect(persisted.pinned[0]).toMatchObject({ path: path.join(tmpDir, 'notes.ts'), tokens: 12 });
 
     const loaded = SessionCtor.load('stateful-session');
-    expect(loaded.state.pinned[0]).toMatchObject({ path: path.join(tmpDir, 'notes.ts'), tokens: 12 });
+    expect(loaded.state.pinned[0]).toMatchObject({
+      path: path.join(tmpDir, 'notes.ts'),
+      tokens: 12,
+    });
   });
 });

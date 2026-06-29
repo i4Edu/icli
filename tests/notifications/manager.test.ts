@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { NotificationManager, initializeNotificationManager, getNotificationManager } from '../../src/notifications/manager.js';
+import {
+  NotificationManager,
+  initializeNotificationManager,
+  getNotificationManager,
+} from '../../src/notifications/manager.js';
 import type { NotificationConfig } from '../../src/extensions/team.js';
 import { SlackNotificationHandler } from '../../src/extensions/slack-provider.js';
 import { TeamsNotificationHandler } from '../../src/extensions/teams-provider.js';

@@ -114,12 +114,17 @@ describe('fetchAndConvert', () => {
 
 describe('slash and completion integration', () => {
   it('wires /web into slash handling', () => {
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
 
-    expect(slashSource).toContain("import { fetchAndConvert, validateWebUrl } from './web-cmd.js';");
+    expect(slashSource).toContain(
+      "import { fetchAndConvert, validateWebUrl } from './web-cmd.js';",
+    );
     expect(slashSource).toContain('/web <url> [focus]');
     expect(slashSource).toContain("case 'web':");
-    expect(slashSource).toContain("Content from ${url}:");
+    expect(slashSource).toContain('Content from ${url}:');
   });
 
   it('adds /web to shell completion context', () => {

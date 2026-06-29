@@ -40,7 +40,8 @@ function usage(): string {
 
 function listWorktrees(cwd: string): string {
   const result = runGit(['worktree', 'list', '--porcelain'], cwd);
-  if (result.status !== 0) return `${theme.err(`git worktree list failed: ${result.stderr || 'unknown error'}`)}\n`;
+  if (result.status !== 0)
+    return `${theme.err(`git worktree list failed: ${result.stderr || 'unknown error'}`)}\n`;
   const items = parseWorktreeList(result.stdout);
   if (items.length === 0) return `${theme.dim('No worktrees found.\n')}`;
 
@@ -59,8 +60,12 @@ function addWorktree(args: string[], cwd: string): string {
   const [branch, providedPath] = args;
   if (!branch) return usage();
 
-  const targetPath = path.resolve(cwd, providedPath || path.join('.worktrees', sanitizeBranch(branch)));
-  const branchExists = runGit(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], cwd).status === 0;
+  const targetPath = path.resolve(
+    cwd,
+    providedPath || path.join('.worktrees', sanitizeBranch(branch)),
+  );
+  const branchExists =
+    runGit(['show-ref', '--verify', '--quiet', `refs/heads/${branch}`], cwd).status === 0;
   const cmd = branchExists
     ? ['worktree', 'add', targetPath, branch]
     : ['worktree', 'add', '-b', branch, targetPath];

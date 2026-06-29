@@ -1,7 +1,8 @@
 const START = process.hrtime.bigint();
 const MODULE_LOAD_MS = process.uptime() * 1_000;
 let reported = false;
-let tracingEnabled = Boolean(process.env.ICOPILOT_PERF_TRACE) || process.argv.includes('--perf-trace');
+let tracingEnabled =
+  Boolean(process.env.ICOPILOT_PERF_TRACE) || process.argv.includes('--perf-trace');
 
 export function enablePerfTrace(): void {
   tracingEnabled = true;
@@ -22,6 +23,8 @@ export function markFirstPrompt(label = 'first prompt ready'): void {
   reported = true;
   const firstPromptMs = process.uptime() * 1_000;
   process.stderr.write(`[perf] process start → module load: ${MODULE_LOAD_MS.toFixed(1)}ms\n`);
-  process.stderr.write(`[perf] module load → ${label}: ${(firstPromptMs - MODULE_LOAD_MS).toFixed(1)}ms\n`);
+  process.stderr.write(
+    `[perf] module load → ${label}: ${(firstPromptMs - MODULE_LOAD_MS).toFixed(1)}ms\n`,
+  );
   process.stderr.write(`[perf] process start → ${label}: ${firstPromptMs.toFixed(1)}ms\n`);
 }

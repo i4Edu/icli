@@ -32,7 +32,9 @@ export function loadCustomAgents(projectRoot: string): CustomAgentDef[] {
 }
 
 export function getCustomAgent(name: string): CustomAgentDef | undefined {
-  const match = cachedAgents.find((agent) => agent.name === name) ?? cachedAgents.find((agent) => agent.name.toLowerCase() === name.toLowerCase());
+  const match =
+    cachedAgents.find((agent) => agent.name === name) ??
+    cachedAgents.find((agent) => agent.name.toLowerCase() === name.toLowerCase());
   return match ? cloneAgent(match) : undefined;
 }
 
@@ -45,7 +47,9 @@ function loadAgentFile(filePath: string): CustomAgentDef {
   const document = parseDocument(raw);
   if (document.errors.length > 0) {
     const [firstError] = document.errors;
-    throw new Error(`Invalid YAML in ${path.relative(process.cwd(), filePath)}: ${firstError?.message ?? 'parse error'}`);
+    throw new Error(
+      `Invalid YAML in ${path.relative(process.cwd(), filePath)}: ${firstError?.message ?? 'parse error'}`,
+    );
   }
 
   return validateAgentDef(document.toJSON(), filePath);
@@ -71,7 +75,10 @@ function validateAgentDef(value: unknown, filePath: string): CustomAgentDef {
   }
 
   if (record.tools !== undefined) {
-    if (!Array.isArray(record.tools) || record.tools.some((tool) => typeof tool !== 'string' || tool.trim().length === 0)) {
+    if (
+      !Array.isArray(record.tools) ||
+      record.tools.some((tool) => typeof tool !== 'string' || tool.trim().length === 0)
+    ) {
       throw new Error(`${label(filePath)} field "tools" must be an array of non-empty strings`);
     }
     agent.tools = [...new Set(record.tools.map((tool) => tool.trim()))];
@@ -106,9 +113,17 @@ function positiveInteger(value: unknown, field: string, filePath: string): numbe
   return value;
 }
 
-function numberInRange(value: unknown, field: string, filePath: string, min: number, max: number): number {
+function numberInRange(
+  value: unknown,
+  field: string,
+  filePath: string,
+  min: number,
+  max: number,
+): number {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
-    throw new Error(`${label(filePath)} field "${field}" must be a number between ${min} and ${max}`);
+    throw new Error(
+      `${label(filePath)} field "${field}" must be a number between ${min} and ${max}`,
+    );
   }
   return value;
 }

@@ -1,4 +1,10 @@
-import { deleteSnippet, expandSnippet, listSnippets, readSnippet, saveSnippet } from '../snippets/store.js';
+import {
+  deleteSnippet,
+  expandSnippet,
+  listSnippets,
+  readSnippet,
+  saveSnippet,
+} from '../snippets/store.js';
 import { theme } from '../ui/theme.js';
 
 export async function snippetsCommand(rest: string[]): Promise<string> {
@@ -58,7 +64,9 @@ function deleteCommand(args: string[]): string {
   const [name] = args;
   if (!name) return theme.warn('usage: /snippets delete <name>\n');
 
-  return deleteSnippet(name) ? theme.ok(`✔ deleted snippet ${name}\n`) : theme.warn(`snippet not found: ${name}\n`);
+  return deleteSnippet(name)
+    ? theme.ok(`✔ deleted snippet ${name}\n`)
+    : theme.warn(`snippet not found: ${name}\n`);
 }
 
 function useCommand(args: string[]): string {

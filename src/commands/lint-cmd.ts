@@ -164,7 +164,8 @@ export function lintCommand(cwd: string): string {
   }
 
   const lines = matches.map(
-    (match) => `  ${theme.ok(match.name)}  ${theme.hl(match.command)}  ${theme.dim(`(${match.reason})`)}`,
+    (match) =>
+      `  ${theme.ok(match.name)}  ${theme.hl(match.command)}  ${theme.dim(`(${match.reason})`)}`,
   );
 
   return `${theme.brand('Detected linters')}\n${lines.join('\n')}\n`;

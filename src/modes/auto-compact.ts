@@ -22,7 +22,9 @@ export async function handlePostTurnContextBudget(
 
   if (usageRatio > config.contextWarn) {
     process.stdout.write(
-      theme.warn(`\n⚠  context ${(usageRatio * 100).toFixed(0)}% full — run /compact to free space.\n`),
+      theme.warn(
+        `\n⚠  context ${(usageRatio * 100).toFixed(0)}% full — run /compact to free space.\n`,
+      ),
     );
   }
 

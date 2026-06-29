@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { attachKeybindings, getKeybindingMode, hasKeybindings, getKeybindingHelp, formatKeybindingInfo } from '../../src/util/keybindings';
+import {
+  attachKeybindings,
+  getKeybindingMode,
+  hasKeybindings,
+  getKeybindingHelp,
+  formatKeybindingInfo,
+} from '../../src/util/keybindings';
 import readline from 'node:readline';
 
 describe('Keybindings module', () => {

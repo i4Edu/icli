@@ -87,8 +87,12 @@ describe('Marketplace', () => {
     await marketplace.install('beta-lint');
 
     await expect(pluginCommand(['list'], marketplace)).resolves.toContain('beta-lint');
-    await expect(pluginCommand(['search', 'beta'], marketplace)).resolves.toContain('Plugin search');
-    await expect(pluginCommand(['info', 'beta-lint'], marketplace)).resolves.toContain('installed:');
+    await expect(pluginCommand(['search', 'beta'], marketplace)).resolves.toContain(
+      'Plugin search',
+    );
+    await expect(pluginCommand(['info', 'beta-lint'], marketplace)).resolves.toContain(
+      'installed:',
+    );
     await expect(pluginCommand(['update'], marketplace)).resolves.toContain('Updated plugins');
   });
 });

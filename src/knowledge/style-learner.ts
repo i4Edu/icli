@@ -125,7 +125,9 @@ export class StyleLearner {
   }
 
   load(filePath: string): void {
-    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as StyleProfile | StyleProfileDocument;
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as
+      | StyleProfile
+      | StyleProfileDocument;
     if (isStyleProfileDocument(parsed)) {
       this.profile = { ...DEFAULT_PROFILE, ...parsed.profile };
       this.stats = parsed.stats ? normalizeStats(parsed.stats) : DEFAULT_STATS();

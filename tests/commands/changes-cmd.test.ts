@@ -86,7 +86,9 @@ describe('changes-cmd', () => {
     const session = createSession();
 
     await ensureChangeTracking(session);
-    await expect(showChangesSinceLastTurn(session)).resolves.toContain('No AI turns have been recorded yet.');
+    await expect(showChangesSinceLastTurn(session)).resolves.toContain(
+      'No AI turns have been recorded yet.',
+    );
     await expect(showChangesSinceMessage(3, session)).resolves.toContain(
       'No snapshot recorded for AI turn 4.',
     );

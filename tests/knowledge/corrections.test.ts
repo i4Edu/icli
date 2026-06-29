@@ -1,10 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  CorrectionMemory,
-  loadCorrectionPromptContext,
-} from '../../src/knowledge/corrections.js';
+import { CorrectionMemory, loadCorrectionPromptContext } from '../../src/knowledge/corrections.js';
 
 let tmpRoot: string;
 let tmpDir: string;

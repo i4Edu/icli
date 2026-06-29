@@ -54,7 +54,9 @@ describe('content filter', () => {
 
   it('blocks built-in secret and payment data matches', () => {
     const filter = new ContentFilter(builtinFilterRules());
-    const result = filter.filter('Use key sk-123456789012345678901234567890 and card 4242 4242 4242 4242');
+    const result = filter.filter(
+      'Use key sk-123456789012345678901234567890 and card 4242 4242 4242 4242',
+    );
 
     expect(result.blocked).toBe(true);
     expect(result.blocks).toBeGreaterThanOrEqual(2);
@@ -93,7 +95,10 @@ describe('content filter', () => {
       expect.arrayContaining([expect.objectContaining({ name: 'ticket-id', action: 'warn' })]),
     );
 
-    expect(removeProjectFilterRule(tmpDir, 'ticket-id')).toEqual({ removed: true, source: 'custom' });
+    expect(removeProjectFilterRule(tmpDir, 'ticket-id')).toEqual({
+      removed: true,
+      source: 'custom',
+    });
     filter = loadProjectContentFilter(tmpDir);
     expect(filter.scan('Reference ACME-42')).toHaveLength(0);
 

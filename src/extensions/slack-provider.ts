@@ -36,10 +36,7 @@ export class SlackNotificationFormatter implements NotificationFormatter {
     };
   }
 
-  formatApprovalRequest(
-    action: string,
-    details: Record<string, unknown>,
-  ): Record<string, unknown> {
+  formatApprovalRequest(action: string, details: Record<string, unknown>): Record<string, unknown> {
     const blocks: SlackBlock[] = [
       {
         type: 'section',
@@ -160,23 +157,21 @@ export class SlackNotificationHandler implements NotificationHandler {
 
     await this.callSlackApi('chat.postMessage', payload);
 
-    return new Promise<{ approved: boolean; approver?: string; timestamp?: string }>(
-      (resolve) => {
-        const timeoutHandle = setTimeout(() => {
-          this.pendingApprovals.delete(id);
-          resolve({ approved: false });
-        }, timeout);
+    return new Promise<{ approved: boolean; approver?: string; timestamp?: string }>((resolve) => {
+      const timeoutHandle = setTimeout(() => {
+        this.pendingApprovals.delete(id);
+        resolve({ approved: false });
+      }, timeout);
 
-        const approval: PendingApproval = {
-          id,
-          action,
-          timeout: timeoutHandle,
-          resolve,
-        };
+      const approval: PendingApproval = {
+        id,
+        action,
+        timeout: timeoutHandle,
+        resolve,
+      };
 
-        this.pendingApprovals.set(id, approval);
-      },
-    );
+      this.pendingApprovals.set(id, approval);
+    });
   }
 
   async getStatus(): Promise<{ connected: boolean; error?: string }> {
@@ -200,7 +195,7 @@ export class SlackNotificationHandler implements NotificationHandler {
 
     const firstAction = action[0] as Record<string, unknown>;
     const actionId = firstAction.action_id as string;
-    if (!actionId || !actionId.startsWith('approve-') && !actionId.startsWith('deny-')) return;
+    if (!actionId || (!actionId.startsWith('approve-') && !actionId.startsWith('deny-'))) return;
 
     const approved = actionId.startsWith('approve-');
     const id = actionId.split('-')[1];

@@ -57,7 +57,10 @@ describe('diagram-cmd', () => {
 
   it('generates a dependency graph between files', () => {
     writeFixture('src/index.ts', "import { run } from './run.js';\nrun();\n");
-    writeFixture('src/run.ts', "import { log } from './util/log.js';\nexport function run() { log(); }\n");
+    writeFixture(
+      'src/run.ts',
+      "import { log } from './util/log.js';\nexport function run() { log(); }\n",
+    );
     writeFixture('src/util/log.ts', 'export function log() {}\n');
 
     const diagram = generateDiagram(fixtureDir, { type: 'deps' });
@@ -135,7 +138,9 @@ describe('diagram-cmd', () => {
 
     expect(diagramCommand([], fixtureDir)).toContain('graph TD');
     expect(diagramCommand(['classes', 'src/index.ts'], fixtureDir)).toContain('classDiagram');
-    expect(diagramCommand(['flow', 'missingFunction'], fixtureDir)).toContain('No function flow found');
+    expect(diagramCommand(['flow', 'missingFunction'], fixtureDir)).toContain(
+      'No function flow found',
+    );
     expect(diagramCommand(['wat'], fixtureDir)).toContain('usage: /diagram');
   });
 });

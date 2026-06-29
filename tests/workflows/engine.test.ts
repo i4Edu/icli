@@ -26,9 +26,9 @@ describe('WorkflowEngine', () => {
         'steps:',
         '  - id: prompt-step',
         '    name: Prompt step',
-        "    action: prompt",
+        '    action: prompt',
         '    params:',
-        "      prompt: Hello workflow",
+        '      prompt: Hello workflow',
         '',
       ].join('\n'),
       'utf8',
@@ -139,7 +139,11 @@ describe('WorkflowEngine', () => {
     expect(result.success).toBe(true);
     expect(result.steps).toHaveLength(4);
     expect(result.steps[0]).toMatchObject({ stepId: 'emit', success: true, output: 'alpha' });
-    expect(result.steps[1]).toMatchObject({ stepId: 'prompt', success: true, output: 'value=alpha' });
+    expect(result.steps[1]).toMatchObject({
+      stepId: 'prompt',
+      success: true,
+      output: 'value=alpha',
+    });
     expect(result.steps[2]?.output).toMatchObject({
       passed: true,
       branch: 'then',

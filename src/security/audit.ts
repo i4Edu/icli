@@ -119,7 +119,11 @@ export class AuditLogger {
       if (entry.result === 'success') success += 1;
       else if (entry.result === 'failure') failure += 1;
       else denied += 1;
-      if (typeof entry.duration === 'number' && Number.isFinite(entry.duration) && entry.duration >= 0) {
+      if (
+        typeof entry.duration === 'number' &&
+        Number.isFinite(entry.duration) &&
+        entry.duration >= 0
+      ) {
         durationTotal += entry.duration;
         durationCount += 1;
       }
@@ -200,7 +204,9 @@ function normalizeResult(value: AuditResult | undefined): AuditResult {
 }
 
 function normalizeDuration(value: number | undefined): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.round(value) : undefined;
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.round(value)
+    : undefined;
 }
 
 function normalizeOptionalString(value: unknown): string | undefined {
@@ -210,14 +216,18 @@ function normalizeOptionalString(value: unknown): string | undefined {
 }
 
 function defaultUser(): string | undefined {
-  return normalizeOptionalString(process.env.ICOPILOT_AUDIT_USER || process.env.USERNAME || process.env.USER);
+  return normalizeOptionalString(
+    process.env.ICOPILOT_AUDIT_USER || process.env.USERNAME || process.env.USER,
+  );
 }
 
 function sanitizeArgs(value: unknown, depth = 0): unknown {
   if (value === undefined || value === null) return value;
   if (depth >= 4) return '[truncated depth]';
   if (typeof value === 'string') {
-    return value.length > 4000 ? `${value.slice(0, 4000)}…[truncated ${value.length - 4000} chars]` : value;
+    return value.length > 4000
+      ? `${value.slice(0, 4000)}…[truncated ${value.length - 4000} chars]`
+      : value;
   }
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   if (Array.isArray(value)) {

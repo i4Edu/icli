@@ -63,9 +63,13 @@ function createSession(): Session {
 describe('buildContextBreakdown', () => {
   it('separates system, files, memory, pinned, history, and tool results', () => {
     memoryState.text = '## Project memory\nRemember the deployment checklist.';
-    pinnedState.text = '### Pinned context files\n\n#### src/pinned.ts\n```ts\nexport const pinned = true;\n```';
+    pinnedState.text =
+      '### Pinned context files\n\n#### src/pinned.ts\n```ts\nexport const pinned = true;\n```';
     const session = createSession();
-    const fileBlock = String((session.state.messages[0] as { content: string }).content).split('\n\n').slice(1).join('\n\n');
+    const fileBlock = String((session.state.messages[0] as { content: string }).content)
+      .split('\n\n')
+      .slice(1)
+      .join('\n\n');
     const breakdown = buildContextBreakdown(session);
 
     const map = new Map(breakdown.sources.map((entry) => [entry.name, entry]));
@@ -94,7 +98,9 @@ describe('buildContextBreakdown', () => {
     expect(map.get('Tool results')?.tokens).toBe(expectedTools);
     expect(breakdown.total).toBe(breakdown.sources.reduce((sum, entry) => sum + entry.tokens, 0));
     expect(breakdown.remaining).toBe(config.contextWindow - breakdown.total);
-    expect(breakdown.sources.find((entry) => entry.name === 'File references')?.percentage).toBeGreaterThan(0);
+    expect(
+      breakdown.sources.find((entry) => entry.name === 'File references')?.percentage,
+    ).toBeGreaterThan(0);
   });
 });
 

@@ -307,7 +307,7 @@ class RawWebSocketConnection extends EventEmitter {
   }
 
   sendPong(payload = Buffer.alloc(0)): void {
-    this.writeFrame(0xA, payload);
+    this.writeFrame(0xa, payload);
   }
 
   beginHeartbeat(): boolean {
@@ -401,7 +401,7 @@ class RawWebSocketConnection extends EventEmitter {
         continue;
       }
 
-      if (opcode === 0xA) {
+      if (opcode === 0xa) {
         this.alive = true;
       }
     }
@@ -492,9 +492,7 @@ async function createClientTransport(port: number): Promise<BridgeTransport> {
       if (headerEnd === -1) return;
 
       const headerText = handshakeBuffer.subarray(0, headerEnd).toString('utf8');
-      const expectedAccept = createHash('sha1')
-        .update(`${key}${WEBSOCKET_GUID}`)
-        .digest('base64');
+      const expectedAccept = createHash('sha1').update(`${key}${WEBSOCKET_GUID}`).digest('base64');
       if (
         !headerText.startsWith('HTTP/1.1 101') ||
         !headerText.toLowerCase().includes(`sec-websocket-accept: ${expectedAccept.toLowerCase()}`)
@@ -507,7 +505,11 @@ async function createClientTransport(port: number): Promise<BridgeTransport> {
       socket.removeListener('error', fail);
       socket.removeAllListeners('data');
 
-      connection = new RawWebSocketConnection(socket, true, handshakeBuffer.subarray(headerEnd + 4));
+      connection = new RawWebSocketConnection(
+        socket,
+        true,
+        handshakeBuffer.subarray(headerEnd + 4),
+      );
       resolve({
         send(data) {
           connection?.sendText(data);
@@ -549,7 +551,10 @@ function isWebSocketUpgrade(request: IncomingMessage): boolean {
     typeof upgrade === 'string' &&
     upgrade.toLowerCase() === 'websocket' &&
     typeof connection === 'string' &&
-    connection.toLowerCase().split(',').some((value) => value.trim() === 'upgrade')
+    connection
+      .toLowerCase()
+      .split(',')
+      .some((value) => value.trim() === 'upgrade')
   );
 }
 

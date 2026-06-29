@@ -111,7 +111,10 @@ export class DeadCodeDetector {
 
     this.propagateReExportUsage(modules, normalizedRoot, entryPoints, extensions);
 
-    const totalExports = [...modules.values()].reduce((sum, moduleInfo) => sum + moduleInfo.exports.size, 0);
+    const totalExports = [...modules.values()].reduce(
+      (sum, moduleInfo) => sum + moduleInfo.exports.size,
+      0,
+    );
 
     return {
       rootDir: normalizedRoot,
@@ -123,7 +126,13 @@ export class DeadCodeDetector {
   }
 
   private collectExports(moduleInfo: ModuleInfo, content: string, lineLookup: number[]): void {
-    const register = (name: string, line: number, kind: string, source?: string, sourceName?: string) => {
+    const register = (
+      name: string,
+      line: number,
+      kind: string,
+      source?: string,
+      sourceName?: string,
+    ) => {
       const exportName = name.trim();
       if (!exportName || moduleInfo.exports.has(exportName)) return;
       moduleInfo.exports.set(exportName, {
@@ -136,7 +145,8 @@ export class DeadCodeDetector {
       });
     };
 
-    const declarationExport = /^\s*export\s+(?:declare\s+)?(?:(default)\s+)?(?:(async)\s+)?(function|class|interface|type|enum|const|let|var)\s+([A-Za-z_$][\w$]*)/gmu;
+    const declarationExport =
+      /^\s*export\s+(?:declare\s+)?(?:(default)\s+)?(?:(async)\s+)?(function|class|interface|type|enum|const|let|var)\s+([A-Za-z_$][\w$]*)/gmu;
     for (const match of content.matchAll(declarationExport)) {
       const [, isDefault, , kind, name] = match;
       const line = lookupLine(lineLookup, match.index ?? 0);
@@ -144,7 +154,8 @@ export class DeadCodeDetector {
       if (isDefault) register('default', line, kind ?? 'default');
     }
 
-    const anonymousDefaultExport = /^\s*export\s+default\s+(?!function\s+[A-Za-z_$]|class\s+[A-Za-z_$])(?:async\s+)?(function|class)?/gmu;
+    const anonymousDefaultExport =
+      /^\s*export\s+default\s+(?!function\s+[A-Za-z_$]|class\s+[A-Za-z_$])(?:async\s+)?(function|class)?/gmu;
     for (const match of content.matchAll(anonymousDefaultExport)) {
       const line = lookupLine(lineLookup, match.index ?? 0);
       register('default', line, match[1] ?? 'default');
@@ -157,11 +168,18 @@ export class DeadCodeDetector {
       for (const item of splitNamedBindings(match[1] ?? '')) {
         const parsed = parseNamedBinding(item);
         if (!parsed) continue;
-        register(parsed.exportedName, line, specifier ? 're-export' : 'named export', specifier, parsed.importedName);
+        register(
+          parsed.exportedName,
+          line,
+          specifier ? 're-export' : 'named export',
+          specifier,
+          parsed.importedName,
+        );
       }
     }
 
-    const exportNamespace = /^\s*export\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/gmu;
+    const exportNamespace =
+      /^\s*export\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/gmu;
     for (const match of content.matchAll(exportNamespace)) {
       const line = lookupLine(lineLookup, match.index ?? 0);
       const [, name, specifier] = match;
@@ -350,7 +368,11 @@ function listSourceFiles(rootDir: string, extensions: string[], exclude: string[
 
 function normalizeExtensions(extensions?: string[]): string[] {
   if (!extensions?.length) return [...DEFAULT_EXTENSIONS];
-  return [...new Set(extensions.map((extension) => (extension.startsWith('.') ? extension : `.${extension}`)))];
+  return [
+    ...new Set(
+      extensions.map((extension) => (extension.startsWith('.') ? extension : `.${extension}`)),
+    ),
+  ];
 }
 
 function findEntryPoints(
@@ -500,10 +522,12 @@ function readGitignorePatterns(rootDir: string): string[] {
   const gitignorePath = path.join(rootDir, '.gitignore');
   if (!fs.existsSync(gitignorePath)) return [];
 
-  return safeRead(gitignorePath)
-    ?.split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith('#') && !line.startsWith('!')) ?? [];
+  return (
+    safeRead(gitignorePath)
+      ?.split(/\r?\n/u)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('#') && !line.startsWith('!')) ?? []
+  );
 }
 
 function createLineLookup(content: string): number[] {
@@ -547,5 +571,9 @@ function safeRead(file: string): string | undefined {
 }
 
 function compareUnusedExports(left: UnusedExport, right: UnusedExport): number {
-  return left.file.localeCompare(right.file) || left.line - right.line || left.name.localeCompare(right.name);
+  return (
+    left.file.localeCompare(right.file) ||
+    left.line - right.line ||
+    left.name.localeCompare(right.name)
+  );
 }

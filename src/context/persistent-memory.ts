@@ -76,9 +76,10 @@ export class PersistentMemory {
   render(): string {
     const entries = this.recall();
     if (entries.length === 0) return '';
-    return ['## Persistent project memory', ...entries.map((entry) => `- ${entry.key}: ${entry.value}`)].join(
-      '\n',
-    );
+    return [
+      '## Persistent project memory',
+      ...entries.map((entry) => `- ${entry.key}: ${entry.value}`),
+    ].join('\n');
   }
 
   getProjectId(cwd: string): string {

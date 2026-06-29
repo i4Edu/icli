@@ -133,9 +133,7 @@ describe('runAutopilot', () => {
   });
 });
 
-function createSessionStub(
-  init: Partial<Session['state']> = {},
-): Session {
+function createSessionStub(init: Partial<Session['state']> = {}): Session {
   const state = {
     id: 'session-1',
     createdAt: new Date().toISOString(),

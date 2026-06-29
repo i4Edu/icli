@@ -19,7 +19,10 @@ const DEFAULT_MAX_DEPTH = 3;
 const DEFAULT_MAX_FILES = 200;
 const DEFAULT_IGNORES = new Set(['.git', 'node_modules', 'dist']);
 
-export function buildExplorePrompt(query: string, cwd: string): { prompt: string; context: string } {
+export function buildExplorePrompt(
+  query: string,
+  cwd: string,
+): { prompt: string; context: string } {
   const resolvedCwd = path.resolve(cwd);
   const context = [
     `Workspace: ${resolvedCwd}`,
@@ -69,7 +72,14 @@ export function gatherProjectContext(cwd: string, maxDepth = DEFAULT_MAX_DEPTH):
 
     const entries = fs
       .readdirSync(dirPath, { withFileTypes: true })
-      .filter((entry) => !shouldIgnore(path.relative(resolvedCwd, path.join(dirPath, entry.name)), entry.isDirectory(), ignorePatterns))
+      .filter(
+        (entry) =>
+          !shouldIgnore(
+            path.relative(resolvedCwd, path.join(dirPath, entry.name)),
+            entry.isDirectory(),
+            ignorePatterns,
+          ),
+      )
       .sort((left, right) => {
         if (left.isDirectory() !== right.isDirectory()) {
           return left.isDirectory() ? -1 : 1;
@@ -239,7 +249,9 @@ function shouldIgnore(relativePath: string, isDirectory: boolean, patterns: stri
     return true;
   }
 
-  return patterns.some((pattern) => matchesGitignorePattern(normalized, segments, isDirectory, pattern));
+  return patterns.some((pattern) =>
+    matchesGitignorePattern(normalized, segments, isDirectory, pattern),
+  );
 }
 
 function matchesGitignorePattern(

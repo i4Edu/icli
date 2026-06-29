@@ -26,7 +26,11 @@ describe('CloudRoutineStore', () => {
 
   describe('create', () => {
     it('creates a new routine with daily schedule', () => {
-      const routine = store.create('daily-standup', { type: 'daily', time: '09:00' }, 'generate standup');
+      const routine = store.create(
+        'daily-standup',
+        { type: 'daily', time: '09:00' },
+        'generate standup',
+      );
 
       expect(routine.id).toBeDefined();
       expect(routine.name).toBe('daily-standup');
@@ -247,7 +251,11 @@ describe('CloudRoutineStore', () => {
   describe('persistence', () => {
     it('persists routines to disk and loads them on restart', () => {
       const routine1 = store.create('routine-1', { type: 'daily', time: '09:00' }, 'prompt 1');
-      const routine2 = store.create('routine-2', { type: 'weekly', dayOfWeek: 1, time: '14:00' }, 'prompt 2');
+      const routine2 = store.create(
+        'routine-2',
+        { type: 'weekly', dayOfWeek: 1, time: '14:00' },
+        'prompt 2',
+      );
 
       const store2 = new CloudRoutineStore();
       const list = store2.list();
@@ -403,7 +411,11 @@ describe('Schedule parsing and calculation', () => {
   });
 
   it('calculates correct next run for weekly schedule', () => {
-    const routine = store.create('weekly', { type: 'weekly', dayOfWeek: 1, time: '14:00' }, 'prompt');
+    const routine = store.create(
+      'weekly',
+      { type: 'weekly', dayOfWeek: 1, time: '14:00' },
+      'prompt',
+    );
     const nextRun = new Date(routine.nextRun!);
 
     expect(nextRun.getDay()).toBe(1);
@@ -412,7 +424,11 @@ describe('Schedule parsing and calculation', () => {
   });
 
   it('calculates correct next run for monthly schedule', () => {
-    const routine = store.create('monthly', { type: 'monthly', dayOfMonth: 15, time: '10:00' }, 'prompt');
+    const routine = store.create(
+      'monthly',
+      { type: 'monthly', dayOfMonth: 15, time: '10:00' },
+      'prompt',
+    );
     const nextRun = new Date(routine.nextRun!);
 
     expect(nextRun.getDate()).toBe(15);

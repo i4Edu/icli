@@ -40,7 +40,10 @@ export function summarizeContextUsage(breakdown: ContextBreakdown): BucketSummar
 }
 
 function sumByType(sources: ContextSource[], types: ContextSource['type'][]): number {
-  return sources.reduce((sum, source) => (types.includes(source.type) ? sum + source.tokens : sum), 0);
+  return sources.reduce(
+    (sum, source) => (types.includes(source.type) ? sum + source.tokens : sum),
+    0,
+  );
 }
 
 function renderProgressBar(used: number, total: number, width: number): string {

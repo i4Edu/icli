@@ -20,7 +20,7 @@ export interface IndexOptions {
 interface PersistedIndex {
   rootDir: string;
   createdAt: string;
-  symbols: Symbol[];
+  symbols: symbol[];
 }
 
 const DEFAULT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs'];
@@ -32,7 +32,7 @@ const DEFAULT_EXCLUDE = [
   '**/.icopilot/**',
 ];
 
-const TOP_LEVEL_PATTERNS: Array<{ kind: Symbol['kind']; regex: RegExp }> = [
+const TOP_LEVEL_PATTERNS: Array<{ kind: symbol['kind']; regex: RegExp }> = [
   {
     kind: 'function',
     regex:
@@ -65,7 +65,7 @@ const METHOD_PATTERN =
   /^\s*(?:(?:public|private|protected|static|async|abstract|override|get|set|readonly)\s+)*(#?[A-Za-z_$][\w$]*)\s*(?:<[^>{\r\n]+>)?\s*\([^;{}]*\)\s*(?::\s*[^={]+)?\s*\{$/;
 
 export class SymbolIndex {
-  private symbols: Symbol[] = [];
+  private symbols: symbol[] = [];
   private rootDir = '';
   private cachePath = '';
 
@@ -80,7 +80,7 @@ export class SymbolIndex {
       ignore: [...DEFAULT_EXCLUDE, ...(options.exclude ?? [])],
     });
 
-    const collected: Symbol[] = [];
+    const collected: symbol[] = [];
     for (const file of files.sort()) {
       const absolute = path.join(resolvedRoot, file);
       let content = '';
@@ -99,7 +99,7 @@ export class SymbolIndex {
     this.save(this.cachePath);
   }
 
-  search(query: string): Symbol[] {
+  search(query: string): symbol[] {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
 
@@ -116,16 +116,16 @@ export class SymbolIndex {
       .map((item) => item.symbol);
   }
 
-  getByFile(file: string): Symbol[] {
+  getByFile(file: string): symbol[] {
     const normalized = normalizeFileKey(file, this.rootDir);
     return this.symbols.filter((symbol) => path.normalize(symbol.file) === normalized);
   }
 
-  getByKind(kind: string): Symbol[] {
+  getByKind(kind: string): symbol[] {
     return this.symbols.filter((symbol) => symbol.kind === kind);
   }
 
-  getExported(): Symbol[] {
+  getExported(): symbol[] {
     return this.symbols.filter((symbol) => symbol.exported);
   }
 
@@ -144,7 +144,7 @@ export class SymbolIndex {
   load(filePath: string): void {
     const absolute = path.resolve(filePath);
     const raw = fs.readFileSync(absolute, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | Symbol[];
+    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | symbol[];
     const payload = Array.isArray(parsed)
       ? { rootDir: this.rootDir, symbols: parsed }
       : {
@@ -158,10 +158,10 @@ export class SymbolIndex {
   }
 }
 
-function extractSymbols(content: string, file: string, includePrivate: boolean): Symbol[] {
+function extractSymbols(content: string, file: string, includePrivate: boolean): symbol[] {
   const lineStarts = buildLineStarts(content);
   const depthMap = buildBraceDepthMap(content);
-  const symbols: Symbol[] = [];
+  const symbols: symbol[] = [];
 
   for (const { kind, regex } of TOP_LEVEL_PATTERNS) {
     regex.lastIndex = 0;
@@ -184,7 +184,13 @@ function extractSymbols(content: string, file: string, includePrivate: boolean):
   }
 
   for (const block of classBlocks(content)) {
-    for (const method of extractMethods(block.body, lineStarts, block.bodyStart, file, includePrivate)) {
+    for (const method of extractMethods(
+      block.body,
+      lineStarts,
+      block.bodyStart,
+      file,
+      includePrivate,
+    )) {
       symbols.push(method);
     }
   }
@@ -217,8 +223,8 @@ function extractMethods(
   bodyStart: number,
   file: string,
   includePrivate: boolean,
-): Symbol[] {
-  const methods: Symbol[] = [];
+): symbol[] {
+  const methods: symbol[] = [];
   let depth = 0;
   let current = '';
   let currentStart = 0;
@@ -303,11 +309,11 @@ function toPatterns(extensions?: string[]): string[] {
   return patterns.filter(Boolean);
 }
 
-function normalizeSymbols(symbols: Symbol[]): Symbol[] {
-  const byKey = new Map<string, Symbol>();
+function normalizeSymbols(symbols: symbol[]): symbol[] {
+  const byKey = new Map<string, symbol>();
   for (const symbol of symbols) {
     if (!symbol || typeof symbol.name !== 'string' || typeof symbol.file !== 'string') continue;
-    const normalized: Symbol = {
+    const normalized: symbol = {
       name: symbol.name,
       kind: symbol.kind,
       file: path.normalize(symbol.file),
@@ -315,7 +321,10 @@ function normalizeSymbols(symbols: Symbol[]): Symbol[] {
       signature: symbol.signature,
       exported: Boolean(symbol.exported),
     };
-    byKey.set(`${normalized.file}:${normalized.line}:${normalized.kind}:${normalized.name}`, normalized);
+    byKey.set(
+      `${normalized.file}:${normalized.line}:${normalized.kind}:${normalized.name}`,
+      normalized,
+    );
   }
 
   return [...byKey.values()].sort(
@@ -329,12 +338,17 @@ function normalizeSymbols(symbols: Symbol[]): Symbol[] {
 
 function normalizeFileKey(file: string, rootDir: string): string {
   const target =
-    rootDir && path.isAbsolute(file) ? path.relative(rootDir, path.resolve(file)) : path.normalize(file);
+    rootDir && path.isAbsolute(file)
+      ? path.relative(rootDir, path.resolve(file))
+      : path.normalize(file);
   return path.normalize(target);
 }
 
 function cleanSignature(signature: string): string {
-  return signature.replace(/\s+/g, ' ').replace(/\s+\{$/, '').trim();
+  return signature
+    .replace(/\s+/g, ' ')
+    .replace(/\s+\{$/, '')
+    .trim();
 }
 
 function buildLineStarts(text: string): number[] {

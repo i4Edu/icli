@@ -97,7 +97,8 @@ const SETTING_DEFINITIONS: SettingDefinition<any>[] = [
 export function showSettings(): string {
   const defaults = getDefaultConfig();
   const persisted = loadRcData();
-  const keyWidth = Math.max(...SETTING_DEFINITIONS.map((entry) => entry.key.length), 'setting'.length) + 2;
+  const keyWidth =
+    Math.max(...SETTING_DEFINITIONS.map((entry) => entry.key.length), 'setting'.length) + 2;
   const valueWidth = 18;
   const defaultWidth = 18;
   const lines = [
@@ -109,8 +110,8 @@ export function showSettings(): string {
   for (const definition of SETTING_DEFINITIONS) {
     const current = formatValue(definition, config[definition.configKey]);
     const fallback = formatValue(definition, defaults[definition.configKey]);
-    const stored = [definition.key, definition.configKey, ...(definition.aliases ?? [])].some((candidate) =>
-      Object.prototype.hasOwnProperty.call(persisted, candidate),
+    const stored = [definition.key, definition.configKey, ...(definition.aliases ?? [])].some(
+      (candidate) => Object.prototype.hasOwnProperty.call(persisted, candidate),
     );
     lines.push(
       `  ${pad(definition.key, keyWidth)}${pad(current, valueWidth)}${pad(fallback, defaultWidth)}${stored ? theme.ok('yes') : theme.dim('no')}`,
@@ -143,7 +144,9 @@ export function resetSetting(key: string): string {
   const rcData = loadRcData();
   delete rcData[definition.key];
   writeRcData(rcData);
-  return theme.ok(`✔ reset ${definition.key} → ${formatValue(definition, defaults[definition.configKey])}\n`);
+  return theme.ok(
+    `✔ reset ${definition.key} → ${formatValue(definition, defaults[definition.configKey])}\n`,
+  );
 }
 
 export function isModelSettingKey(key: string): boolean {
@@ -153,7 +156,9 @@ export function isModelSettingKey(key: string): boolean {
 function resolveSetting(key: string): SettingDefinition<any> {
   const normalized = key.trim().toLowerCase();
   const definition = SETTING_DEFINITIONS.find((entry) =>
-    [entry.key, ...(entry.aliases ?? [])].some((candidate) => candidate.toLowerCase() === normalized),
+    [entry.key, ...(entry.aliases ?? [])].some(
+      (candidate) => candidate.toLowerCase() === normalized,
+    ),
   );
   if (!definition) {
     throw new Error(`unsupported setting: ${key}`);

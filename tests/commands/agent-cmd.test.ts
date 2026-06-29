@@ -149,7 +149,9 @@ describe('agent-cmd', { timeout: 30_000 }, () => {
     const output = agentCommand(['review'], tmpDir);
 
     expect(output).toContain('REVIEW');
-    expect(output).toContain('Review the staged changes for bugs, security issues, and logic errors.');
+    expect(output).toContain(
+      'Review the staged changes for bugs, security issues, and logic errors.',
+    );
   });
 
   it('builds an execution prompt for the task agent', () => {
@@ -172,7 +174,10 @@ describe('agent-cmd', { timeout: 30_000 }, () => {
   });
 
   it('wires /agent into slash handling and help text', () => {
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
 
     expect(slashSource).toContain("import { agentCommand } from './agent-cmd.js';");
     expect(slashSource).toContain('/agent <name> [query]');

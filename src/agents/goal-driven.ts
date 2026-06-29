@@ -116,14 +116,16 @@ export class GoalDrivenAgent {
       },
       {
         id: 'create-artifacts',
-        description: 'Create any new files, modules, or scaffolding required to deliver the goal end-to-end.',
+        description:
+          'Create any new files, modules, or scaffolding required to deliver the goal end-to-end.',
         type: 'create',
         files,
         dependencies: ['analyze-goal'],
       },
       {
         id: 'modify-integrations',
-        description: 'Modify the existing integration points, command wiring, and supporting code needed by the goal.',
+        description:
+          'Modify the existing integration points, command wiring, and supporting code needed by the goal.',
         type: 'modify',
         files,
         dependencies: ['create-artifacts'],
@@ -334,7 +336,10 @@ export class GoalDrivenAgent {
 
     const scoreBase =
       result.plan.steps.length > 0 ? completedSteps.length / result.plan.steps.length : 0;
-    const score = Math.max(0, Math.min(1, Math.round((scoreBase - issues.length * 0.08) * 100) / 100));
+    const score = Math.max(
+      0,
+      Math.min(1, Math.round((scoreBase - issues.length * 0.08) * 100) / 100),
+    );
 
     return {
       ok: issues.length === 0,
@@ -547,6 +552,6 @@ function throwIfAborted(signal: AbortSignal): void {
 function isAbortError(error: unknown): boolean {
   return Boolean(
     (error instanceof DOMException && error.name === 'AbortError') ||
-      (error instanceof Error && error.name === 'AbortError'),
+    (error instanceof Error && error.name === 'AbortError'),
   );
 }

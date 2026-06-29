@@ -75,7 +75,12 @@ export async function proposeWrite(relPath: string, newContent: string): Promise
   });
   if (!config.jsonOutput) process.stdout.write(theme.ok(`  ✔ wrote ${relPath}\n`));
   const autoLint = await maybeRunAutoLint([relPath]);
-  return { wrote: true, path: abs, bytes: Buffer.byteLength(newContent), ...(autoLint ? { autoLint } : {}) };
+  return {
+    wrote: true,
+    path: abs,
+    bytes: Buffer.byteLength(newContent),
+    ...(autoLint ? { autoLint } : {}),
+  };
 }
 
 export async function proposeWriteBatch(

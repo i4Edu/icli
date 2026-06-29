@@ -189,9 +189,13 @@ function loadSkillStore(): SkillStore {
       };
     }
 
-    if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { skills?: unknown }).skills)) {
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      Array.isArray((parsed as { skills?: unknown }).skills)
+    ) {
       return {
-        skills: ((parsed as { skills: unknown[] }).skills)
+        skills: (parsed as { skills: unknown[] }).skills
           .filter(isSkill)
           .sort((left, right) => left.name.localeCompare(right.name)),
         configPath,

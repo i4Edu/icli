@@ -1,11 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  analyzeProject,
-  generateReadme,
-  readmeCommand,
-} from '../../src/commands/readme-cmd.js';
+import { analyzeProject, generateReadme, readmeCommand } from '../../src/commands/readme-cmd.js';
 import { defaultContext } from '../../src/util/completion.js';
 
 let baseDir: string;
@@ -64,10 +60,7 @@ function seedCliProject(): void {
       2,
     ),
   );
-  writeFixture(
-    'bin/fixture.js',
-    "#!/usr/bin/env node\nimport '../dist/index.js';\n",
-  );
+  writeFixture('bin/fixture.js', "#!/usr/bin/env node\nimport '../dist/index.js';\n");
   writeFixture(
     'src/index.ts',
     [

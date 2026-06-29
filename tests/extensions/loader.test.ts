@@ -35,7 +35,9 @@ describe('extensions loader', () => {
       name: 'project-tool',
       version: '1.0.0',
       description: 'Project extension',
-      tools: [{ name: 'echo', description: 'Echoes text', parameters: { text: { type: 'string' } } }],
+      tools: [
+        { name: 'echo', description: 'Echoes text', parameters: { text: { type: 'string' } } },
+      ],
     });
     const invalidDir = writeExtension(path.join(cwd, '.icopilot', 'extensions'), 'broken', {
       name: 'broken',
@@ -117,6 +119,10 @@ function writeExtension(
 ): string {
   const extDir = path.join(baseDir, folderName);
   fs.mkdirSync(extDir, { recursive: true });
-  fs.writeFileSync(path.join(extDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  fs.writeFileSync(
+    path.join(extDir, 'manifest.json'),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    'utf8',
+  );
   return extDir;
 }

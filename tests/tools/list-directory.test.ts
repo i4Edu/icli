@@ -36,7 +36,11 @@ describe('listDirectory', () => {
     fs.mkdirSync(path.join(tmpDir, 'visible', 'deeper'), { recursive: true });
     fs.mkdirSync(path.join(tmpDir, 'ignored'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, 'visible', 'child.txt'), 'child', 'utf8');
-    fs.writeFileSync(path.join(tmpDir, 'visible', 'deeper', 'grandchild.txt'), 'grandchild', 'utf8');
+    fs.writeFileSync(
+      path.join(tmpDir, 'visible', 'deeper', 'grandchild.txt'),
+      'grandchild',
+      'utf8',
+    );
     fs.writeFileSync(path.join(tmpDir, 'ignored', 'secret.txt'), 'secret', 'utf8');
     fs.writeFileSync(path.join(tmpDir, 'debug.log'), 'ignore me', 'utf8');
 

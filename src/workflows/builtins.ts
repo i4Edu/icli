@@ -49,7 +49,8 @@ export const BUILTIN_WORKFLOWS: WorkflowDef[] = [
         name: 'Summarize failures',
         action: 'prompt',
         params: {
-          prompt: 'Summarize the latest test run and propose the smallest fix:\n\n${steps.run-tests.output}',
+          prompt:
+            'Summarize the latest test run and propose the smallest fix:\n\n${steps.run-tests.output}',
         },
       },
       {
@@ -64,7 +65,8 @@ export const BUILTIN_WORKFLOWS: WorkflowDef[] = [
               name: 'Draft a follow-up action',
               action: 'prompt',
               params: {
-                prompt: 'Next action ${loop.index}: ${loop.item}\nLatest output:\n${steps.run-tests.output}',
+                prompt:
+                  'Next action ${loop.index}: ${loop.item}\nLatest output:\n${steps.run-tests.output}',
               },
             },
           ],

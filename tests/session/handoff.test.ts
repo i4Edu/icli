@@ -153,7 +153,9 @@ describe('session handoff', () => {
     expect(importedSession.state.messages[0]).toMatchObject({
       role: 'system',
     });
-    expect(String(importedSession.state.messages[0]?.content)).toContain('Imported handoff bundle context');
+    expect(String(importedSession.state.messages[0]?.content)).toContain(
+      'Imported handoff bundle context',
+    );
     expect(memory.recall().map((entry) => entry.key)).toEqual(['owner', 'recent-fix']);
   });
 
@@ -176,11 +178,14 @@ describe('session handoff', () => {
   });
 
   it('wires /handoff help text and command handling into slash commands', () => {
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
 
     expect(slashSource).toContain('/handoff export [path]');
-    expect(slashSource).toContain("/handoff import <path>");
-    expect(slashSource).toContain("/handoff preview <path>");
+    expect(slashSource).toContain('/handoff import <path>');
+    expect(slashSource).toContain('/handoff preview <path>');
     expect(slashSource).toContain("case 'handoff':");
     expect(slashSource).toContain("action === 'export'");
     expect(slashSource).toContain("action === 'import'");
@@ -188,9 +193,8 @@ describe('session handoff', () => {
   });
 
   it('includes /handoff in generated shell completions', async () => {
-    const { bashCompletion, defaultContext, pwshCompletion, zshCompletion } = await import(
-      '../../src/util/completion.js'
-    );
+    const { bashCompletion, defaultContext, pwshCompletion, zshCompletion } =
+      await import('../../src/util/completion.js');
     const ctx = defaultContext();
 
     expect(ctx.slashCommands).toContain('handoff');

@@ -24,7 +24,9 @@ export async function fetchAndConvert(url: string): Promise<WebFetchResult> {
     });
 
     if (!response.ok) {
-      throw new Error(`failed to fetch ${parsedUrl.toString()}: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `failed to fetch ${parsedUrl.toString()}: ${response.status} ${response.statusText}`,
+      );
     }
 
     const html = await response.text();
@@ -98,10 +100,13 @@ export function htmlToMarkdown(html: string): string {
     })
     .replace(/<(ul|ol)\b[^>]*>/gi, '\n')
     .replace(/<\/(ul|ol)>/gi, '\n')
-    .replace(/<(p|div|section|article|main|aside|header|footer|nav|figure|figcaption)\b[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, inner) => {
-      const text = convertInline(inner, stashProtected).trim();
-      return text ? `\n\n${text}\n\n` : '';
-    })
+    .replace(
+      /<(p|div|section|article|main|aside|header|footer|nav|figure|figcaption)\b[^>]*>([\s\S]*?)<\/\1>/gi,
+      (_match, _tag, inner) => {
+        const text = convertInline(inner, stashProtected).trim();
+        return text ? `\n\n${text}\n\n` : '';
+      },
+    )
     .replace(/<br\s*\/?>/gi, '\n');
 
   markdown = decodeHtmlEntities(stripTags(markdown))
@@ -136,11 +141,14 @@ function convertInline(fragment: string, stashProtected?: (value: string) => str
 
   text = text
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<a\b[^>]*href\s*=\s*(['"])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi, (_match, _quote, href, inner) => {
-      const label = convertInline(inner, stashProtected).trim() || String(href).trim();
-      const normalizedHref = String(href).trim();
-      return normalizedHref ? `[${label}](${normalizedHref})` : label;
-    })
+    .replace(
+      /<a\b[^>]*href\s*=\s*(['"])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi,
+      (_match, _quote, href, inner) => {
+        const label = convertInline(inner, stashProtected).trim() || String(href).trim();
+        const normalizedHref = String(href).trim();
+        return normalizedHref ? `[${label}](${normalizedHref})` : label;
+      },
+    )
     .replace(/<code\b[^>]*>([\s\S]*?)<\/code>/gi, (_match, inner) => {
       const code = decodeHtmlEntities(stripTags(inner)).replace(/\s+/g, ' ').trim();
       if (!code) return '';

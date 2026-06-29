@@ -64,10 +64,8 @@ export class FileTriggerManager {
     this.stop();
     this.rootDir = path.resolve(rootDir || this.rootDir);
     this.triggers = this.readTriggers();
-    const watcher = this.watchFn(
-      this.rootDir,
-      { recursive: true },
-      (_eventType, filename) => this.handleWatchEvent(filename),
+    const watcher = this.watchFn(this.rootDir, { recursive: true }, (_eventType, filename) =>
+      this.handleWatchEvent(filename),
     );
     this.watchers.add(watcher);
   }
@@ -194,7 +192,9 @@ function normalizeTrigger(trigger: FileTrigger): FileTrigger {
   if (!target) throw new Error('trigger target is required');
 
   const debounce = normalizeDebounce(trigger.debounce);
-  return debounce === DEFAULT_DEBOUNCE_MS ? { pattern, action, target } : { pattern, action, target, debounce };
+  return debounce === DEFAULT_DEBOUNCE_MS
+    ? { pattern, action, target }
+    : { pattern, action, target, debounce };
 }
 
 function normalizeDebounce(value: number | undefined): number {
@@ -228,6 +228,8 @@ function isFileTrigger(value: unknown): value is FileTrigger {
     VALID_ACTIONS.has(trigger.action as FileTrigger['action']) &&
     typeof trigger.target === 'string' &&
     (trigger.debounce === undefined ||
-      (typeof trigger.debounce === 'number' && Number.isFinite(trigger.debounce) && trigger.debounce >= 0))
+      (typeof trigger.debounce === 'number' &&
+        Number.isFinite(trigger.debounce) &&
+        trigger.debounce >= 0))
   );
 }

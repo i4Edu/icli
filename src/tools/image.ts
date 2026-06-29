@@ -89,7 +89,10 @@ export const DESCRIBE_IMAGE_SCHEMA: ChatCompletionTool = {
   },
 };
 
-function getDimensions(buffer: Buffer, ext: string): { width?: number; height?: number } | undefined {
+function getDimensions(
+  buffer: Buffer,
+  ext: string,
+): { width?: number; height?: number } | undefined {
   switch (ext) {
     case '.png':
       return readPngSize(buffer);

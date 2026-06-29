@@ -111,15 +111,17 @@ export function codegenCommand(args: string[], cwd = config.cwd): string {
     const planned = collectPlannedChanges(root, layout, normalized, generated);
     const changed = planned.filter((entry) => entry.previous !== entry.content);
 
-    const preview = changed.length > 0 ? renderPreview(changed) : theme.dim('No file changes required.');
+    const preview =
+      changed.length > 0 ? renderPreview(changed) : theme.dim('No file changes required.');
     applyPlannedChanges(root, changed);
 
     const summary =
       changed.length === 0
         ? `${theme.dim('Everything is already up to date.')}\n`
         : `${theme.ok(`Generated ${changed.length} change(s).`)}\n${changed
-            .map((entry) =>
-              `  ${entry.previous === undefined ? theme.ok('created') : theme.ok('updated')} ${theme.hl(entry.path)}`,
+            .map(
+              (entry) =>
+                `  ${entry.previous === undefined ? theme.ok('created') : theme.ok('updated')} ${theme.hl(entry.path)}`,
             )
             .join('\n')}\n`;
 
@@ -160,7 +162,8 @@ function parseCodegenArgs(args: string[]): CodegenOptions | { error: string } {
     }
     if (arg.startsWith('--type=')) {
       const value = arg.slice('--type='.length).trim().toLowerCase();
-      if (!isCodegenType(value)) return { error: `unsupported codegen type: ${value || '(missing)'}` };
+      if (!isCodegenType(value))
+        return { error: `unsupported codegen type: ${value || '(missing)'}` };
       type = value;
       continue;
     }
@@ -218,7 +221,8 @@ function inferName(description: string): string {
 function detectProjectLayout(): ProjectLayout {
   const root = path.resolve(config.cwd || process.cwd());
   const srcDir = resolveProjectDir(root, [DEFAULT_SRC_DIR, 'lib', 'source']) ?? DEFAULT_SRC_DIR;
-  const testsDir = resolveProjectDir(root, [DEFAULT_TESTS_DIR, 'test', '__tests__']) ?? DEFAULT_TESTS_DIR;
+  const testsDir =
+    resolveProjectDir(root, [DEFAULT_TESTS_DIR, 'test', '__tests__']) ?? DEFAULT_TESTS_DIR;
   const extension: 'ts' | 'js' = fs.existsSync(path.join(root, 'tsconfig.json')) ? 'ts' : 'js';
 
   return { root, srcDir, testsDir, extension };
@@ -247,7 +251,10 @@ function normalizeOptions(
   };
 }
 
-function normalizeExtension(language: string | undefined, defaultExtension: 'ts' | 'js'): 'ts' | 'js' {
+function normalizeExtension(
+  language: string | undefined,
+  defaultExtension: 'ts' | 'js',
+): 'ts' | 'js' {
   if (!language) return defaultExtension;
   const normalized = language.trim().toLowerCase();
   if (normalized === 'js' || normalized === 'javascript') return 'js';
@@ -363,7 +370,7 @@ function updateSlashRegistry(content: string, opts: NormalizedCodegenOptions): s
     '      return done();\n';
 
   let updated = insertBeforeMarker(content, 'export interface SlashContext {', importLine);
-  updated = insertBeforeMarker(updated, "  /exit, /quit", helpLine);
+  updated = insertBeforeMarker(updated, '  /exit, /quit', helpLine);
   updated = insertBeforeMarker(updated, "    case 'exit':", caseBlock);
   return updated;
 }

@@ -64,9 +64,7 @@ export class ProxyManager {
       parsed.username.length > 0
         ? {
             username: decodeURIComponent(parsed.username),
-            ...(parsed.password
-              ? { password: decodeURIComponent(parsed.password) }
-              : {}),
+            ...(parsed.password ? { password: decodeURIComponent(parsed.password) } : {}),
           }
         : undefined;
 
@@ -315,12 +313,11 @@ function defaultPortForType(type: ProxyConfig['type']): number {
 }
 
 function proxyConfigToUrl(proxy: ProxyConfig): string {
-  const auth =
-    proxy.auth?.username
-      ? `${encodeURIComponent(proxy.auth.username)}${
-          proxy.auth.password ? `:${encodeURIComponent(proxy.auth.password)}` : ''
-        }@`
-      : '';
+  const auth = proxy.auth?.username
+    ? `${encodeURIComponent(proxy.auth.username)}${
+        proxy.auth.password ? `:${encodeURIComponent(proxy.auth.password)}` : ''
+      }@`
+    : '';
   return `${proxy.type}://${auth}${proxy.host}:${proxy.port}`;
 }
 

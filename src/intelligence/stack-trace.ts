@@ -46,7 +46,10 @@ export function analyzeStackTrace(trace: ParsedStackTrace): StackAnalysis {
   const isPython = trace.raw.includes('Traceback (most recent call last):');
   const nonModuleFrames = trace.frames.filter((frame) => !frame.isNodeModule);
   const userFrames = nonModuleFrames.filter((frame) => !frame.isNative);
-  const relevantFrames = orderRelevantFrames(userFrames.length ? userFrames : nonModuleFrames, isPython).slice(0, 6);
+  const relevantFrames = orderRelevantFrames(
+    userFrames.length ? userFrames : nonModuleFrames,
+    isPython,
+  ).slice(0, 6);
   const rootCause = relevantFrames[0] ?? nonModuleFrames[0] ?? trace.frames[0] ?? UNKNOWN_FRAME;
   const userFiles = uniqueFiles(userFrames);
 
@@ -65,7 +68,9 @@ export function formatForLLM(analysis: StackAnalysis): string {
     `- Relevant frames (${analysis.relevantFrames.length}):`,
     ...analysis.relevantFrames.map((frame) => `  - ${formatFrame(frame)}`),
     `- User files (${analysis.userFiles.length}):`,
-    ...(analysis.userFiles.length ? analysis.userFiles.map((file) => `  - ${file}`) : ['  - none detected']),
+    ...(analysis.userFiles.length
+      ? analysis.userFiles.map((file) => `  - ${file}`)
+      : ['  - none detected']),
     `- Suggested investigation: ${analysis.suggestion}`,
   ];
 
@@ -169,7 +174,10 @@ function parseLocation(location: string): Pick<StackFrame, 'file' | 'line' | 'co
 
 function extractErrorMetadata(lines: string[]): Pick<ParsedStackTrace, 'type' | 'error'> {
   const nonEmptyLines = lines.map((line) => line.trim()).filter(Boolean);
-  const errorLine = [...nonEmptyLines].reverse().find((line) => looksLikeErrorLine(line)) ?? nonEmptyLines[0] ?? 'Error';
+  const errorLine =
+    [...nonEmptyLines].reverse().find((line) => looksLikeErrorLine(line)) ??
+    nonEmptyLines[0] ??
+    'Error';
   const match = errorLine.match(/^([A-Za-z_][\w.]*)(?::\s*(.*))?$/);
 
   if (!match) {
@@ -184,7 +192,9 @@ function extractErrorMetadata(lines: string[]): Pick<ParsedStackTrace, 'type' | 
 }
 
 function looksLikeErrorLine(line: string): boolean {
-  return /^[A-Za-z_][\w.]*?(?:Error|Exception|Warning)?(?::|$)/.test(line) && !line.startsWith('at ');
+  return (
+    /^[A-Za-z_][\w.]*?(?:Error|Exception|Warning)?(?::|$)/.test(line) && !line.startsWith('at ')
+  );
 }
 
 function orderRelevantFrames(frames: StackFrame[], isPython: boolean): StackFrame[] {
@@ -204,7 +214,11 @@ function uniqueFiles(frames: StackFrame[]): string[] {
   return files;
 }
 
-function buildSuggestion(trace: ParsedStackTrace, rootCause: StackFrame, userFiles: string[]): string {
+function buildSuggestion(
+  trace: ParsedStackTrace,
+  rootCause: StackFrame,
+  userFiles: string[],
+): string {
   const location = rootCause.line > 0 ? `${rootCause.file}:${rootCause.line}` : rootCause.file;
   const prefix = userFiles.length
     ? `Start with ${location}${rootCause.function ? ` in ${rootCause.function}` : ''}.`
@@ -249,12 +263,12 @@ function buildSuggestion(trace: ParsedStackTrace, rootCause: StackFrame, userFil
 }
 
 function formatFrame(frame: StackFrame): string {
-  const location = frame.line > 0 ? `${frame.file}:${frame.line}${frame.column ? `:${frame.column}` : ''}` : frame.file;
+  const location =
+    frame.line > 0
+      ? `${frame.file}:${frame.line}${frame.column ? `:${frame.column}` : ''}`
+      : frame.file;
   const fn = frame.function ? `${frame.function} @ ` : '';
-  const flags = [
-    frame.isNative ? 'native' : null,
-    frame.isNodeModule ? 'node_modules' : null,
-  ]
+  const flags = [frame.isNative ? 'native' : null, frame.isNodeModule ? 'node_modules' : null]
     .filter(Boolean)
     .join(', ');
 

@@ -132,7 +132,12 @@ describe('TDDAgent', { timeout: 180_000 }, () => {
       description: 'Generate an artifact from the spec',
       expectedBehaviors: ['stores all behaviors'],
     };
-    const testFile = path.join(tmpDir, 'tests', 'tdd', 'generate-an-artifact-from-the-spec.test.ts');
+    const testFile = path.join(
+      tmpDir,
+      'tests',
+      'tdd',
+      'generate-an-artifact-from-the-spec.test.ts',
+    );
     fs.mkdirSync(path.dirname(testFile), { recursive: true });
     fs.writeFileSync(testFile, agent.generateTests(spec), 'utf8');
 
@@ -147,7 +152,10 @@ describe('TDDAgent', { timeout: 180_000 }, () => {
     writeProject('vitest');
     const agent = new TDDAgent(tmpDir);
 
-    const refactored = agent.refactor('export const value = 1;   \n\n\n', 'describe("x", () => {})');
+    const refactored = agent.refactor(
+      'export const value = 1;   \n\n\n',
+      'describe("x", () => {})',
+    );
 
     expect(refactored).toBe('export const value = 1;\n');
   });

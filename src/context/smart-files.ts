@@ -71,18 +71,27 @@ export class SmartFileSelector {
       return [];
     }
 
-    const recentPaths = options.preferRecent === false ? new Set<string>() : await getRecentPaths(this.cwd);
-    const fallbackRecentPaths = recentPaths.size || options.preferRecent === false ? new Set<string>() : getFallbackRecentPaths(candidates, maxFiles);
+    const recentPaths =
+      options.preferRecent === false ? new Set<string>() : await getRecentPaths(this.cwd);
+    const fallbackRecentPaths =
+      recentPaths.size || options.preferRecent === false
+        ? new Set<string>()
+        : getFallbackRecentPaths(candidates, maxFiles);
 
     return candidates
-      .map((candidate) => scoreCandidate(candidate, keywords, normalizedQuery, recentPaths, fallbackRecentPaths))
+      .map((candidate) =>
+        scoreCandidate(candidate, keywords, normalizedQuery, recentPaths, fallbackRecentPaths),
+      )
       .filter((candidate): candidate is SelectedFile => candidate !== null)
       .sort((left, right) => right.score - left.score || left.path.localeCompare(right.path))
       .slice(0, maxFiles);
   }
 }
 
-async function collectCandidateFiles(cwd: string, options: SmartFileOptions): Promise<CandidateFile[]> {
+async function collectCandidateFiles(
+  cwd: string,
+  options: SmartFileOptions,
+): Promise<CandidateFile[]> {
   const gitignoreRules = readGitignoreRules(cwd);
   const matcher = options.filePattern ? createGlobMatcher(options.filePattern) : null;
   const candidates: CandidateFile[] = [];
@@ -320,12 +329,20 @@ function extractKeywords(query: string): string[] {
 
 function isExtensionRelevant(ext: string, filePath: string, keywords: string[]): boolean {
   const lowerPath = filePath.toLowerCase();
-  if (keywords.some((keyword) => keyword === ext.replace(/^\./, '') || keyword === lowerPath.split('.').slice(1).join('.'))) {
+  if (
+    keywords.some(
+      (keyword) =>
+        keyword === ext.replace(/^\./, '') || keyword === lowerPath.split('.').slice(1).join('.'),
+    )
+  ) {
     return true;
   }
 
   return EXTENSION_KEYWORDS.some((entry) => {
-    return entry.extensions.includes(ext) && entry.keywords.some((keyword) => keywords.includes(normalizeForMatch(keyword)));
+    return (
+      entry.extensions.includes(ext) &&
+      entry.keywords.some((keyword) => keywords.includes(normalizeForMatch(keyword)))
+    );
   });
 }
 
@@ -362,4 +379,3 @@ function normalizeSlashes(value: string): string {
 function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
-

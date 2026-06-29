@@ -158,7 +158,8 @@ export function tokensCommand(session: Session): string {
       category: 'Conventions',
       tokens: conventionPrompt.tokens,
       percentage: 0,
-      details: conventionPrompt.tokens > 0 ? 'loaded from .icopilot/conventions.yaml' : 'none loaded',
+      details:
+        conventionPrompt.tokens > 0 ? 'loaded from .icopilot/conventions.yaml' : 'none loaded',
       bytes: conventionPrompt.bytes,
     },
     {
@@ -194,7 +195,9 @@ export function tokensCommand(session: Session): string {
       tokens: memoryPrompt.tokens,
       percentage: 0,
       details:
-        memoryPrompt.tokens > 0 ? 'loaded from .icopilot memory files (including team memory)' : 'none loaded',
+        memoryPrompt.tokens > 0
+          ? 'loaded from .icopilot memory files (including team memory)'
+          : 'none loaded',
       bytes: memoryPrompt.bytes,
     },
   ];

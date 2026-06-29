@@ -47,7 +47,9 @@ function normalizeState(candidate: unknown): AiCommitState {
   const parsed = candidate as Partial<AiCommitState>;
   return {
     commits: Array.isArray(parsed.commits)
-      ? parsed.commits.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      ? parsed.commits.filter(
+          (value): value is string => typeof value === 'string' && value.trim().length > 0,
+        )
       : [],
   };
 }
@@ -105,7 +107,8 @@ function looksLikeAiCommit(details: CommitDetails): boolean {
 
 async function loadHeadCommitDetails(g: SimpleGit): Promise<CommitDetails> {
   const metaRaw = await g.raw(['show', '-s', '--format=%H%x1f%s%x1f%an%x1f%ae%x1f%B', 'HEAD']);
-  const [sha = '', subject = '', authorName = '', authorEmail = '', ...bodyParts] = metaRaw.split('\x1f');
+  const [sha = '', subject = '', authorName = '', authorEmail = '', ...bodyParts] =
+    metaRaw.split('\x1f');
   const filesRaw = await g.raw(['show', '--pretty=format:', '--name-only', 'HEAD']);
   return {
     sha: sha.trim(),

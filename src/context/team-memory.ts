@@ -54,11 +54,9 @@ export class TeamMemory {
     return [
       '## Team memory',
       ...this.entries.map((entry) => {
-        const meta = [
-          entry.category,
-          entry.author?.trim(),
-          entry.date?.trim(),
-        ].filter((value): value is string => Boolean(value));
+        const meta = [entry.category, entry.author?.trim(), entry.date?.trim()].filter(
+          (value): value is string => Boolean(value),
+        );
         return `- [${meta.join(' • ')}] ${entry.content}`;
       }),
     ].join('\n');
@@ -161,13 +159,7 @@ function serializeEntries(entries: TeamMemoryEntry[]): string {
     const metadataLines = [`id: ${entry.id}`, `category: ${entry.category}`];
     if (entry.author?.trim()) metadataLines.push(`author: ${entry.author.trim()}`);
     if (entry.date?.trim()) metadataLines.push(`date: ${entry.date.trim()}`);
-    return [
-      `## ${entry.id}`,
-      '<!--',
-      ...metadataLines,
-      '-->',
-      entry.content.trim(),
-    ].join('\n');
+    return [`## ${entry.id}`, '<!--', ...metadataLines, '-->', entry.content.trim()].join('\n');
   });
 
   return `${[FILE_HEADER.trimEnd(), ...blocks].join('\n\n').trimEnd()}\n`;

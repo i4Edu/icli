@@ -56,7 +56,10 @@ afterEach(() => {
 
 describe('CloudSession', { timeout: 90_000 }, () => {
   it('creates, connects, sends, lists, and destroys cloud sessions', async () => {
-    const cloud = new CloudSessionCtor({ endpoint: 'https://cloud.example.test', apiKey: 'secret' });
+    const cloud = new CloudSessionCtor({
+      endpoint: 'https://cloud.example.test',
+      apiKey: 'secret',
+    });
 
     const created = await cloud.create({ name: 'demo-session' });
     expect(created.name).toBe('demo-session');
@@ -125,7 +128,10 @@ describe('CloudSession', { timeout: 90_000 }, () => {
       mode: 'plan',
       cwd: workDir,
     });
-    expect(synced.messages.map((message) => message.content)).toEqual(['sync me', 'structured reply']);
+    expect(synced.messages.map((message) => message.content)).toEqual([
+      'sync me',
+      'structured reply',
+    ]);
 
     const listed = await cloud.list();
     expect(listed[0]?.snapshot?.messages).toHaveLength(2);
@@ -133,10 +139,12 @@ describe('CloudSession', { timeout: 90_000 }, () => {
   });
 
   it('wires /cloud slash commands and shell completion', async () => {
-    const { bashCompletion, defaultContext, pwshCompletion, zshCompletion } = await import(
-      '../../src/util/completion.js'
+    const { bashCompletion, defaultContext, pwshCompletion, zshCompletion } =
+      await import('../../src/util/completion.js');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
     );
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
 
     expect(slashSource).toContain('/cloud create [name]');
     expect(slashSource).toContain('/cloud connect <id>');

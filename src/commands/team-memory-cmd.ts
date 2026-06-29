@@ -1,4 +1,8 @@
-import { TeamMemory, type TeamMemoryCategory, type TeamMemoryEntry } from '../context/team-memory.js';
+import {
+  TeamMemory,
+  type TeamMemoryCategory,
+  type TeamMemoryEntry,
+} from '../context/team-memory.js';
 import { theme } from '../ui/theme.js';
 
 const CATEGORIES: TeamMemoryCategory[] = ['convention', 'decision', 'tip', 'warning'];
@@ -51,7 +55,8 @@ export function teamMemoryCommand(args: string[], cwd: string): string {
 }
 
 function formatEntries(entries: TeamMemoryEntry[], header: string): string {
-  if (entries.length === 0) return `${theme.brand(header)}\n  ${theme.dim('No shared team memory entries.')}\n`;
+  if (entries.length === 0)
+    return `${theme.brand(header)}\n  ${theme.dim('No shared team memory entries.')}\n`;
   const lines = entries.map((entry) => {
     const metadata = [entry.category, entry.author, entry.date].filter(Boolean).join(', ');
     return `  ${theme.hl(entry.id)} ${entry.content} ${theme.dim(`(${metadata})`)}`;
@@ -70,7 +75,11 @@ function parseCategory(value: string | undefined): TeamMemoryCategory | null {
   return null;
 }
 
-function createEntryId(category: TeamMemoryCategory, content: string, entries: TeamMemoryEntry[]): string {
+function createEntryId(
+  category: TeamMemoryCategory,
+  content: string,
+  entries: TeamMemoryEntry[],
+): string {
   const slug = slugify(content) || 'entry';
   const base = `${category}-${slug}`;
   let candidate = base;

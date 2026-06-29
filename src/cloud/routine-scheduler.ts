@@ -53,23 +53,11 @@ export class CloudRoutineScheduler {
         await this.executor(routine);
         const duration = Date.now() - startTime;
 
-        this.store.logExecution(
-          routine.id,
-          'success',
-          undefined,
-          undefined,
-          duration,
-        );
+        this.store.logExecution(routine.id, 'success', undefined, undefined, duration);
         this.store.updateLastRun(routine.id, new Date().toISOString());
       } catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        this.store.logExecution(
-          routine.id,
-          'error',
-          undefined,
-          error,
-          0,
-        );
+        this.store.logExecution(routine.id, 'error', undefined, error, 0);
       }
     }
   }

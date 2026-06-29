@@ -45,10 +45,7 @@ describe('auto-check', () => {
     writeFile('lint-ok.cjs', `process.stdout.write('lint ok');\n`);
     config.lintCmd = `node lint-ok.cjs`;
     writeFile('package.json', JSON.stringify({ scripts: { lint: 'eslint "src/**/*.ts"' } }));
-    writeFile(
-      'src/example.ts',
-      'export const example = 1;\n',
-    );
+    writeFile('src/example.ts', 'export const example = 1;\n');
 
     const result = await runAutoLint(['src/example.ts']);
 
@@ -83,7 +80,10 @@ describe('auto-check', () => {
 
   it('supports configured lint command placeholders and fix prompts', async () => {
     writeFile('src/example.ts', 'export const example = 1;\n');
-    writeFile('lint-args.cjs', `process.stderr.write(process.argv.slice(2).join('|')); process.exit(1);\n`);
+    writeFile(
+      'lint-args.cjs',
+      `process.stderr.write(process.argv.slice(2).join('|')); process.exit(1);\n`,
+    );
     config.lintCmd = `node lint-args.cjs {files}`;
 
     const result = await runAutoLint(['src/example.ts']);
@@ -107,7 +107,9 @@ describe('auto-check', () => {
       extractChangedFilesFromToolResult(
         'apply_patch',
         {},
-        JSON.stringify({ applied: [{ path: 'src/example.ts' }, { path: 'tests/example.test.ts' }] }),
+        JSON.stringify({
+          applied: [{ path: 'src/example.ts' }, { path: 'tests/example.test.ts' }],
+        }),
       ),
     ).toEqual(['src/example.ts', 'tests/example.test.ts']);
   });

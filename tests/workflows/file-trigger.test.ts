@@ -117,7 +117,10 @@ describe('FileTriggerManager', () => {
 
 describe('slash trigger integration', () => {
   it('adds, lists, and removes triggers via /trigger', async () => {
-    const added = await triggerCommand(['add', 'src/**/*.ts', 'prompt', 'Review', '${file}'], rootDir);
+    const added = await triggerCommand(
+      ['add', 'src/**/*.ts', 'prompt', 'Review', '${file}'],
+      rootDir,
+    );
     const listed = await triggerCommand(['list'], rootDir);
     const removed = await triggerCommand(['remove', 'src/**/*.ts'], rootDir);
 

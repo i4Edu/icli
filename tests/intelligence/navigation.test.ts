@@ -1,7 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { findImplementations, findReferences, goToDefinition } from '../../src/intelligence/navigation.js';
+import {
+  findImplementations,
+  findReferences,
+  goToDefinition,
+} from '../../src/intelligence/navigation.js';
 
 let tmpDir: string;
 

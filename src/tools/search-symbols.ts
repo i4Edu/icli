@@ -40,16 +40,37 @@ const DEFAULT_FILE_PATTERNS = [
 
 const PATTERN_LIBRARY: Record<Language, SymbolPattern[]> = {
   typescript: [
-    { type: 'function', regex: /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
-    { type: 'class', regex: /^\s*(?:export\s+)?(?:default\s+)?class\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
-    { type: 'interface', regex: /^\s*(?:export\s+)?(?:default\s+)?interface\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
+    {
+      type: 'function',
+      regex: /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
+    {
+      type: 'class',
+      regex: /^\s*(?:export\s+)?(?:default\s+)?class\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
+    {
+      type: 'interface',
+      regex: /^\s*(?:export\s+)?(?:default\s+)?interface\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
     { type: 'type', regex: /^\s*(?:export\s+)?type\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
-    { type: 'variable', regex: /^\s*(?:export\s+)?(?:const|let|var)\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
+    {
+      type: 'variable',
+      regex: /^\s*(?:export\s+)?(?:const|let|var)\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
   ],
   javascript: [
-    { type: 'function', regex: /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
-    { type: 'class', regex: /^\s*(?:export\s+)?(?:default\s+)?class\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
-    { type: 'variable', regex: /^\s*(?:export\s+)?(?:const|let|var)\s+(?<name>[A-Za-z_$][\w$]*)\b/ },
+    {
+      type: 'function',
+      regex: /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
+    {
+      type: 'class',
+      regex: /^\s*(?:export\s+)?(?:default\s+)?class\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
+    {
+      type: 'variable',
+      regex: /^\s*(?:export\s+)?(?:const|let|var)\s+(?<name>[A-Za-z_$][\w$]*)\b/,
+    },
   ],
   python: [
     { type: 'function', regex: /^\s*def\s+(?<name>[A-Za-z_][\w]*)\b/ },
@@ -66,7 +87,10 @@ const PATTERN_LIBRARY: Record<Language, SymbolPattern[]> = {
     { type: 'function', regex: /^\s*(?:pub\s+)?(?:async\s+)?fn\s+(?<name>[A-Za-z_][\w]*)\b/ },
     { type: 'interface', regex: /^\s*(?:pub\s+)?trait\s+(?<name>[A-Za-z_][\w]*)\b/ },
     { type: 'type', regex: /^\s*(?:pub\s+)?(?:struct|enum|type)\s+(?<name>[A-Za-z_][\w]*)\b/ },
-    { type: 'variable', regex: /^\s*(?:pub\s+)?(?:const|static)\s+(?:mut\s+)?(?<name>[A-Za-z_][\w]*)\b/ },
+    {
+      type: 'variable',
+      regex: /^\s*(?:pub\s+)?(?:const|static)\s+(?:mut\s+)?(?<name>[A-Za-z_][\w]*)\b/,
+    },
   ],
 };
 
@@ -118,7 +142,13 @@ export async function searchSymbols(args: SearchSymbolsArgs): Promise<string> {
     const language = detectLanguage(file);
     if (!language) continue;
 
-    const matches = searchFile(path.join(root, file), path.relative(config.cwd, path.join(root, file)), language, query, typeFilter);
+    const matches = searchFile(
+      path.join(root, file),
+      path.relative(config.cwd, path.join(root, file)),
+      language,
+      query,
+      typeFilter,
+    );
     for (const match of matches) {
       results.push(match);
       if (results.length >= RESULT_LIMIT) break;

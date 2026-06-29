@@ -78,8 +78,12 @@ describe('TeamMemory', () => {
     });
 
     expect(memory.search('vitest').map((entry) => entry.id)).toEqual(['tip-fast-tests']);
-    expect(memory.search('maintainers').map((entry) => entry.id)).toEqual(['convention-typescript-esm']);
-    expect(memory.search('convention').map((entry) => entry.id)).toEqual(['convention-typescript-esm']);
+    expect(memory.search('maintainers').map((entry) => entry.id)).toEqual([
+      'convention-typescript-esm',
+    ]);
+    expect(memory.search('convention').map((entry) => entry.id)).toEqual([
+      'convention-typescript-esm',
+    ]);
   });
 
   it('ignores malformed sections and injects team memory into the shared memory block', () => {

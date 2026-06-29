@@ -37,11 +37,7 @@ describe('DeadCodeDetector', () => {
       ].join('\n'),
     );
     writeFile(rootDir, 'src/used.ts', `export function used(): string {\n  return 'used';\n}\n`);
-    writeFile(
-      rootDir,
-      'src/consumer.ts',
-      `import { used } from './used.js';\nvoid used();\n`,
-    );
+    writeFile(rootDir, 'src/consumer.ts', `import { used } from './used.js';\nvoid used();\n`);
     writeFile(rootDir, 'src/bootstrap.ts', `export const boot = true;\n`);
     writeFile(
       rootDir,

@@ -142,7 +142,10 @@ export function calculateNextVersion(currentVersion: string, type: ReleaseType):
     case 'premajor':
       return formatPrerelease({ major: version.major + 1, minor: 0, patch: 0 }, version);
     case 'preminor':
-      return formatPrerelease({ major: version.major, minor: version.minor + 1, patch: 0 }, version);
+      return formatPrerelease(
+        { major: version.major, minor: version.minor + 1, patch: 0 },
+        version,
+      );
     case 'prepatch':
       return formatPrerelease(
         { major: version.major, minor: version.minor, patch: version.patch + 1 },
@@ -157,9 +160,11 @@ export function parseSemver(version: string): {
   patch: number;
   prerelease?: string;
 } {
-  const match = version.trim().match(
-    /^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/,
-  );
+  const match = version
+    .trim()
+    .match(
+      /^(?<major>0|[1-9]\d*)\.(?<minor>0|[1-9]\d*)\.(?<patch>0|[1-9]\d*)(?:-(?<prerelease>[0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/,
+    );
   if (!match?.groups) {
     throw new Error(`unsupported semver version: ${version}`);
   }
@@ -338,7 +343,9 @@ function mapConventionalCommits(entries: GitCommitEntry[]): ConventionalCommit[]
     const scope = match?.groups?.scope || undefined;
     const description = match?.groups?.description?.trim() ?? raw;
     const breaking =
-      match?.groups?.breaking === '!' || /BREAKING CHANGE:/i.test(raw) || /BREAKING CHANGE:/i.test(body);
+      match?.groups?.breaking === '!' ||
+      /BREAKING CHANGE:/i.test(raw) ||
+      /BREAKING CHANGE:/i.test(body);
 
     return {
       hash: entry.hash,
@@ -417,7 +424,9 @@ function buildUpdatedChangelog(
   version: string,
   changelogEntry: string,
 ): string {
-  const changelog = currentChangelog?.trim().length ? currentChangelog : DEFAULT_CHANGELOG.trimEnd();
+  const changelog = currentChangelog?.trim().length
+    ? currentChangelog
+    : DEFAULT_CHANGELOG.trimEnd();
   const releaseSection = `## [${version}] - ${new Date().toISOString().slice(0, 10)}\n\n${changelogEntry.trim()}\n`;
   const unreleasedHeading = /^## \[Unreleased\].*$/m;
   const match = unreleasedHeading.exec(changelog);
@@ -431,7 +440,8 @@ function buildUpdatedChangelog(
   const headingEnd = headingStart + match[0].length;
   const afterHeading = changelog.slice(headingEnd);
   const nextHeadingRelative = afterHeading.search(/\n## \[/);
-  const sectionEnd = nextHeadingRelative === -1 ? changelog.length : headingEnd + nextHeadingRelative;
+  const sectionEnd =
+    nextHeadingRelative === -1 ? changelog.length : headingEnd + nextHeadingRelative;
   const before = changelog.slice(0, headingStart);
   const after = changelog.slice(sectionEnd).replace(/^\r?\n/, '');
   const freshUnreleased = `${match[0]}\n\n`;
@@ -464,7 +474,9 @@ function formatPrerelease(
 ): string {
   const base = formatSemver(target);
   const sameCore =
-    current.major === target.major && current.minor === target.minor && current.patch === target.patch;
+    current.major === target.major &&
+    current.minor === target.minor &&
+    current.patch === target.patch;
   if (!sameCore || !current.prerelease) {
     return `${base}-0`;
   }
@@ -523,7 +535,9 @@ function parseReleaseOptions(type: ReleaseType, args: string[]): ReleaseOptions 
       case '--tag': {
         const value = args[++index]?.trim();
         if (!value) {
-          throw new Error('Usage: /release <type> [--tag <dist-tag>] [--dry-run] [--skip-changelog] [--skip-tag] [--skip-publish]');
+          throw new Error(
+            'Usage: /release <type> [--tag <dist-tag>] [--dry-run] [--skip-changelog] [--skip-tag] [--skip-publish]',
+          );
         }
         options.tag = value;
         break;
@@ -541,7 +555,9 @@ function parseReleaseOptions(type: ReleaseType, args: string[]): ReleaseOptions 
         options.skipPublish = true;
         break;
       default:
-        throw new Error('Usage: /release <type> [--tag <dist-tag>] [--dry-run] [--skip-changelog] [--skip-tag] [--skip-publish]');
+        throw new Error(
+          'Usage: /release <type> [--tag <dist-tag>] [--dry-run] [--skip-changelog] [--skip-tag] [--skip-publish]',
+        );
     }
   }
 

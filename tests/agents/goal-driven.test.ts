@@ -40,12 +40,14 @@ describe('GoalDrivenAgent', () => {
   });
 
   it('retries execution until verification passes', async () => {
-    const runTurnMock = vi.fn(async ({ session, userInput }: { session: Session; userInput: string }) => {
-      session.state.messages.push({
-        role: 'assistant',
-        content: `completed: ${userInput}`,
-      });
-    });
+    const runTurnMock = vi.fn(
+      async ({ session, userInput }: { session: Session; userInput: string }) => {
+        session.state.messages.push({
+          role: 'assistant',
+          content: `completed: ${userInput}`,
+        });
+      },
+    );
     const plan = buildPlan({
       description: 'Ship the goal-driven workflow',
       acceptanceCriteria: ['Runs through plan, execute, verify'],

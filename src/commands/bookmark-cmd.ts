@@ -1,11 +1,6 @@
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { Session } from '../session/session.js';
-import {
-  addBookmark,
-  deleteBookmark,
-  getBookmark,
-  listBookmarks,
-} from '../session/bookmarks.js';
+import { addBookmark, deleteBookmark, getBookmark, listBookmarks } from '../session/bookmarks.js';
 import { theme } from '../ui/theme.js';
 
 export function bookmarkCommand(

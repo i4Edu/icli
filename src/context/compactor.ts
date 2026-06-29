@@ -51,7 +51,10 @@ export async function compactSession(session: Session, signal?: AbortSignal): Pr
     messageCount: session.state.messages.length,
     summary,
   });
-  if (hookResult.action === 'modify' && typeof (hookResult.modifications as any)?.summary === 'string') {
+  if (
+    hookResult.action === 'modify' &&
+    typeof (hookResult.modifications as any)?.summary === 'string'
+  ) {
     return String((hookResult.modifications as any).summary);
   }
   return summary;

@@ -40,7 +40,9 @@ export function addBookmark(
     createdAt: new Date().toISOString(),
     preview,
   };
-  const existing = bookmarks.findIndex((item) => item.sessionId === sessionId && item.name === name);
+  const existing = bookmarks.findIndex(
+    (item) => item.sessionId === sessionId && item.name === name,
+  );
   if (existing === -1) {
     bookmarks.push(bookmark);
   } else {
@@ -52,7 +54,9 @@ export function addBookmark(
 
 export function getBookmark(sessionId: string, name: string): Bookmark | null {
   return (
-    readBookmarks().find((bookmark) => bookmark.sessionId === sessionId && bookmark.name === name) ?? null
+    readBookmarks().find(
+      (bookmark) => bookmark.sessionId === sessionId && bookmark.name === name,
+    ) ?? null
   );
 }
 

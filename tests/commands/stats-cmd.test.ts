@@ -7,7 +7,12 @@ let tmpDir: string;
 let file: string;
 
 beforeEach(() => {
-  tmpDir = path.join(process.cwd(), '.vitest-stats-cmd-tmp', String(process.pid), String(Date.now()));
+  tmpDir = path.join(
+    process.cwd(),
+    '.vitest-stats-cmd-tmp',
+    String(process.pid),
+    String(Date.now()),
+  );
   file = path.join(tmpDir, 'stats.json');
   process.env.ICOPILOT_STATS_PATH = file;
 });

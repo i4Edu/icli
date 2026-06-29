@@ -53,7 +53,9 @@ describe('APIServer', () => {
     streamChatMock.mockReset();
     handleSlashMock.mockReset();
     dispatchToolMock.mockReset();
-    initializeGitContextSpy = vi.spyOn(Session.prototype, 'initializeGitContext').mockResolvedValue([]);
+    initializeGitContextSpy = vi
+      .spyOn(Session.prototype, 'initializeGitContext')
+      .mockResolvedValue([]);
 
     server = new APIServer();
     const port = await server.start(0);

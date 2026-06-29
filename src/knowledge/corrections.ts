@@ -113,7 +113,9 @@ export class CorrectionMemory {
 }
 
 export function resolveCorrectionsPath(): string {
-  const configured = process.env.ICOPILOT_CORRECTIONS_PATH || path.join(os.homedir(), '.icopilot', 'corrections.json');
+  const configured =
+    process.env.ICOPILOT_CORRECTIONS_PATH ||
+    path.join(os.homedir(), '.icopilot', 'corrections.json');
   if (configured === '~') return os.homedir();
   if (/^~[\\/]/.test(configured)) return path.join(os.homedir(), configured.slice(2));
   return path.resolve(configured);
@@ -145,7 +147,9 @@ function cloneCorrection(correction: Correction): Correction {
   return { ...correction };
 }
 
-function normalizeDraft(correction: Omit<Correction, 'id' | 'timestamp' | 'frequency'>): Omit<Correction, 'id' | 'timestamp' | 'frequency'> | null {
+function normalizeDraft(
+  correction: Omit<Correction, 'id' | 'timestamp' | 'frequency'>,
+): Omit<Correction, 'id' | 'timestamp' | 'frequency'> | null {
   const pattern = correction.pattern.trim();
   const wrongBehavior = correction.wrongBehavior.trim();
   const correctBehavior = correction.correctBehavior.trim();
@@ -192,7 +196,10 @@ function searchableText(correction: Correction): string {
 }
 
 function tokenize(value: string): string[] {
-  return value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
 }
 
 function scoreCorrection(correction: Correction, context: string): number {

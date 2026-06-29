@@ -10,7 +10,13 @@ const spawnState = vi.hoisted(() => ({
     stdin: string;
     killed: boolean;
   }>,
-  queue: [] as Array<{ code?: number; stdout?: string; stderr?: string; delay?: number; hang?: boolean }>,
+  queue: [] as Array<{
+    code?: number;
+    stdout?: string;
+    stderr?: string;
+    delay?: number;
+    hang?: boolean;
+  }>,
 }));
 
 const streamChatMock = vi.hoisted(() => vi.fn());
@@ -168,7 +174,10 @@ describe('HookManager', () => {
 
   it('times out long-running hooks without crashing the caller', async () => {
     const manager = new HookManager({ homeDir });
-    manager.replaceHooks([{ event: 'sessionEnd', command: 'hang-forever', timeout: 10 }], projectDir);
+    manager.replaceHooks(
+      [{ event: 'sessionEnd', command: 'hang-forever', timeout: 10 }],
+      projectDir,
+    );
     spawnState.queue.push({ hang: true });
 
     const result = await manager.emit('sessionEnd', { cwd: projectDir });
@@ -234,7 +243,10 @@ describe('lifecycle hook wiring', () => {
 
   it('allows postToolUse hooks to replace tool output', async () => {
     hookManager.replaceHooks([{ event: 'postToolUse', command: 'rewrite-output' }], projectDir);
-    spawnState.queue.push({ stdout: '{"action":"modify","modifications":{"output":"{\\"ok\\":true,\\"source\\":\\"hook\\"}"}}' });
+    spawnState.queue.push({
+      stdout:
+        '{"action":"modify","modifications":{"output":"{\\"ok\\":true,\\"source\\":\\"hook\\"}"}}',
+    });
     fs.writeFileSync(path.join(projectDir, 'sample.txt'), 'hello', 'utf8');
 
     const result = JSON.parse(await dispatchTool('read_file', { path: 'sample.txt' }));
@@ -243,8 +255,13 @@ describe('lifecycle hook wiring', () => {
   });
 
   it('applies userPromptSubmit modifications before sending prompts to the model', async () => {
-    hookManager.replaceHooks([{ event: 'userPromptSubmit', command: 'rewrite-user-prompt' }], projectDir);
-    spawnState.queue.push({ stdout: '{"action":"modify","modifications":{"prompt":"rewritten prompt"}}' });
+    hookManager.replaceHooks(
+      [{ event: 'userPromptSubmit', command: 'rewrite-user-prompt' }],
+      projectDir,
+    );
+    spawnState.queue.push({
+      stdout: '{"action":"modify","modifications":{"prompt":"rewritten prompt"}}',
+    });
     streamChatMock.mockResolvedValue({ content: 'done', toolCalls: [], finishReason: 'stop' });
     const state = {
       id: 'session-1',

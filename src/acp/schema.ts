@@ -63,17 +63,19 @@ export function validateJsonRpcRequest(data: unknown): { valid: boolean; error?:
     return { valid: false, error: 'method must be a non-empty string' };
   }
 
-  if (req.id !== undefined && typeof req.id !== 'string' && typeof req.id !== 'number' && req.id !== null) {
+  if (
+    req.id !== undefined &&
+    typeof req.id !== 'string' &&
+    typeof req.id !== 'number' &&
+    req.id !== null
+  ) {
     return { valid: false, error: 'id must be a string, number, or null' };
   }
 
   return { valid: true };
 }
 
-export function createJsonRpcResponse<T>(
-  result: T,
-  id?: string | number | null,
-): AcpResponse<T> {
+export function createJsonRpcResponse<T>(result: T, id?: string | number | null): AcpResponse<T> {
   return {
     jsonrpc: '2.0',
     result,

@@ -114,7 +114,9 @@ function listAgents(cwd: string): string {
   });
   const customAgents = loadCustomAgents(cwd);
   const customLines = customAgents.length
-    ? customAgents.map((agent) => `  ${theme.ok(agent.name)}  ${theme.dim(`- ${agent.description}`)}`)
+    ? customAgents.map(
+        (agent) => `  ${theme.ok(agent.name)}  ${theme.dim(`- ${agent.description}`)}`,
+      )
     : [`  ${theme.dim('none found in .icopilot/agents/')}`];
 
   return [

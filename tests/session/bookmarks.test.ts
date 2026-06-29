@@ -26,7 +26,12 @@ describe('bookmarks', () => {
   it('adds, lists, gets, and deletes bookmarks', () => {
     const bookmark = bookmarks.addBookmark('session-a', 'start', 2, 'hello');
 
-    expect(bookmark).toMatchObject({ sessionId: 'session-a', name: 'start', index: 2, preview: 'hello' });
+    expect(bookmark).toMatchObject({
+      sessionId: 'session-a',
+      name: 'start',
+      index: 2,
+      preview: 'hello',
+    });
     expect(bookmarks.bookmarksPath()).toBe(path.join(tmpDir, 'bookmarks.json'));
     expect(bookmarks.listBookmarks('session-a')).toHaveLength(1);
     expect(bookmarks.getBookmark('session-a', 'start')).toMatchObject({ index: 2 });
@@ -40,13 +45,18 @@ describe('bookmarks', () => {
     bookmarks.addBookmark('session-a', 'same', 3, 'second');
 
     expect(bookmarks.listBookmarks('session-a')).toHaveLength(1);
-    expect(bookmarks.getBookmark('session-a', 'same')).toMatchObject({ index: 3, preview: 'second' });
+    expect(bookmarks.getBookmark('session-a', 'same')).toMatchObject({
+      index: 3,
+      preview: 'second',
+    });
   });
 
   it('validates names', () => {
     expect(() => bookmarks.addBookmark('session-a', '-bad', 0, '')).toThrow(/Bookmark name/);
     expect(() => bookmarks.addBookmark('session-a', 'bad name', 0, '')).toThrow(/Bookmark name/);
-    expect(() => bookmarks.addBookmark('session-a', 'a'.repeat(34), 0, '')).toThrow(/Bookmark name/);
+    expect(() => bookmarks.addBookmark('session-a', 'a'.repeat(34), 0, '')).toThrow(
+      /Bookmark name/,
+    );
     expect(bookmarks.addBookmark('session-a', 'Good_name-1', 0, '').name).toBe('Good_name-1');
   });
 

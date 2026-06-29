@@ -1,6 +1,10 @@
 import readline from 'node:readline';
 import { theme } from './theme.js';
-import { attachKeybindings, applyKeybindingConfig, type KeybindingMode } from '../util/keybindings.js';
+import {
+  attachKeybindings,
+  applyKeybindingConfig,
+  type KeybindingMode,
+} from '../util/keybindings.js';
 
 export interface ReplPrompt {
   read(prompt: string): Promise<string>;
@@ -11,7 +15,7 @@ export interface ReplPrompt {
 /** Minimal readline-based prompt (history-enabled, with optional keybindings). */
 export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
   const mode = keybindingMode ?? applyKeybindingConfig();
-  
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,

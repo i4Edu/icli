@@ -63,7 +63,10 @@ interface CloudSendResult {
 class SimulatedCloudHttpClient {
   constructor(private readonly filePath: string) {}
 
-  async create(config: CloudSessionConfig, opts?: CloudSessionCreateOptions): Promise<CloudSessionRecord> {
+  async create(
+    config: CloudSessionConfig,
+    opts?: CloudSessionCreateOptions,
+  ): Promise<CloudSessionRecord> {
     return this.mutate((store) => {
       const now = new Date().toISOString();
       const record: CloudSessionRecord = {
@@ -89,7 +92,8 @@ class SimulatedCloudHttpClient {
       if (!session) throw new Error(`Cloud session not found: ${sessionId}`);
       const now = new Date().toISOString();
       store.currentSessionId = sessionId;
-      for (const entry of store.sessions) entry.status = entry.id === sessionId ? 'connected' : 'idle';
+      for (const entry of store.sessions)
+        entry.status = entry.id === sessionId ? 'connected' : 'idle';
       session.updatedAt = now;
       return cloneRecord(session);
     });
@@ -196,8 +200,11 @@ class SimulatedCloudHttpClient {
       return { version: CLOUD_STORE_VERSION, sessions: [] };
     }
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.filePath, 'utf8')) as Partial<CloudSessionStore>;
-      if (!parsed || typeof parsed !== 'object') return { version: CLOUD_STORE_VERSION, sessions: [] };
+      const parsed = JSON.parse(
+        fs.readFileSync(this.filePath, 'utf8'),
+      ) as Partial<CloudSessionStore>;
+      if (!parsed || typeof parsed !== 'object')
+        return { version: CLOUD_STORE_VERSION, sessions: [] };
       return {
         version: CLOUD_STORE_VERSION,
         currentSessionId:
@@ -275,7 +282,10 @@ export class CloudSession {
 }
 
 function resolveCloudSessionsPath(): string {
-  return process.env[CLOUD_SESSIONS_PATH_ENV] || path.join(os.homedir(), '.icopilot', 'cloud-sessions.json');
+  return (
+    process.env[CLOUD_SESSIONS_PATH_ENV] ||
+    path.join(os.homedir(), '.icopilot', 'cloud-sessions.json')
+  );
 }
 
 function ensureParentDirectory(filePath: string) {
@@ -288,11 +298,14 @@ function normalizeRecord(record: unknown): CloudSessionRecord | null {
   if (typeof candidate.id !== 'string') return null;
   return {
     id: candidate.id,
-    name: typeof candidate.name === 'string' && candidate.name.trim() ? candidate.name : candidate.id,
+    name:
+      typeof candidate.name === 'string' && candidate.name.trim() ? candidate.name : candidate.id,
     endpoint: typeof candidate.endpoint === 'string' ? candidate.endpoint : '',
     status: candidate.status === 'connected' ? 'connected' : 'idle',
-    createdAt: typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date().toISOString(),
-    updatedAt: typeof candidate.updatedAt === 'string' ? candidate.updatedAt : new Date().toISOString(),
+    createdAt:
+      typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date().toISOString(),
+    updatedAt:
+      typeof candidate.updatedAt === 'string' ? candidate.updatedAt : new Date().toISOString(),
     lastSyncedAt: typeof candidate.lastSyncedAt === 'string' ? candidate.lastSyncedAt : undefined,
     messageCount: typeof candidate.messageCount === 'number' ? candidate.messageCount : 0,
     lastMessage: typeof candidate.lastMessage === 'string' ? candidate.lastMessage : undefined,
@@ -311,7 +324,8 @@ function normalizeMessage(message: unknown): CloudSessionMessage | null {
     id: candidate.id,
     role: typeof candidate.role === 'string' ? candidate.role : 'message',
     content: candidate.content,
-    createdAt: typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date().toISOString(),
+    createdAt:
+      typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date().toISOString(),
   };
 }
 

@@ -53,7 +53,9 @@ export class PriorityScorer {
       reasons.push('pinned source');
     }
 
-    if (hasTruthyFlag(source.metadata, ['recentlyMentioned', 'mentionedRecently', 'recentMention'])) {
+    if (
+      hasTruthyFlag(source.metadata, ['recentlyMentioned', 'mentionedRecently', 'recentMention'])
+    ) {
       score += RECENTLY_MENTIONED_BONUS;
       reasons.push('recently mentioned in conversation');
     }
@@ -91,20 +93,23 @@ export class PriorityScorer {
   }
 }
 
-export function buildContextWindow(sources: ContextSource[], query: string, budget: number): string {
+export function buildContextWindow(
+  sources: ContextSource[],
+  query: string,
+  budget: number,
+): string {
   const scorer = new PriorityScorer();
   const scored = scorer.score(sources, query);
   const selected = scorer.selectWithinBudget(scored, budget);
 
   return selected
-    .map(
-      (source) =>
-        [
-          `### [${source.type}] ${source.id}`,
-          `score: ${source.score}`,
-          `reasons: ${source.reasons.join(', ') || 'none'}`,
-          source.content,
-        ].join('\n'),
+    .map((source) =>
+      [
+        `### [${source.type}] ${source.id}`,
+        `score: ${source.score}`,
+        `reasons: ${source.reasons.join(', ') || 'none'}`,
+        source.content,
+      ].join('\n'),
     )
     .join('\n\n');
 }
@@ -120,17 +125,22 @@ function isPinnedSource(source: ContextSource): boolean {
 function isRecentlyModified(source: ContextSource): boolean {
   if (source.type === 'git') return true;
 
-  return hasTruthyFlag(source.metadata, ['recentlyModified', 'gitModified']) || isFreshTimestamp(source.metadata?.updatedAt);
+  return (
+    hasTruthyFlag(source.metadata, ['recentlyModified', 'gitModified']) ||
+    isFreshTimestamp(source.metadata?.updatedAt)
+  );
 }
 
 function hasKeywordOverlap(source: ContextSource, queryKeywords: Set<string>): boolean {
   if (queryKeywords.size === 0) return false;
-  const sourceKeywords = extractKeywords([
-    source.id,
-    source.content,
-    ...collectTextMetadata(source.metadata),
-    ...collectKeywordMetadata(source.metadata),
-  ].join(' '));
+  const sourceKeywords = extractKeywords(
+    [
+      source.id,
+      source.content,
+      ...collectTextMetadata(source.metadata),
+      ...collectKeywordMetadata(source.metadata),
+    ].join(' '),
+  );
 
   for (const keyword of queryKeywords) {
     if (sourceKeywords.has(keyword)) return true;
@@ -145,7 +155,9 @@ function hasDependencyProximity(metadata: ContextSource['metadata']): boolean {
   if (hasTruthyFlag(metadata, ['dependencyProximity', 'nearDependency'])) return true;
 
   const distance = metadata.dependencyDistance;
-  return typeof distance === 'number' && Number.isFinite(distance) && distance >= 0 && distance <= 2;
+  return (
+    typeof distance === 'number' && Number.isFinite(distance) && distance >= 0 && distance <= 2
+  );
 }
 
 function hasTruthyFlag(metadata: ContextSource['metadata'], keys: string[]): boolean {

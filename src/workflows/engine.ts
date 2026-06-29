@@ -132,7 +132,8 @@ export class WorkflowEngine {
 
   async runStep(step: WorkflowStep): Promise<StepResult> {
     const startedAt = Date.now();
-    const retryAttempts = step.onFail === 'retry' ? this.normalizeRetryCount(step.params?.retries) : 0;
+    const retryAttempts =
+      step.onFail === 'retry' ? this.normalizeRetryCount(step.params?.retries) : 0;
 
     for (let attempt = 0; ; attempt += 1) {
       try {
@@ -187,7 +188,10 @@ export class WorkflowEngine {
         errors.push({ path: `${stepPath}.name`, message: 'Step name is required' });
       }
       if (!['command', 'prompt', 'shell', 'condition', 'loop'].includes(step.action)) {
-        errors.push({ path: `${stepPath}.action`, message: `Unsupported step action "${step.action}"` });
+        errors.push({
+          path: `${stepPath}.action`,
+          message: `Unsupported step action "${step.action}"`,
+        });
       }
       if (!step.params || typeof step.params !== 'object' || Array.isArray(step.params)) {
         errors.push({ path: `${stepPath}.params`, message: 'Step params must be an object' });
@@ -197,14 +201,23 @@ export class WorkflowEngine {
       switch (step.action) {
         case 'command':
           if (!this.isNonEmptyString(step.params.command)) {
-            errors.push({ path: `${stepPath}.params.command`, message: 'command step requires params.command' });
+            errors.push({
+              path: `${stepPath}.params.command`,
+              message: 'command step requires params.command',
+            });
           }
           if (step.params.args !== undefined && !Array.isArray(step.params.args)) {
-            errors.push({ path: `${stepPath}.params.args`, message: 'command step params.args must be an array' });
+            errors.push({
+              path: `${stepPath}.params.args`,
+              message: 'command step params.args must be an array',
+            });
           }
           break;
         case 'prompt':
-          if (!this.isNonEmptyString(step.params.prompt) && !this.isNonEmptyString(step.params.template)) {
+          if (
+            !this.isNonEmptyString(step.params.prompt) &&
+            !this.isNonEmptyString(step.params.template)
+          ) {
             errors.push({
               path: `${stepPath}.params.prompt`,
               message: 'prompt step requires params.prompt or params.template',
@@ -212,7 +225,10 @@ export class WorkflowEngine {
           }
           break;
         case 'shell':
-          if (!this.isNonEmptyString(step.params.command) && !this.isNonEmptyString(step.params.script)) {
+          if (
+            !this.isNonEmptyString(step.params.command) &&
+            !this.isNonEmptyString(step.params.script)
+          ) {
             errors.push({
               path: `${stepPath}.params.command`,
               message: 'shell step requires params.command or params.script',
@@ -231,18 +247,30 @@ export class WorkflowEngine {
             });
           }
           if (step.params.then !== undefined && !this.isStepArray(step.params.then)) {
-            errors.push({ path: `${stepPath}.params.then`, message: 'condition step params.then must be a step array' });
+            errors.push({
+              path: `${stepPath}.params.then`,
+              message: 'condition step params.then must be a step array',
+            });
           }
           if (step.params.else !== undefined && !this.isStepArray(step.params.else)) {
-            errors.push({ path: `${stepPath}.params.else`, message: 'condition step params.else must be a step array' });
+            errors.push({
+              path: `${stepPath}.params.else`,
+              message: 'condition step params.else must be a step array',
+            });
           }
           break;
         case 'loop':
           if (step.params.items === undefined) {
-            errors.push({ path: `${stepPath}.params.items`, message: 'loop step requires params.items' });
+            errors.push({
+              path: `${stepPath}.params.items`,
+              message: 'loop step requires params.items',
+            });
           }
           if (!this.isStepArray(step.params.steps)) {
-            errors.push({ path: `${stepPath}.params.steps`, message: 'loop step requires params.steps as an array' });
+            errors.push({
+              path: `${stepPath}.params.steps`,
+              message: 'loop step requires params.steps as an array',
+            });
           }
           break;
       }
@@ -255,7 +283,10 @@ export class WorkflowEngine {
         continue;
       }
       if (!['manual', 'file-change', 'schedule', 'hook'].includes(trigger.type)) {
-        errors.push({ path: `${triggerPath}.type`, message: `Unsupported trigger type "${trigger.type}"` });
+        errors.push({
+          path: `${triggerPath}.type`,
+          message: `Unsupported trigger type "${trigger.type}"`,
+        });
       }
       if (!trigger.config || typeof trigger.config !== 'object' || Array.isArray(trigger.config)) {
         errors.push({ path: `${triggerPath}.config`, message: 'Trigger config must be an object' });
@@ -298,7 +329,10 @@ export class WorkflowEngine {
       stepId: step.id,
       success: result.exitCode === 0,
       output: result.stdout,
-      error: result.exitCode === 0 ? undefined : result.stderr || `Command exited with code ${result.exitCode}`,
+      error:
+        result.exitCode === 0
+          ? undefined
+          : result.stderr || `Command exited with code ${result.exitCode}`,
     };
   }
 
@@ -309,13 +343,19 @@ export class WorkflowEngine {
     const shellCommand = String(params.command ?? params.script ?? '');
     const cwd = this.resolveCwd(params.cwd);
     const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
-    const shellArgs = process.platform === 'win32' ? ['-NoProfile', '-Command', shellCommand] : ['-lc', shellCommand];
+    const shellArgs =
+      process.platform === 'win32'
+        ? ['-NoProfile', '-Command', shellCommand]
+        : ['-lc', shellCommand];
     const result = await this.runProcess(shell, shellArgs, cwd, false);
     return {
       stepId: step.id,
       success: result.exitCode === 0,
       output: result.stdout,
-      error: result.exitCode === 0 ? undefined : result.stderr || `Shell exited with code ${result.exitCode}`,
+      error:
+        result.exitCode === 0
+          ? undefined
+          : result.stderr || `Shell exited with code ${result.exitCode}`,
     };
   }
 
@@ -437,7 +477,9 @@ export class WorkflowEngine {
         break;
       default:
         current =
-          this.execution.context[root] !== undefined ? this.execution.context[root] : this.execution.steps[root];
+          this.execution.context[root] !== undefined
+            ? this.execution.context[root]
+            : this.execution.steps[root];
         break;
     }
 
@@ -460,7 +502,12 @@ export class WorkflowEngine {
     if (typeof value === 'number') return value !== 0;
     if (typeof value === 'string') {
       const normalized = value.trim().toLowerCase();
-      if (normalized === '' || normalized === 'false' || normalized === '0' || normalized === 'no') {
+      if (
+        normalized === '' ||
+        normalized === 'false' ||
+        normalized === '0' ||
+        normalized === 'no'
+      ) {
         return false;
       }
       return true;

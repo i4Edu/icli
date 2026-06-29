@@ -113,8 +113,11 @@ describe('proxy slash integration', () => {
   });
 
   it('wires proxy into slash command handling', async () => {
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
     expect(slashSource).toContain("case 'proxy':");
-    expect(slashSource).toContain("/proxy [show|set <url>|clear|test");
+    expect(slashSource).toContain('/proxy [show|set <url>|clear|test');
   });
 });

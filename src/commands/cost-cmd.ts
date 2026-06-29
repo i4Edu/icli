@@ -23,14 +23,16 @@ export function costCommand(session: Session): string {
   const rate = getRate(model);
   const cost = estimateCost(model, inputTokens, outputTokens);
 
-  return [
-    theme.brand('Cost estimate'),
-    `  model: ${theme.hl(model)}`,
-    `  input tokens: ${theme.hl(String(inputTokens))}`,
-    `  output tokens: ${theme.hl(String(outputTokens))}`,
-    `  estimated USD: ${theme.ok(formatUsd(cost))}`,
-    `  rate used: ${formatUsd(rate.input)} / ${formatUsd(rate.output)} per 1K input/output tokens`,
-  ].join('\n') + '\n';
+  return (
+    [
+      theme.brand('Cost estimate'),
+      `  model: ${theme.hl(model)}`,
+      `  input tokens: ${theme.hl(String(inputTokens))}`,
+      `  output tokens: ${theme.hl(String(outputTokens))}`,
+      `  estimated USD: ${theme.ok(formatUsd(cost))}`,
+      `  rate used: ${formatUsd(rate.input)} / ${formatUsd(rate.output)} per 1K input/output tokens`,
+    ].join('\n') + '\n'
+  );
 }
 
 function contentToText(content: unknown): string {

@@ -87,7 +87,8 @@ export const WEB_FETCH_SCHEMA: ChatCompletionTool = {
   type: 'function',
   function: {
     name: 'web_fetch',
-    description: 'Fetch an HTTP(S) web page only when its host is allowed by the user-managed host allowlist.',
+    description:
+      'Fetch an HTTP(S) web page only when its host is allowed by the user-managed host allowlist.',
     parameters: {
       type: 'object',
       properties: {
@@ -127,20 +128,27 @@ function normalizeMaxBytes(maxBytes: number | undefined): number {
   return Math.max(0, Math.floor(maxBytes));
 }
 
-function sanitizeHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
+function sanitizeHeaders(
+  headers: Record<string, string> | undefined,
+): Record<string, string> | undefined {
   if (!headers) return undefined;
   return Object.fromEntries(
     Object.entries(headers).filter((entry): entry is [string, string] => isString(entry[1])),
   );
 }
 
-async function readText(response: Response, maxBytes: number): Promise<{ bytes: number; text: string }> {
+async function readText(
+  response: Response,
+  maxBytes: number,
+): Promise<{ bytes: number; text: string }> {
   if (!response.body) {
     const responseLike = response as Response & { text?: () => Promise<string> };
     const buffer =
       typeof response.arrayBuffer === 'function'
         ? new Uint8Array(await response.arrayBuffer())
-        : new TextEncoder().encode(typeof responseLike.text === 'function' ? await responseLike.text() : '');
+        : new TextEncoder().encode(
+            typeof responseLike.text === 'function' ? await responseLike.text() : '',
+          );
     const slice = buffer.slice(0, maxBytes);
     return { bytes: slice.byteLength, text: new TextDecoder().decode(slice) };
   }

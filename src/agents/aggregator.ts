@@ -107,9 +107,10 @@ export function aggregateResults(results: AgentResult[]): AggregatedOutput {
   const conflictMessages = detectConflicts(details);
 
   return {
-    summary: ['## Summary', ...(summaryLines.length > 0 ? summaryLines : ['- No shared recommendations found.'])].join(
-      '\n',
-    ),
+    summary: [
+      '## Summary',
+      ...(summaryLines.length > 0 ? summaryLines : ['- No shared recommendations found.']),
+    ].join('\n'),
     details: details.map((detail) => formatDetailSection(detail)),
     conflicts: conflictMessages,
     sources,
@@ -127,7 +128,10 @@ function formatDetailSection(detail: SourceDetail): string {
 
   const header = `### ${detail.result.name}`;
   const meta = metadata.length > 0 ? `${metadata.join(' • ')}` : undefined;
-  const lines = detail.points.length > 0 ? detail.points.map((point) => `- ${point.original}`) : ['- No actionable points extracted.'];
+  const lines =
+    detail.points.length > 0
+      ? detail.points.map((point) => `- ${point.original}`)
+      : ['- No actionable points extracted.'];
 
   return [header, meta, ...lines].filter((line): line is string => Boolean(line)).join('\n');
 }

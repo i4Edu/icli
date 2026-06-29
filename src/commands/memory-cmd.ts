@@ -81,7 +81,8 @@ function autoMemoryCommand(args: string[]): string {
 }
 
 function formatEntries(entries: ReturnType<PersistentMemory['recall']>, header: string): string {
-  if (entries.length === 0) return `${theme.brand(header)}\n  ${theme.dim('No remembered facts.')}\n`;
+  if (entries.length === 0)
+    return `${theme.brand(header)}\n  ${theme.dim('No remembered facts.')}\n`;
   const lines = entries.map(
     (entry) =>
       `  ${theme.hl(entry.key)} = ${entry.value} ${theme.dim(`(${entry.source}, ${entry.addedAt})`)}`,

@@ -28,7 +28,15 @@ interface DocumentableSymbol extends UndocumentedSymbol {
 }
 
 const DOC_STYLES = new Set<DocStyle>(['jsdoc', 'tsdoc', 'numpy', 'google']);
-const SOURCE_GLOBS = ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx', '**/*.mjs', '**/*.cjs', '**/*.py'];
+const SOURCE_GLOBS = [
+  '**/*.ts',
+  '**/*.tsx',
+  '**/*.js',
+  '**/*.jsx',
+  '**/*.mjs',
+  '**/*.cjs',
+  '**/*.py',
+];
 const IGNORE_GLOBS = ['**/node_modules/**', '**/.git/**', '**/dist/**', '**/coverage/**'];
 
 export function generateDoc(code: string, style: string): string {
@@ -116,7 +124,10 @@ function handleSingleDoc(options: DocOptions, cwd: string): string {
       return `${theme.ok(`✔ wrote ${style} docs for ${symbol.name}`)}\n`;
     }
 
-    const doc = indentDoc(generateDoc(symbol.signature, style), symbol.language === 'python' ? nextIndent(symbol.indent) : symbol.indent);
+    const doc = indentDoc(
+      generateDoc(symbol.signature, style),
+      symbol.language === 'python' ? nextIndent(symbol.indent) : symbol.indent,
+    );
     return `${theme.brand('Generated docs')} ${theme.dim(`${resolvedFile}:${symbol.line}`)}\n\n${doc}\n`;
   }
 
@@ -131,7 +142,10 @@ function handleSingleDoc(options: DocOptions, cwd: string): string {
   }
 
   const blocks = targets.map((symbol) => {
-    const doc = indentDoc(generateDoc(symbol.signature, style), symbol.language === 'python' ? nextIndent(symbol.indent) : symbol.indent);
+    const doc = indentDoc(
+      generateDoc(symbol.signature, style),
+      symbol.language === 'python' ? nextIndent(symbol.indent) : symbol.indent,
+    );
     return `${theme.hl(`${symbol.kind} ${symbol.name}`)} ${theme.dim(`line ${symbol.line}`)}\n${doc}`;
   });
 
@@ -151,7 +165,11 @@ function handleAllDocs(cwd: string, requestedStyle?: string, overwrite = false):
       if (!code) continue;
       const available = collectSymbols(code, file);
       const targets = symbols
-        .map((entry) => available.find((candidate) => candidate.name === entry.name && candidate.line === entry.line))
+        .map((entry) =>
+          available.find(
+            (candidate) => candidate.name === entry.name && candidate.line === entry.line,
+          ),
+        )
         .filter((entry): entry is DocumentableSymbol => Boolean(entry));
       if (!targets.length) continue;
       writeDocsToFile(file, code, targets, normalizeStyle(requestedStyle, file));
@@ -169,7 +187,12 @@ function handleAllDocs(cwd: string, requestedStyle?: string, overwrite = false):
   return `${theme.brand('Undocumented exports')}\n${lines.join('\n')}\n`;
 }
 
-function writeDocsToFile(filePath: string, code: string, symbols: DocumentableSymbol[], style: DocStyle): void {
+function writeDocsToFile(
+  filePath: string,
+  code: string,
+  symbols: DocumentableSymbol[],
+  style: DocStyle,
+): void {
   const lines = code.split(/\r?\n/);
   const sorted = [...symbols].sort((a, b) => b.line - a.line);
 
@@ -191,18 +214,26 @@ function writeDocsToFile(filePath: string, code: string, symbols: DocumentableSy
 
 function collectSymbols(code: string, filePath: string): DocumentableSymbol[] {
   const language = detectLanguage(filePath);
-  return language === 'python' ? collectPythonSymbols(code, filePath) : collectJsLikeSymbols(code, filePath, language);
+  return language === 'python'
+    ? collectPythonSymbols(code, filePath)
+    : collectJsLikeSymbols(code, filePath, language);
 }
 
-function collectJsLikeSymbols(code: string, filePath: string, language: Exclude<Language, 'python'>): DocumentableSymbol[] {
+function collectJsLikeSymbols(
+  code: string,
+  filePath: string,
+  language: Exclude<Language, 'python'>,
+): DocumentableSymbol[] {
   const lines = code.split(/\r?\n/);
   const symbols: DocumentableSymbol[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
     const signature = line.trim();
-    let match =
-      line.match(/^(?<indent>\s*)(?<export>export\s+(?:default\s+)?)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\s*\(/) ??
+    const match =
+      line.match(
+        /^(?<indent>\s*)(?<export>export\s+(?:default\s+)?)?(?:async\s+)?function\s+(?<name>[A-Za-z_$][\w$]*)\s*\(/,
+      ) ??
       line.match(/^(?<indent>\s*)(?<export>export\s+)?class\s+(?<name>[A-Za-z_$][\w$]*)\b/) ??
       line.match(
         /^(?<indent>\s*)(?<export>export\s+)?const\s+(?<name>[A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/,
@@ -291,7 +322,9 @@ function parseSignature(code: string): {
 } {
   const trimmed = code.trim();
   const kind = /\bclass\b/.test(trimmed) ? 'class' : 'function';
-  const name = trimmed.match(/\b(?:function|class|def)\s+([A-Za-z_$][\w$]*)/)?.[1] ?? trimmed.match(/\bconst\s+([A-Za-z_$][\w$]*)\b/)?.[1];
+  const name =
+    trimmed.match(/\b(?:function|class|def)\s+([A-Za-z_$][\w$]*)/)?.[1] ??
+    trimmed.match(/\bconst\s+([A-Za-z_$][\w$]*)\b/)?.[1];
   const paramSource = trimmed.match(/\((.*)\)/)?.[1] ?? '';
   const params = splitParams(paramSource).map(cleanParamName).filter(Boolean);
   const throws = /\bthrow\b/.test(trimmed);
@@ -320,7 +353,8 @@ function splitParams(input: string): string[] {
     }
 
     if (char === '(' || char === '[' || char === '{' || char === '<') depth += 1;
-    if (char === ')' || char === ']' || char === '}' || char === '>') depth = Math.max(0, depth - 1);
+    if (char === ')' || char === ']' || char === '}' || char === '>')
+      depth = Math.max(0, depth - 1);
     current += char;
   }
 
@@ -342,7 +376,10 @@ function buildJsLikeDoc(
   signature: ReturnType<typeof parseSignature>,
   options: { includeThrows: boolean },
 ): string {
-  const lines = ['/**', ` * ${signature.name ? `Describe ${signature.name}.` : 'Describe this symbol.'}`];
+  const lines = [
+    '/**',
+    ` * ${signature.name ? `Describe ${signature.name}.` : 'Describe this symbol.'}`,
+  ];
   for (const param of signature.params) {
     lines.push(` * @param ${param} - Describe ${param}.`);
   }
@@ -356,7 +393,10 @@ function buildJsLikeDoc(
   return lines.join('\n');
 }
 
-function buildPythonDoc(signature: ReturnType<typeof parseSignature>, style: 'numpy' | 'google'): string {
+function buildPythonDoc(
+  signature: ReturnType<typeof parseSignature>,
+  style: 'numpy' | 'google',
+): string {
   if (style === 'numpy') {
     const lines = ['"""Describe this symbol.', ''];
     if (signature.params.length) {

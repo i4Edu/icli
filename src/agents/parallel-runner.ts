@@ -56,7 +56,10 @@ export class ParallelAgentRunner {
 
   constructor(options: ParallelAgentRunnerOptions) {
     this.model = options.model;
-    this.concurrencyLimit = normalizePositiveInt(options.concurrencyLimit, DEFAULT_CONCURRENCY_LIMIT);
+    this.concurrencyLimit = normalizePositiveInt(
+      options.concurrencyLimit,
+      DEFAULT_CONCURRENCY_LIMIT,
+    );
     this.timeoutMs = normalizePositiveInt(options.timeoutMs, DEFAULT_TIMEOUT_MS);
     this.onProgress = options.onProgress;
     this.executeTask = options.executeTask ?? defaultExecuteTask;

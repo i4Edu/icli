@@ -26,7 +26,7 @@ describe('searchSymbols', () => {
       path.join(tmpDir, 'src', 'app.ts'),
       [
         'export async function buildWidget(input: string): Promise<string> {',
-        "  return input;",
+        '  return input;',
         '}',
         'export class WidgetBuilder {}',
         'export interface WidgetConfig {',
@@ -95,7 +95,10 @@ describe('searchSymbols', () => {
     fs.mkdirSync(path.join(tmpDir, 'ignored'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.gitignore'), 'ignored/\n');
     fs.writeFileSync(path.join(tmpDir, 'src', 'main.js'), 'export function visibleThing() {}\n');
-    fs.writeFileSync(path.join(tmpDir, 'ignored', 'hidden.js'), 'export function hiddenThing() {}\n');
+    fs.writeFileSync(
+      path.join(tmpDir, 'ignored', 'hidden.js'),
+      'export function hiddenThing() {}\n',
+    );
 
     const matches = JSON.parse(
       await searchSymbols({ query: 'Thing', filePattern: 'src/**/*.js', type: 'function' }),
@@ -117,9 +120,13 @@ describe('searchSymbols', () => {
     const lines = Array.from({ length: 55 }, (_, index) => `export const item${index} = ${index};`);
     fs.writeFileSync(path.join(tmpDir, 'src', 'many.ts'), lines.join('\n'));
 
-    const matches = JSON.parse(
-      await searchSymbols({ query: '^item', type: 'variable' }),
-    ) as Array<{ name: string; type: string; file: string; line: number; signature: string }>;
+    const matches = JSON.parse(await searchSymbols({ query: '^item', type: 'variable' })) as Array<{
+      name: string;
+      type: string;
+      file: string;
+      line: number;
+      signature: string;
+    }>;
 
     expect(matches).toHaveLength(50);
     expect(matches[0]).toEqual({

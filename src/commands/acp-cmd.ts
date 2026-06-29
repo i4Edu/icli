@@ -72,7 +72,9 @@ ${theme.info('Test with:')}
     -d '{"jsonrpc":"2.0","method":"capabilities/get","id":1}'
 `;
   } catch (error) {
-    return theme.error(`Failed to start ACP server: ${error instanceof Error ? error.message : String(error)}`);
+    return theme.error(
+      `Failed to start ACP server: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 
@@ -86,7 +88,9 @@ async function disableAcp(): Promise<string> {
     await server.stop();
     return theme.success('ACP Server disabled');
   } catch (error) {
-    return theme.error(`Failed to stop ACP server: ${error instanceof Error ? error.message : String(error)}`);
+    return theme.error(
+      `Failed to stop ACP server: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

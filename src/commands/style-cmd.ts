@@ -1,5 +1,10 @@
 import fg from 'fast-glob';
-import { StyleLearner, loadStyleProfile, resetStyleProfile, resolveStyleProfilePath } from '../knowledge/style-learner.js';
+import {
+  StyleLearner,
+  loadStyleProfile,
+  resetStyleProfile,
+  resolveStyleProfilePath,
+} from '../knowledge/style-learner.js';
 import { theme } from '../ui/theme.js';
 
 const STYLE_PATTERNS = [
@@ -13,7 +18,13 @@ const STYLE_PATTERNS = [
   '*.cjs',
 ];
 
-const STYLE_IGNORE = ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/.icopilot/**', '**/coverage/**'];
+const STYLE_IGNORE = [
+  '**/node_modules/**',
+  '**/dist/**',
+  '**/.git/**',
+  '**/.icopilot/**',
+  '**/coverage/**',
+];
 
 export async function styleCommand(args: string[], cwd: string): Promise<string> {
   const [rawSubcommand = 'show'] = args;

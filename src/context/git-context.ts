@@ -87,9 +87,7 @@ export class GitContextProvider {
     }
 
     const safeLine = Math.max(1, Math.floor(line));
-    const output = this.runGit(
-      `blame -L ${safeLine},${safeLine} --porcelain -- ${quote(file)}`,
-    );
+    const output = this.runGit(`blame -L ${safeLine},${safeLine} --porcelain -- ${quote(file)}`);
     return parseBlameOutput(output);
   }
 
@@ -253,7 +251,10 @@ function parseBlameOutput(output: string): BlameInfo {
 
 function extractBlameField(lines: string[], field: string): string | undefined {
   const prefix = `${field} `;
-  return lines.find((line) => line.startsWith(prefix))?.slice(prefix.length).trim();
+  return lines
+    .find((line) => line.startsWith(prefix))
+    ?.slice(prefix.length)
+    .trim();
 }
 
 function dedupeGitFiles(files: GitFile[]): GitFile[] {

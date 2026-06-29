@@ -19,7 +19,9 @@ interface ProfilesData {
 const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,32}$/i;
 
 export function profilesPath(): string {
-  return process.env.ICOPILOT_PROFILES_PATH || path.join(os.homedir(), '.icopilot', 'profiles.json');
+  return (
+    process.env.ICOPILOT_PROFILES_PATH || path.join(os.homedir(), '.icopilot', 'profiles.json')
+  );
 }
 
 export function loadProfiles(): ProfilesData {
@@ -46,7 +48,10 @@ export function saveProfiles(data: ProfilesData): void {
 
 export function listProfiles(): { active: string | null; names: string[] } {
   const data = loadProfiles();
-  return { active: data.active, names: Object.keys(data.profiles).sort((a, b) => a.localeCompare(b)) };
+  return {
+    active: data.active,
+    names: Object.keys(data.profiles).sort((a, b) => a.localeCompare(b)),
+  };
 }
 
 export function getProfile(name: string): Profile | null {
@@ -85,5 +90,5 @@ export function useProfile(name: string): Profile | null {
 
 export function activeProfile(): Profile | null {
   const data = loadProfiles();
-  return data.active ? data.profiles[data.active] ?? null : null;
+  return data.active ? (data.profiles[data.active] ?? null) : null;
 }

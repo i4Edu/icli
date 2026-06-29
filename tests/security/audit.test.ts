@@ -107,7 +107,10 @@ describe('AuditLogger', () => {
 
   it('wires audit slash commands and completion metadata', async () => {
     const { defaultContext } = await import('../../src/util/completion.js');
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
 
     expect(slashSource).toContain("case 'audit':");
     expect(slashSource).toContain('/audit search <query>');

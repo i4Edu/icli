@@ -94,7 +94,12 @@ describe('ACP Schema', () => {
 
   describe('createJsonRpcError', () => {
     it('should create an error response', () => {
-      const response = createJsonRpcError(JSON_RPC_ERROR_CODES.METHOD_NOT_FOUND, 'Method not found', undefined, 1);
+      const response = createJsonRpcError(
+        JSON_RPC_ERROR_CODES.METHOD_NOT_FOUND,
+        'Method not found',
+        undefined,
+        1,
+      );
       expect(response.jsonrpc).toBe('2.0');
       expect(response.error?.code).toBe(-32601);
       expect(response.error?.message).toBe('Method not found');
@@ -169,7 +174,11 @@ describe('AcpRouter', () => {
       expect(Array.isArray(response.result)).toBe(true);
       expect((response.result as Array<unknown>).length).toBeGreaterThan(0);
 
-      const tools = response.result as Array<{ name: string; description: string; inputSchema: unknown }>;
+      const tools = response.result as Array<{
+        name: string;
+        description: string;
+        inputSchema: unknown;
+      }>;
       expect(tools[0].name).toBeDefined();
       expect(tools[0].description).toBeDefined();
       expect(tools[0].inputSchema).toBeDefined();
@@ -410,7 +419,9 @@ describe('AcpRouter', () => {
         id: 1,
       });
 
-      expect((successResponse.result === undefined) === (successResponse.error !== undefined)).toBe(true);
+      expect((successResponse.result === undefined) === (successResponse.error !== undefined)).toBe(
+        true,
+      );
     });
 
     it('should include id when provided', async () => {

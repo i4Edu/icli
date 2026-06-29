@@ -137,18 +137,23 @@ describe('ConventionManager', () => {
       ],
     });
 
-    const violations = manager.check([
-      'const value = "Ada"',
-      "const fs = require('fs')",
-      'module.exports = { value }',
-      '',
-    ].join('\n'));
+    const violations = manager.check(
+      ['const value = "Ada"', "const fs = require('fs')", 'module.exports = { value }', ''].join(
+        '\n',
+      ),
+    );
 
     expect(violations.length).toBeGreaterThanOrEqual(4);
-    expect(violations.some((violation) => violation.convention.id === 'prefer-single-quotes')).toBe(true);
+    expect(violations.some((violation) => violation.convention.id === 'prefer-single-quotes')).toBe(
+      true,
+    );
     expect(violations.some((violation) => violation.convention.id === 'use-semicolons')).toBe(true);
-    expect(violations.some((violation) => violation.convention.id === 'use-esm-imports')).toBe(true);
-    expect(violations.some((violation) => violation.convention.id === 'prefer-node-protocol-imports')).toBe(true);
+    expect(violations.some((violation) => violation.convention.id === 'use-esm-imports')).toBe(
+      true,
+    );
+    expect(
+      violations.some((violation) => violation.convention.id === 'prefer-node-protocol-imports'),
+    ).toBe(true);
     expect(violations.every((violation) => typeof violation.line === 'number')).toBe(true);
   });
 

@@ -56,7 +56,9 @@ export function expandSnippet(body: string, vars: Record<string, string>): strin
 
 function assertValidName(name: string): void {
   if (!NAME_RE.test(name)) {
-    throw new Error('Invalid snippet name. Use 1-64 letters, numbers, underscores, or dashes; start with a letter or number.');
+    throw new Error(
+      'Invalid snippet name. Use 1-64 letters, numbers, underscores, or dashes; start with a letter or number.',
+    );
   }
 }
 

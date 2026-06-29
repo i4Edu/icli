@@ -102,10 +102,7 @@ export function parseAutopilotPlan(response: string): AutopilotPlan {
   };
 }
 
-export async function runAutopilot(
-  goal: string,
-  opts: RunAutopilotOptions = {},
-): Promise<Session> {
+export async function runAutopilot(goal: string, opts: RunAutopilotOptions = {}): Promise<Session> {
   const normalizedGoal = goal.trim();
   if (!normalizedGoal) {
     throw new Error('autopilot requires a goal.');

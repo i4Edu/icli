@@ -40,7 +40,10 @@ function handleCreate(args: string[], store: ReturnType<typeof getCloudRoutineSt
 
   const name = args[0]!.replace(/^["']|["']$/g, '');
   const scheduleStr = args[1]!.replace(/^["']|["']$/g, '');
-  const prompt = args.slice(2).join(' ').replace(/^["']|["']$/g, '');
+  const prompt = args
+    .slice(2)
+    .join(' ')
+    .replace(/^["']|["']$/g, '');
 
   try {
     const schedule = parseSchedule(scheduleStr);
@@ -50,7 +53,9 @@ function handleCreate(args: string[], store: ReturnType<typeof getCloudRoutineSt
         `  Next run: ${formatDate(routine.nextRun)}`,
     );
   } catch (err) {
-    return theme.err(`✘ Failed to create routine: ${err instanceof Error ? err.message : String(err)}`);
+    return theme.err(
+      `✘ Failed to create routine: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 
@@ -123,7 +128,9 @@ function handleShow(args: string[], store: ReturnType<typeof getCloudRoutineStor
 function handleUpdate(args: string[], store: ReturnType<typeof getCloudRoutineStore>): string {
   const id = args[0];
   if (!id) {
-    return theme.err('Usage: /cloud-routine update <id> [--schedule <sched>] [--prompt <prompt>] [--enabled <true|false>]');
+    return theme.err(
+      'Usage: /cloud-routine update <id> [--schedule <sched>] [--prompt <prompt>] [--enabled <true|false>]',
+    );
   }
 
   const routine = store.get(id);
@@ -160,7 +167,9 @@ function handleUpdate(args: string[], store: ReturnType<typeof getCloudRoutineSt
     const updated = store.update(id, updates as Parameters<typeof store.update>[1]);
     return theme.ok(`✔ Routine "${updated.name}" updated.`);
   } catch (err) {
-    return theme.err(`✘ Failed to update routine: ${err instanceof Error ? err.message : String(err)}`);
+    return theme.err(
+      `✘ Failed to update routine: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 }
 

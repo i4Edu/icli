@@ -74,7 +74,11 @@ export async function runAutoLint(changedFiles: string[]): Promise<AutoCheckResu
 
   const command = buildLintCommand(lintableFiles, config.cwd, getAutoCheckConfig());
   if (!command) {
-    return { passed: false, output: 'No configured linter detected for auto-lint.', fixable: false };
+    return {
+      passed: false,
+      output: 'No configured linter detected for auto-lint.',
+      fixable: false,
+    };
   }
 
   const result = await executeShellCommand(command, config.cwd);
@@ -84,7 +88,11 @@ export async function runAutoLint(changedFiles: string[]): Promise<AutoCheckResu
 export async function runAutoTest(): Promise<AutoCheckResult> {
   const command = buildTestCommand(config.cwd, getAutoCheckConfig());
   if (!command) {
-    return { passed: false, output: 'No configured test runner detected for auto-test.', fixable: false };
+    return {
+      passed: false,
+      output: 'No configured test runner detected for auto-test.',
+      fixable: false,
+    };
   }
 
   const result = await executeShellCommand(command, config.cwd);
@@ -103,7 +111,11 @@ export function extractChangedFilesFromToolResult(
     case 'write_files':
       return parsed?.wrote && Array.isArray(args.items)
         ? args.items
-            .map((item) => (item && typeof item === 'object' ? String((item as { path?: string }).path ?? '') : ''))
+            .map((item) =>
+              item && typeof item === 'object'
+                ? String((item as { path?: string }).path ?? '')
+                : '',
+            )
             .filter(Boolean)
         : [];
     case 'edit_file':
@@ -127,7 +139,8 @@ export function extractAutoLintResult(output: string): AutoCheckResult | undefin
   const parsed = tryParseJson(output);
   const candidate = parsed?.autoLint;
   if (!candidate || typeof candidate !== 'object') return undefined;
-  if (typeof candidate.passed !== 'boolean' || typeof candidate.output !== 'string') return undefined;
+  if (typeof candidate.passed !== 'boolean' || typeof candidate.output !== 'string')
+    return undefined;
   return {
     passed: candidate.passed,
     output: candidate.output,

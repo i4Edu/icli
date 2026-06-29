@@ -47,7 +47,15 @@ describe('snippetsCommand', () => {
   });
 
   it('uses snippets with k=v variables', async () => {
-    await snippetsCommand(['save', 'ask', 'Explain', '{{topic}}', 'to', '{{audience}}', '{{unknown}}']);
+    await snippetsCommand([
+      'save',
+      'ask',
+      'Explain',
+      '{{topic}}',
+      'to',
+      '{{audience}}',
+      '{{unknown}}',
+    ]);
 
     const used = await snippetsCommand(['use', 'ask', 'topic=TypeScript', 'audience=beginners']);
     expect(used).toBe('Explain TypeScript to beginners {{unknown}}\n');

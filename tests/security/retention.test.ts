@@ -94,7 +94,9 @@ describe('RetentionManager', () => {
 
     const result = manager.enforce();
 
-    expect(result.deleted.map((entry) => entry.path).sort()).toEqual([expiredSession, expiredMemory].sort());
+    expect(result.deleted.map((entry) => entry.path).sort()).toEqual(
+      [expiredSession, expiredMemory].sort(),
+    );
     expect(result.errors).toEqual([]);
     expect(fs.existsSync(expiredSession)).toBe(false);
     expect(fs.existsSync(expiredMemory)).toBe(false);

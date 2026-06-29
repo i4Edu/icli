@@ -131,7 +131,9 @@ describe('SymbolIndex', () => {
     );
     expect(index.getExported().map((symbol) => symbol.name)).not.toContain('localHelper');
 
-    const greetMethod = sampleSymbols.find((symbol) => symbol.name === 'greet' && symbol.kind === 'method');
+    const greetMethod = sampleSymbols.find(
+      (symbol) => symbol.name === 'greet' && symbol.kind === 'method',
+    );
     const composeMethod = sampleSymbols.find(
       (symbol) => symbol.name === 'compose' && symbol.kind === 'method',
     );

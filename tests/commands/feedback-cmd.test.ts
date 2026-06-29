@@ -48,7 +48,9 @@ describe('feedback command', () => {
     submitFeedback('feature', 'Please add a /feedback shortcut.');
     submitFeedback('praise', 'The context view is very helpful.');
 
-    const entries = JSON.parse(fs.readFileSync(feedbackFile, 'utf8')) as Array<Record<string, unknown>>;
+    const entries = JSON.parse(fs.readFileSync(feedbackFile, 'utf8')) as Array<
+      Record<string, unknown>
+    >;
     expect(entries).toHaveLength(2);
     expect(entries.map((entry) => entry.type)).toEqual(['feature', 'praise']);
   });

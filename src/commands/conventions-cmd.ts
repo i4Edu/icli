@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { ConventionManager, listConventionFiles, resolveConventionPath, type ConventionViolation } from '../knowledge/conventions.js';
+import {
+  ConventionManager,
+  listConventionFiles,
+  resolveConventionPath,
+  type ConventionViolation,
+} from '../knowledge/conventions.js';
 import { theme } from '../ui/theme.js';
 
 export function conventionsCommand(args: string[], cwd: string): string {
@@ -56,7 +61,10 @@ function detectConventions(manager: ConventionManager, cwd: string): string {
 
   return [
     `${theme.ok('✔ detected conventions')} ${theme.dim(`(${detected.length})`)} ${theme.hl(resolveConventionPath(cwd))}`,
-    ...detected.map((convention) => `  - ${theme.hl(convention.name)} ${theme.dim(`[${convention.severity}]`)} — ${convention.rule}`),
+    ...detected.map(
+      (convention) =>
+        `  - ${theme.hl(convention.name)} ${theme.dim(`[${convention.severity}]`)} — ${convention.rule}`,
+    ),
     '',
   ].join('\n');
 }

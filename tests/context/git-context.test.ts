@@ -74,14 +74,19 @@ describe('GitContextProvider', () => {
       if (text.includes('rev-parse --is-inside-work-tree')) return 'true\n';
       if (text.includes('diff --cached --name-status')) return 'M\tsrc/staged.ts\nA\tsrc/new.ts\n';
       if (text.includes('diff --cached -- "src/staged.ts"')) return '@@ -1 +1 @@\n-old\n+new\n';
-      if (text.includes('diff --cached -- "src/new.ts"')) return 'diff --git a/src/new.ts b/src/new.ts\n';
+      if (text.includes('diff --cached -- "src/new.ts"'))
+        return 'diff --git a/src/new.ts b/src/new.ts\n';
       if (text.includes('status --porcelain=v1')) {
-        return [' M src/dirty.ts', ' D src/deleted.ts', '?? src/untracked.ts', 'M  src/staged-only.ts'].join(
-          '\n',
-        );
+        return [
+          ' M src/dirty.ts',
+          ' D src/deleted.ts',
+          '?? src/untracked.ts',
+          'M  src/staged-only.ts',
+        ].join('\n');
       }
       if (text.includes('diff  -- "src/dirty.ts"')) return '@@ -1 +1 @@\n-before\n+after\n';
-      if (text.includes('diff  -- "src/deleted.ts"')) return 'diff --git a/src/deleted.ts b/src/deleted.ts\n';
+      if (text.includes('diff  -- "src/deleted.ts"'))
+        return 'diff --git a/src/deleted.ts b/src/deleted.ts\n';
       if (text.includes('diff --name-status "origin/main...HEAD"')) {
         return 'M\tsrc/feature.ts\nD\tsrc/old.ts\n';
       }
@@ -157,8 +162,10 @@ describe('GitContextProvider', () => {
       if (text.includes('rev-parse --is-inside-work-tree')) return 'true\n';
       if (text.includes('diff --cached --name-status')) return '';
       if (text.includes('status --porcelain=v1')) return ' M src/live.ts\n';
-      if (text.includes('diff  -- "src/live.ts"')) return '@@ -1 +1 @@\n-const x = 1;\n+const x = 2;\n';
-      if (text.includes('symbolic-ref refs/remotes/origin/HEAD')) return 'refs/remotes/origin/main\n';
+      if (text.includes('diff  -- "src/live.ts"'))
+        return '@@ -1 +1 @@\n-const x = 1;\n+const x = 2;\n';
+      if (text.includes('symbolic-ref refs/remotes/origin/HEAD'))
+        return 'refs/remotes/origin/main\n';
       if (text.includes('diff --name-status "main...HEAD"')) return '';
       throw new Error(`Unexpected git command: ${text}`);
     });

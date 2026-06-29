@@ -78,7 +78,10 @@ export async function showChangesSinceLastTurn(session?: Session): Promise<strin
 
 export async function showChangesSinceMessage(turnIndex: number): Promise<string>;
 export async function showChangesSinceMessage(turnIndex: number, session: Session): Promise<string>;
-export async function showChangesSinceMessage(turnIndex: number, session?: Session): Promise<string> {
+export async function showChangesSinceMessage(
+  turnIndex: number,
+  session?: Session,
+): Promise<string> {
   const resolved = resolveSession(session);
   const tracking = await ensureChangeTracking(resolved);
   const snapshot = tracking.turnSnapshots.find((entry) => entry.turnIndex === turnIndex);

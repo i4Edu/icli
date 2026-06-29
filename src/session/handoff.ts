@@ -90,7 +90,10 @@ export function receiveHandoff(bundle: HandoffBundle): Session {
     mode: normalized.session.mode,
     cwd: normalized.session.cwd,
     messages: importedContext
-      ? [{ role: 'system', content: importedContext }, ...cloneMessages(normalized.session.messages)]
+      ? [
+          { role: 'system', content: importedContext },
+          ...cloneMessages(normalized.session.messages),
+        ]
       : cloneMessages(normalized.session.messages),
     todos: cloneTodos(normalized.session.todos),
     autopilotEnabled: Boolean(normalized.session.autopilotEnabled),
@@ -203,8 +206,7 @@ function validateSessionState(input: unknown): SessionState {
     messages: cloneMessages(session.messages),
     todos: cloneTodos(session.todos),
     autopilotEnabled: Boolean(session.autopilotEnabled),
-    systemPrompt:
-      typeof session.systemPrompt === 'string' ? session.systemPrompt : undefined,
+    systemPrompt: typeof session.systemPrompt === 'string' ? session.systemPrompt : undefined,
     pinned: clonePinned(session.pinned),
     gitContext: cloneGitContext(session.gitContext),
   };
@@ -389,7 +391,9 @@ function resolveHandoffPath(cwd: string, targetPath?: string): string {
   return resolved;
 }
 
-function cloneMessages(messages: ChatCompletionMessageParam[] | undefined): ChatCompletionMessageParam[] {
+function cloneMessages(
+  messages: ChatCompletionMessageParam[] | undefined,
+): ChatCompletionMessageParam[] {
   if (!Array.isArray(messages)) return [];
   return JSON.parse(JSON.stringify(messages)) as ChatCompletionMessageParam[];
 }
@@ -413,8 +417,7 @@ function cloneTodos(todos: TodoItem[] | undefined): TodoItem[] {
         text: candidate.text,
         done: candidate.done,
         createdAt: candidate.createdAt,
-        completedAt:
-          typeof candidate.completedAt === 'string' ? candidate.completedAt : undefined,
+        completedAt: typeof candidate.completedAt === 'string' ? candidate.completedAt : undefined,
       },
     ];
   });

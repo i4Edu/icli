@@ -54,7 +54,10 @@ function findByPrefix(
     .filter((task) => task.id === prefix || task.id.toLowerCase().startsWith(normalizedPrefix));
 
   if (matches.length === 0) {
-    return { kind: 'missing', message: `${theme.warn(`No background task matches "${prefix}".`)}\n` };
+    return {
+      kind: 'missing',
+      message: `${theme.warn(`No background task matches "${prefix}".`)}\n`,
+    };
   }
   if (matches.length > 1) {
     const options = matches.map((task) => task.id.slice(0, 8)).join(', ');

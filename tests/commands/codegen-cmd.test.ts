@@ -95,15 +95,24 @@ export function handleSlash(): void {
 
     expect(output).toContain('Codegen preview');
     expect(output).toContain('src/commands/session-summary-cmd.ts');
-    expect(fs.existsSync(path.join(tmpDir, 'src', 'commands', 'session-summary-cmd.ts'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, 'tests', 'commands', 'session-summary-cmd.test.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'src', 'commands', 'session-summary-cmd.ts'))).toBe(
+      true,
+    );
+    expect(
+      fs.existsSync(path.join(tmpDir, 'tests', 'commands', 'session-summary-cmd.test.ts')),
+    ).toBe(true);
 
     const slashText = fs.readFileSync(path.join(tmpDir, 'src', 'commands', 'slash.ts'), 'utf8');
-    expect(slashText).toContain("import { sessionSummaryCommand } from './session-summary-cmd.js';");
+    expect(slashText).toContain(
+      "import { sessionSummaryCommand } from './session-summary-cmd.js';",
+    );
     expect(slashText).toContain('/session-summary');
     expect(slashText).toContain("case 'session-summary':");
 
-    const completionText = fs.readFileSync(path.join(tmpDir, 'src', 'util', 'completion.ts'), 'utf8');
+    const completionText = fs.readFileSync(
+      path.join(tmpDir, 'src', 'util', 'completion.ts'),
+      'utf8',
+    );
     expect(completionText).toContain("'session-summary'");
   });
 
@@ -140,7 +149,9 @@ async function dispatchBuiltIn(name: string, args: Record<string, any>): Promise
 
     expect(output).toContain('src/tools/session-summary.ts');
     expect(fs.existsSync(path.join(tmpDir, 'src', 'tools', 'session-summary.ts'))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, 'tests', 'tools', 'session-summary.test.ts'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, 'tests', 'tools', 'session-summary.test.ts'))).toBe(
+      true,
+    );
 
     const registryText = fs.readFileSync(path.join(tmpDir, 'src', 'tools', 'registry.ts'), 'utf8');
     expect(registryText).toContain(

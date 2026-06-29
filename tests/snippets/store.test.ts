@@ -38,8 +38,13 @@ describe('snippet store', () => {
     expect(saved.body).toBe('Hello {{name}}\nSecond line');
     expect(saved.updatedAt).toEqual(expect.any(String));
 
-    expect(fs.readFileSync(path.join(tmpDir, 'greeting.md'), 'utf8')).toBe('Hello {{name}}\nSecond line');
-    expect(readSnippet('greeting')).toMatchObject({ name: 'greeting', body: 'Hello {{name}}\nSecond line' });
+    expect(fs.readFileSync(path.join(tmpDir, 'greeting.md'), 'utf8')).toBe(
+      'Hello {{name}}\nSecond line',
+    );
+    expect(readSnippet('greeting')).toMatchObject({
+      name: 'greeting',
+      body: 'Hello {{name}}\nSecond line',
+    });
     expect(listSnippets().map((snippet) => snippet.name)).toEqual(['greeting']);
 
     expect(deleteSnippet('greeting')).toBe(true);
@@ -57,8 +62,11 @@ describe('snippet store', () => {
   });
 
   it('expands known placeholders and leaves unknown placeholders intact', () => {
-    expect(expandSnippet('Hello {{name}}, use {{tool}} and {{missing}}.', { name: 'Ada', tool: 'Vitest' })).toBe(
-      'Hello Ada, use Vitest and {{missing}}.',
-    );
+    expect(
+      expandSnippet('Hello {{name}}, use {{tool}} and {{missing}}.', {
+        name: 'Ada',
+        tool: 'Vitest',
+      }),
+    ).toBe('Hello Ada, use Vitest and {{missing}}.');
   });
 });

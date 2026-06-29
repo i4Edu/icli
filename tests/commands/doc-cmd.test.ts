@@ -73,7 +73,10 @@ function writeFixture(relativePath: string, content: string): string {
 
 describe('generateDoc', () => {
   it('builds a JSDoc block with params, returns, and throws', () => {
-    const doc = generateDoc('export function sum(a: number, b: number) { throw new Error("x"); }', 'jsdoc');
+    const doc = generateDoc(
+      'export function sum(a: number, b: number) { throw new Error("x"); }',
+      'jsdoc',
+    );
 
     expect(doc).toContain('/**');
     expect(doc).toContain('@param a');
@@ -83,7 +86,10 @@ describe('generateDoc', () => {
   });
 
   it('builds a TSDoc block without throws', () => {
-    const doc = generateDoc('export function sum(a: number, b: number): number { return a + b; }', 'tsdoc');
+    const doc = generateDoc(
+      'export function sum(a: number, b: number): number { return a + b; }',
+      'tsdoc',
+    );
 
     expect(doc).toContain('@param a');
     expect(doc).toContain('@returns');
@@ -134,7 +140,11 @@ describe('docCommand', () => {
   it('generates docs for a specific symbol using inferred tsdoc style', () => {
     const filePath = writeFixture(
       'src/math.ts',
-      ['export function add(left: number, right: number): number {', '  return left + right;', '}'].join('\n'),
+      [
+        'export function add(left: number, right: number): number {',
+        '  return left + right;',
+        '}',
+      ].join('\n'),
     );
 
     const result = docCommand([path.relative(tmpDir, filePath), 'add'], tmpDir);
@@ -157,7 +167,10 @@ describe('docCommand', () => {
 
 describe('slash and completion integration', { timeout: 20_000 }, () => {
   it('wires /doc into slash handling', () => {
-    const slashSource = fs.readFileSync(path.join(process.cwd(), 'src', 'commands', 'slash.ts'), 'utf8');
+    const slashSource = fs.readFileSync(
+      path.join(process.cwd(), 'src', 'commands', 'slash.ts'),
+      'utf8',
+    );
 
     expect(slashSource).toContain("import { docCommand } from './doc-cmd.js';");
     expect(slashSource).toContain('/doc <file> [symbol]');

@@ -31,17 +31,17 @@ export async function runInteractive(
     model: session.state.model,
   });
   const metrics = new MetricsCollector();
-  
+
   const scheduler = getCloudRoutineScheduler();
   if (config.cloudRoutines?.enabled) {
     const executor = createCloudRoutineExecutor();
     scheduler.setExecutor(executor);
     scheduler.start();
   }
-  
+
   // Apply keybinding configuration
   const keybindingMode = applyKeybindingConfig();
-  
+
   if (!config.quiet) {
     process.stdout.write(banner(VERSION, session.state.model));
     if (keybindingMode !== 'default') {

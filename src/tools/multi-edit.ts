@@ -181,9 +181,10 @@ function normalizePlan(rawPlan: MultiEditPlan): MultiEditPlan {
   };
 }
 
-function prepareMultiEdit(
-  plan: MultiEditPlan,
-): { prepared: PreparedFileEdit[]; preview: MultiEditPreview } {
+function prepareMultiEdit(plan: MultiEditPlan): {
+  prepared: PreparedFileEdit[];
+  preview: MultiEditPreview;
+} {
   if (!plan.files.length) {
     throw new Error('multi_edit requires at least one file');
   }
@@ -201,20 +202,15 @@ function prepareMultiEdit(
     const denied = ensureWriteAllowed(absPath);
     if (denied) throw new Error(`${denied}: ${filePlan.file}`);
     assertSandbox(absPath, config.cwd);
-    if (!writePathAllowed(absPath, policy, config.cwd)) throw new Error(`policy denied: ${filePlan.file}`);
+    if (!writePathAllowed(absPath, policy, config.cwd))
+      throw new Error(`policy denied: ${filePlan.file}`);
     if (!fs.existsSync(absPath)) {
       throw new Error(`file not found: ${filePlan.file}`);
     }
 
     const originalContent = fs.readFileSync(absPath, 'utf8');
     const nextContent = applyEdits(filePlan.file, originalContent, filePlan.edits);
-    const diff = createPatch(
-      filePlan.file,
-      originalContent,
-      nextContent,
-      'current',
-      'proposed',
-    );
+    const diff = createPatch(filePlan.file, originalContent, nextContent, 'current', 'proposed');
 
     return {
       path: filePlan.file,

@@ -16,9 +16,9 @@ export interface KeybindingState {
 }
 
 const DEFAULT_KEYMAP: Record<string, string> = {
-  'emacs': 'EMACS',
-  'vi': 'VI',
-  'default': 'DEFAULT',
+  emacs: 'EMACS',
+  vi: 'VI',
+  default: 'DEFAULT',
 };
 
 /**
@@ -26,7 +26,10 @@ const DEFAULT_KEYMAP: Record<string, string> = {
  * Note: Node's readline has limited key handling. This provides
  * basic support through key event listeners and buffer manipulation.
  */
-export function attachKeybindings(rl: readline.Interface, mode: KeybindingMode = 'default'): KeybindingState {
+export function attachKeybindings(
+  rl: readline.Interface,
+  mode: KeybindingMode = 'default',
+): KeybindingState {
   if (mode === 'default') {
     return { mode: 'default', viMode: 'insert', buffer: '', cursor: 0 };
   }
@@ -41,7 +44,7 @@ export function attachKeybindings(rl: readline.Interface, mode: KeybindingMode =
   // Node.js readline doesn't expose raw key events in a portable way.
   // Instead, we provide integration points that applications can use.
   // For full vi/emacs support, users should use a readline alternative like ink or blessed.
-  
+
   // Store reference to readline for applications to integrate with.
   (rl as any).__keybindingMode = mode;
   (rl as any).__keybindingState = state;
@@ -109,7 +112,7 @@ export function getReadlineOptionsForMode(mode: KeybindingMode): Partial<readlin
   // Node.js readline has limited keybinding support.
   // In native mode, only basic Ctrl sequences work.
   // Full vi/emacs would require a wrapper library.
-  
+
   return {
     terminal: true,
     historySize: 500,

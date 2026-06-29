@@ -28,7 +28,8 @@ const FILE_REF_HEADER = '### Referenced files';
 
 export function buildContextBreakdown(session: Session): ContextBreakdown {
   const systemPrompt =
-    session.state.systemPrompt ?? (session.state.mode === 'plan' ? PLAN_SYSTEM : getAskSystemPrompt());
+    session.state.systemPrompt ??
+    (session.state.mode === 'plan' ? PLAN_SYSTEM : getAskSystemPrompt());
   const memoryBlock = loadMemoryBlock(session.state.cwd) ?? '';
   const styleBlock = loadStylePromptContext(session.state.cwd) ?? '';
   const conventionBlock = loadConventionPromptContext(session.state.cwd) ?? '';
@@ -52,7 +53,9 @@ export function buildContextBreakdown(session: Session): ContextBreakdown {
 
     if (role === 'assistant') {
       historyTokens += safeCountTokens(content);
-      toolTokens += safeCountTokens(toolCallsToText((message as { tool_calls?: unknown }).tool_calls));
+      toolTokens += safeCountTokens(
+        toolCallsToText((message as { tool_calls?: unknown }).tool_calls),
+      );
       continue;
     }
 
@@ -169,7 +172,9 @@ function renderTrimSuggestions(breakdown: ContextBreakdown): string {
     .sort((left, right) => right.tokens - left.tokens || left.name.localeCompare(right.name));
 
   if (!candidates.length) {
-    return [theme.brand('Trim suggestions'), `  ${theme.dim('No context loaded yet.')}`, ''].join('\n');
+    return [theme.brand('Trim suggestions'), `  ${theme.dim('No context loaded yet.')}`, ''].join(
+      '\n',
+    );
   }
 
   return [
@@ -193,7 +198,12 @@ function renderBudgetBar(used: number, total: number, width: number): string {
   const ratio = total <= 0 ? 0 : Math.max(0, Math.min(1, used / total));
   const fill = Math.round(ratio * width);
   const rawBar = '█'.repeat(fill) + '░'.repeat(Math.max(0, width - fill));
-  const colored = ratio >= 1 ? theme.err(rawBar) : ratio >= config.contextWarn ? theme.warn(rawBar) : theme.ok(rawBar);
+  const colored =
+    ratio >= 1
+      ? theme.err(rawBar)
+      : ratio >= config.contextWarn
+        ? theme.warn(rawBar)
+        : theme.ok(rawBar);
   return `[${colored}]`;
 }
 

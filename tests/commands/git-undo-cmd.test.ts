@@ -25,7 +25,10 @@ describe('gitUndo', { timeout: 180_000 }, () => {
 
   beforeEach(() => {
     fs.mkdirSync(tempRoot, { recursive: true });
-    aiCommitsPath = path.join(tempRoot, `${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+    aiCommitsPath = path.join(
+      tempRoot,
+      `${Date.now()}-${Math.random().toString(16).slice(2)}.json`,
+    );
     process.env.ICOPILOT_AI_COMMITS_PATH = aiCommitsPath;
     vi.clearAllMocks();
     simpleGitMock.mockReturnValue({

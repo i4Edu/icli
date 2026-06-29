@@ -84,11 +84,16 @@ function trimTrailingSlash(url: string): string {
   return url.trim().replace(/\/+$/, '');
 }
 
-function normalizeHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
+function normalizeHeaders(
+  headers: Record<string, string> | undefined,
+): Record<string, string> | undefined {
   if (!headers) return undefined;
   const normalized = Object.fromEntries(
     Object.entries(headers)
-      .filter((entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string')
+      .filter(
+        (entry): entry is [string, string] =>
+          typeof entry[0] === 'string' && typeof entry[1] === 'string',
+      )
       .map(([key, value]) => [key.trim(), value]),
   );
   return Object.keys(normalized).length ? normalized : undefined;
@@ -109,7 +114,9 @@ function normalizeProviderConfig(config: ProviderConfig): ProviderConfig {
   const defaultModel =
     config.defaultModel && models.includes(config.defaultModel) ? config.defaultModel : models[0];
   const maxTokens =
-    typeof config.maxTokens === 'number' && Number.isFinite(config.maxTokens) && config.maxTokens > 0
+    typeof config.maxTokens === 'number' &&
+    Number.isFinite(config.maxTokens) &&
+    config.maxTokens > 0
       ? Math.floor(config.maxTokens)
       : undefined;
 
@@ -125,7 +132,9 @@ function normalizeProviderConfig(config: ProviderConfig): ProviderConfig {
 }
 
 export function providerConfigPath(): string {
-  return process.env.ICOPILOT_PROVIDERS_PATH || path.join(os.homedir(), '.icopilot', 'providers.json');
+  return (
+    process.env.ICOPILOT_PROVIDERS_PATH || path.join(os.homedir(), '.icopilot', 'providers.json')
+  );
 }
 
 function resolveGitHubCliToken(): string | undefined {
@@ -169,7 +178,13 @@ export class ProviderRegistry {
   private readonly openAIClient: typeof OpenAI;
   private activeName = DEFAULT_PROVIDER_NAME;
 
-  constructor(options: { configPath?: string; builtIns?: ProviderConfig[]; openAIClient?: typeof OpenAI } = {}) {
+  constructor(
+    options: {
+      configPath?: string;
+      builtIns?: ProviderConfig[];
+      openAIClient?: typeof OpenAI;
+    } = {},
+  ) {
     this.configPath = options.configPath || providerConfigPath();
     this.openAIClient = options.openAIClient || OpenAI;
     for (const provider of options.builtIns || BUILTIN_PROVIDERS) {
@@ -308,7 +323,8 @@ export class ProviderRegistry {
           // Ignore invalid provider entries and keep loading the rest.
         }
       }
-      const active = typeof parsed.active === 'string' ? normalizeName(parsed.active) : DEFAULT_PROVIDER_NAME;
+      const active =
+        typeof parsed.active === 'string' ? normalizeName(parsed.active) : DEFAULT_PROVIDER_NAME;
       this.activeName = this.get(active)?.name || DEFAULT_PROVIDER_NAME;
     } catch {
       this.customProviders.clear();

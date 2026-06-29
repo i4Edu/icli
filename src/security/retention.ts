@@ -76,7 +76,9 @@ export class RetentionManager {
     this.configPath = path.resolve(options.configPath ?? retentionConfigPath());
     this.sessionDir = path.resolve(options.sessionDir ?? config.sessionDir);
     this.auditPath = path.resolve(options.auditPath ?? auditLogPath());
-    this.memoryDir = path.resolve(options.memoryDir ?? path.join(os.homedir(), '.icopilot', 'memory'));
+    this.memoryDir = path.resolve(
+      options.memoryDir ?? path.join(os.homedir(), '.icopilot', 'memory'),
+    );
     this.now = options.now ?? (() => new Date());
   }
 
@@ -89,7 +91,9 @@ export class RetentionManager {
         : raw && typeof raw === 'object' && Array.isArray((raw as { policies?: unknown }).policies)
           ? (raw as { policies: unknown[] }).policies
           : [];
-      const normalized = source.map(normalizePolicy).filter((policy): policy is RetentionPolicy => policy !== null);
+      const normalized = source
+        .map(normalizePolicy)
+        .filter((policy): policy is RetentionPolicy => policy !== null);
       return dedupePolicies(normalized);
     } catch {
       return [];
@@ -101,7 +105,10 @@ export class RetentionManager {
     if (!normalized) {
       throw new Error('Invalid retention policy.');
     }
-    const next = dedupePolicies([...this.loadPolicies().filter((entry) => entry.target !== normalized.target), normalized]);
+    const next = dedupePolicies([
+      ...this.loadPolicies().filter((entry) => entry.target !== normalized.target),
+      normalized,
+    ]);
     fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
     fs.writeFileSync(this.configPath, stringify({ policies: next }), 'utf8');
     return next;
@@ -149,7 +156,9 @@ export class RetentionManager {
     const policy = this.policyForTarget(target);
     if (!policy || !policy.enabled) return [];
 
-    const items = this.itemsForTarget(target).sort((left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime());
+    const items = this.itemsForTarget(target).sort(
+      (left, right) => right.modifiedAt.getTime() - left.modifiedAt.getTime(),
+    );
     const cutoff = this.now().getTime() - policy.maxAgeDays * 24 * 60 * 60 * 1000;
 
     return items.flatMap((item, index) => {
@@ -169,7 +178,9 @@ export class RetentionManager {
     });
   }
 
-  private buildTotals(expired: RetentionCandidate[]): Record<ConcreteRetentionTarget, RetentionTargetSummary> {
+  private buildTotals(
+    expired: RetentionCandidate[],
+  ): Record<ConcreteRetentionTarget, RetentionTargetSummary> {
     return {
       sessions: {
         scanned: this.itemsForTarget('sessions').length,
@@ -284,7 +295,8 @@ function normalizePolicy(value: unknown): RetentionPolicy | null {
   }
   const maxAgeDays = normalizeCount(candidate.maxAgeDays);
   if (maxAgeDays === null) return null;
-  const maxCount = candidate.maxCount === undefined ? undefined : normalizeCount(candidate.maxCount);
+  const maxCount =
+    candidate.maxCount === undefined ? undefined : normalizeCount(candidate.maxCount);
   if (candidate.maxCount !== undefined && maxCount === null) return null;
   const normalizedMaxCount = maxCount ?? undefined;
   if (typeof candidate.enabled !== 'boolean') return null;

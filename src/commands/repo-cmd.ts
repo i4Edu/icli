@@ -212,9 +212,7 @@ function formatRepoStatus(status: MultiRepoStatus): string {
 function formatRepoSearchResults(query: string, hits: RepoSearchHit[]): string {
   const lines = [`${theme.brand('Repo search')} ${theme.dim(`for "${query}"`)}`, ''];
   for (const hit of hits) {
-    lines.push(
-      `  ${theme.hl(hit.repo)} ${theme.dim('→')} ${hit.file}:${hit.line}`,
-    );
+    lines.push(`  ${theme.hl(hit.repo)} ${theme.dim('→')} ${hit.file}:${hit.line}`);
     lines.push(`    ${hit.text}`);
   }
   lines.push('');

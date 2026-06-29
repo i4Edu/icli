@@ -54,7 +54,8 @@ export class TaskManager {
 
   formatTaskList(): string {
     const tasks = this.listTasks();
-    if (tasks.length === 0) return `${theme.brand('Background tasks')}\n  ${theme.dim('No tasks.')}\n`;
+    if (tasks.length === 0)
+      return `${theme.brand('Background tasks')}\n  ${theme.dim('No tasks.')}\n`;
 
     const lines = tasks.map(
       (task) =>

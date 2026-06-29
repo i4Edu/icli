@@ -31,7 +31,9 @@ describe('aggregateResults', () => {
 
     expect(aggregated.sources).toEqual(['planner', 'reviewer']);
     expect(aggregated.summary).toContain('## Summary');
-    expect(aggregated.summary).toContain('Add regression tests for the auth flow. _(sources: planner, reviewer)_');
+    expect(aggregated.summary).toContain(
+      'Add regression tests for the auth flow. _(sources: planner, reviewer)_',
+    );
     expect(aggregated.summary.match(/Add regression tests for the auth flow\./g)).toHaveLength(1);
     expect(aggregated.summary).toContain('Use feature flags for rollout.');
     expect(aggregated.summary).toContain('Document the migration path.');

@@ -42,7 +42,9 @@ export class DependencyResolver {
 
   constructor(options: DependencyResolverOptions = {}) {
     this.cwd = path.resolve(options.cwd ?? process.cwd());
-    this.tsconfigPath = options.tsconfigPath ? path.resolve(this.cwd, options.tsconfigPath) : undefined;
+    this.tsconfigPath = options.tsconfigPath
+      ? path.resolve(this.cwd, options.tsconfigPath)
+      : undefined;
   }
 
   resolveImports(filePath: string): string[] {
@@ -218,7 +220,9 @@ export class DependencyResolver {
     const loaded = this.loadRawTsConfig(normalizedPath, new Set<string>());
     const compilerOptions = loaded.compilerOptions ?? {};
     const options: TsConfigOptions = {
-      baseUrl: compilerOptions.baseUrl ? path.resolve(path.dirname(normalizedPath), compilerOptions.baseUrl) : undefined,
+      baseUrl: compilerOptions.baseUrl
+        ? path.resolve(path.dirname(normalizedPath), compilerOptions.baseUrl)
+        : undefined,
       paths: compilerOptions.paths ?? {},
       tsconfigDir: path.dirname(normalizedPath),
     };
@@ -363,7 +367,8 @@ function resolveExtendsPath(extendsValue: string | undefined, tsconfigPath: stri
 
   if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
   const withJsonExtension = candidate.endsWith('.json') ? candidate : `${candidate}.json`;
-  if (fs.existsSync(withJsonExtension) && fs.statSync(withJsonExtension).isFile()) return withJsonExtension;
+  if (fs.existsSync(withJsonExtension) && fs.statSync(withJsonExtension).isFile())
+    return withJsonExtension;
   return null;
 }
 

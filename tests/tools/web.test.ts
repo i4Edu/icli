@@ -50,7 +50,9 @@ describe('webFetchTool', () => {
     const { webFetchTool } = await import('../../src/tools/web.js');
     vi.stubGlobal(
       'fetch',
-      vi.fn(async () => new Response('  hello world  ', { headers: { 'content-type': 'text/plain' } })),
+      vi.fn(
+        async () => new Response('  hello world  ', { headers: { 'content-type': 'text/plain' } }),
+      ),
     );
 
     const result = JSON.parse(await webFetchTool({ url: 'https://example.com/page' }));
