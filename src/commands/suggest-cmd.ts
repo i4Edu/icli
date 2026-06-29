@@ -32,6 +32,9 @@ function detectShell(): ShellTarget {
 
 async function pickShell(): Promise<ShellTarget> {
   const detected = detectShell();
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return detected;
+  }
   const allShells: Array<{ name: string; value: ShellTarget }> = [
     { name: `${detected} (detected)`, value: detected },
     { name: 'bash', value: 'bash' as ShellTarget },
@@ -130,6 +133,10 @@ export async function suggestCommand(
   process.stdout.write(theme.dim(`\nGenerating ${shell} command…\n`));
 
   let command = await generateCommand(trimmedQuery, shell, session, signal);
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    return box(commandChip(command), { title: 'Suggested command', style: 'command' });
+  }
 
   // Post-suggestion action loop — mirrors GitHub Copilot CLI's interactive UX
   let running = true;
