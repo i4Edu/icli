@@ -20,7 +20,7 @@ export interface IndexOptions {
 interface PersistedIndex {
   rootDir: string;
   createdAt: string;
-  symbols: symbol[];
+  symbols: Symbol[];
 }
 
 const DEFAULT_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mts', '.cts', '.mjs', '.cjs'];
@@ -32,7 +32,7 @@ const DEFAULT_EXCLUDE = [
   '**/.icopilot/**',
 ];
 
-const TOP_LEVEL_PATTERNS: Array<{ kind: symbol['kind']; regex: RegExp }> = [
+const TOP_LEVEL_PATTERNS: Array<{ kind: Symbol['kind']; regex: RegExp }> = [
   {
     kind: 'function',
     regex:
@@ -65,9 +65,9 @@ const METHOD_PATTERN =
   /^\s*(?:(?:public|private|protected|static|async|abstract|override|get|set|readonly)\s+)*(#?[A-Za-z_$][\w$]*)\s*(?:<[^>{\r\n]+>)?\s*\([^;{}]*\)\s*(?::\s*[^={]+)?\s*\{$/;
 
 export class SymbolIndex {
-  private symbols: symbol[] = [];
   private rootDir = '';
   private cachePath = '';
+  private symbols: Symbol[] = [];
 
   async build(rootDir: string, options: IndexOptions = {}): Promise<void> {
     const resolvedRoot = path.resolve(rootDir);
@@ -80,7 +80,7 @@ export class SymbolIndex {
       ignore: [...DEFAULT_EXCLUDE, ...(options.exclude ?? [])],
     });
 
-    const collected: symbol[] = [];
+    const collected: Symbol[] = [];
     for (const file of files.sort()) {
       const absolute = path.join(resolvedRoot, file);
       let content = '';
@@ -99,7 +99,7 @@ export class SymbolIndex {
     this.save(this.cachePath);
   }
 
-  search(query: string): symbol[] {
+  search(query: string): Symbol[] {
     const needle = query.trim().toLowerCase();
     if (!needle) return [];
 
@@ -116,16 +116,16 @@ export class SymbolIndex {
       .map((item) => item.symbol);
   }
 
-  getByFile(file: string): symbol[] {
+  getByFile(file: string): Symbol[] {
     const normalized = normalizeFileKey(file, this.rootDir);
     return this.symbols.filter((symbol) => path.normalize(symbol.file) === normalized);
   }
 
-  getByKind(kind: string): symbol[] {
+  getByKind(kind: string): Symbol[] {
     return this.symbols.filter((symbol) => symbol.kind === kind);
   }
 
-  getExported(): symbol[] {
+  getExported(): Symbol[] {
     return this.symbols.filter((symbol) => symbol.exported);
   }
 
@@ -144,7 +144,7 @@ export class SymbolIndex {
   load(filePath: string): void {
     const absolute = path.resolve(filePath);
     const raw = fs.readFileSync(absolute, 'utf8');
-    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | symbol[];
+    const parsed = JSON.parse(raw) as Partial<PersistedIndex> | Symbol[];
     const payload = Array.isArray(parsed)
       ? { rootDir: this.rootDir, symbols: parsed }
       : {
@@ -158,10 +158,10 @@ export class SymbolIndex {
   }
 }
 
-function extractSymbols(content: string, file: string, includePrivate: boolean): symbol[] {
+function extractSymbols(content: string, file: string, includePrivate: boolean): Symbol[] {
   const lineStarts = buildLineStarts(content);
   const depthMap = buildBraceDepthMap(content);
-  const symbols: symbol[] = [];
+  const symbols: Symbol[] = [];
 
   for (const { kind, regex } of TOP_LEVEL_PATTERNS) {
     regex.lastIndex = 0;
@@ -223,8 +223,8 @@ function extractMethods(
   bodyStart: number,
   file: string,
   includePrivate: boolean,
-): symbol[] {
-  const methods: symbol[] = [];
+): Symbol[] {
+  const methods: Symbol[] = [];
   let depth = 0;
   let current = '';
   let currentStart = 0;
@@ -309,11 +309,11 @@ function toPatterns(extensions?: string[]): string[] {
   return patterns.filter(Boolean);
 }
 
-function normalizeSymbols(symbols: symbol[]): symbol[] {
-  const byKey = new Map<string, symbol>();
+function normalizeSymbols(symbols: Symbol[]): Symbol[] {
+  const byKey = new Map<string, Symbol>();
   for (const symbol of symbols) {
     if (!symbol || typeof symbol.name !== 'string' || typeof symbol.file !== 'string') continue;
-    const normalized: symbol = {
+    const normalized: Symbol = {
       name: symbol.name,
       kind: symbol.kind,
       file: path.normalize(symbol.file),
