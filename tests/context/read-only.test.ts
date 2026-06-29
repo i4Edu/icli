@@ -54,7 +54,7 @@ describe('read-only context', () => {
 
   it('renders read-only files for prompt injection', () => {
     const filePath = path.join(tmpDir, 'config.json');
-    fs.writeFileSync(filePath, '{\"name\":\"demo\"}\n', 'utf8');
+    fs.writeFileSync(filePath, '{"name":"demo"}\n', 'utf8');
     addReadOnly('config.json');
 
     const rendered = getReadOnlyContext();

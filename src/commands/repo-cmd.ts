@@ -62,6 +62,7 @@ export function resolveMultiRepoRoot(cwd: string): string {
 
 function findConfigRoot(startDir: string): string | undefined {
   let current = path.resolve(startDir);
+  // eslint-disable-next-line no-constant-condition
   while (true) {
     const candidate = path.join(current, '.icopilot', 'repos.yaml');
     if (fs.existsSync(candidate)) return current;

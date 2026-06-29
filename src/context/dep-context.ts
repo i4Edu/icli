@@ -196,6 +196,7 @@ export class DependencyResolver {
     if (cached !== undefined) return cached;
 
     let currentDir = normalizedStart;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const candidate = path.join(currentDir, 'tsconfig.json');
       if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {

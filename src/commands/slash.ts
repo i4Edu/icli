@@ -1746,6 +1746,7 @@ async function runSlashShellCommand(
   assertSandbox(cwd, config.cwd);
   const safety = checkCommandSafety(command);
   if (safety.level === 'critical') {
+    // eslint-disable-next-line no-control-regex
     throw new Error(formatSafetyWarning(safety).replace(/\x1B\[[0-9;]*m/g, ''));
   }
   if (safety.level === 'warn') {

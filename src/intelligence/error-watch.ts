@@ -24,8 +24,8 @@ const ESLINT_PATTERNS = [
 ];
 
 const GENERIC_PATTERNS = [
-  /^(?<file>.+?):(?<line>\d+):(?<column>\d+)\s*[:\-]\s*(?<severity>error|warning)\s*:?\s*(?<message>.+)$/i,
-  /^(?<severity>error|warning)\s*[:\-]\s*(?<message>.+)$/i,
+  /^(?<file>.+?):(?<line>\d+):(?<column>\d+)\s*[:|-]\s*(?<severity>error|warning)\s*:?\s*(?<message>.+)$/i,
+  /^(?<severity>error|warning)\s*[:|-]\s*(?<message>.+)$/i,
   /^(?<severity>warning|error)\b.*?:\s*(?<message>.+)$/i,
   /^(?<severity>error|warning)\b(?<message>.+)$/i,
 ];
