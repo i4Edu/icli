@@ -36,6 +36,7 @@ import { countTokensSync } from '../util/tokens.js';
 import path from 'node:path';
 import os from 'node:os';
 import { recordTurnSnapshot } from '../commands/changes-cmd.js';
+import { pickModel } from '../routing/router.js';
 
 const MAX_TOOL_HOPS = 6;
 const ASK_ONLY_SYSTEM = `You are iCopilot in question-only mode.
@@ -47,9 +48,14 @@ const CODE_MODE_PROMPT = `Code Mode override:
 - Use tools when they help you inspect or change code.
 - Prefer direct execution over discussion.`;
 const ARCHITECT_MODE_PROMPT = `Architect Mode override:
-- Start with a short implementation plan (3-6 bullets).
-- Then execute that plan immediately in the same turn.
-- Keep the plan concise and move quickly into implementation.`;
+- Execute the supplied architecture plan.
+- Keep implementation aligned to that plan unless a hard blocker appears.
+- Use tools and code edits as needed to complete the task.`;
+const ARCHITECT_PLANNER_PROMPT = `You are the planning half of Architect Mode.
+
+Produce a concise implementation plan (3-6 bullets) for the user's request.
+The plan should focus on concrete code changes and verification steps.
+Do not call tools.`;
 
 export interface TurnOpts {
   session: Session;
@@ -137,6 +143,31 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
   };
   session.push(userMsg);
 
+  let modelForTurn = session.state.model;
+  if (turnMode === 'architect') {
+    const plannerModel = pickModel(session.state.model, 'plan');
+    const plannerResult = await streamChat({
+      model: plannerModel,
+      messages: [
+        {
+          role: 'system',
+          content: `${buildSystemPrompt(session, filterResult.filtered, turnProfile)}\n\n${ARCHITECT_PLANNER_PROMPT}`,
+        },
+        ...session.state.messages,
+      ],
+      signal,
+      onToken: () => undefined,
+    });
+    const plan = plannerResult.content?.trim() || '';
+    if (plan) {
+      if (!config.quiet && !config.jsonOutput) {
+        process.stdout.write(`\n${theme.brand('Architect plan')} ${theme.dim(`(${plannerModel})`)}\n${plan}\n\n`);
+      }
+      sys.content = `${sys.content}\n\nArchitect plan:\n${plan}`;
+    }
+    modelForTurn = pickModel(session.state.model, 'edit');
+  }
+
   const tools = turnProfile.tools;
   const changedFiles = new Set<string>();
   const failedLintFiles = new Set<string>();
@@ -158,7 +189,7 @@ export async function runTurn(opts: TurnOpts): Promise<void> {
         process.stdout.write('\n' + theme.assistant('● ') + '');
       }
       const res = await streamChat({
-        model: session.state.model,
+        model: modelForTurn,
         messages: [sys, ...session.state.messages],
         tools,
         signal,

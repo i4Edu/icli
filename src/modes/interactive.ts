@@ -11,11 +11,15 @@ import { runTurn } from './turn.js';
 import { config } from '../config.js';
 import { backgroundTaskManager } from './background.js';
 import { hookManager } from '../hooks/lifecycle.js';
+import { applyKeybindingConfig, getKeybindingHelp } from '../util/keybindings.js';
 
 const require = createRequire(import.meta.url);
 const VERSION = require('../../package.json').version as string;
 
-export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
+export async function runInteractive(
+  initialMode: 'ask' | 'plan' = 'ask',
+  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' } = {},
+) {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
   await hookManager.emit('sessionStart', {
@@ -25,10 +29,17 @@ export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
     model: session.state.model,
   });
   const metrics = new MetricsCollector();
+  
+  // Apply keybinding configuration
+  const keybindingMode = applyKeybindingConfig();
+  
   if (!config.quiet) {
     process.stdout.write(banner(VERSION, session.state.model));
+    if (keybindingMode !== 'default') {
+      process.stdout.write(getKeybindingHelp(keybindingMode));
+    }
   }
-  const rl = createPrompt();
+  const rl = createPrompt(keybindingMode);
 
   let running = true;
   let processing = false;
@@ -104,9 +115,11 @@ export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
             continue;
           }
 
-          const turnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null }).turnMode;
+          const explicitTurnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null })
+            .turnMode;
+          const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
 
-          if (session.state.autopilotEnabled && !turnMode) {
+          if (session.state.autopilotEnabled && !effectiveTurnMode) {
             await runAutopilot(input, {
               session,
               signal: currentAbort.signal,
@@ -117,7 +130,7 @@ export async function runInteractive(initialMode: 'ask' | 'plan' = 'ask') {
               userInput: input,
               metrics,
               signal: currentAbort.signal,
-              turnMode: turnMode ?? undefined,
+              turnMode: effectiveTurnMode ?? undefined,
             });
             await handlePostTurnContextBudget(session, currentAbort.signal);
           }

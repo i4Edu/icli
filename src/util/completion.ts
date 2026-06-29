@@ -126,6 +126,7 @@ const defaultSlashCommands = [
   'diagram',
   'extension',
   'serve',
+  'worktree',
   'plugin',
   'workflow',
   'sandbox',
@@ -147,8 +148,10 @@ const defaultFlags = [
   '--cwd',
   '--sandbox',
   '--tui',
+  '--architect',
   '--verbose',
   '--serve',
+  '--browser',
   '--help',
   '--version',
 ];

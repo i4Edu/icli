@@ -203,33 +203,33 @@ Deep integration of the agentic features built in v1.2, plus a full
 extension system and CI/CD scripting support.
 
 **Runtime integrations (v1.2 features fully wired):**
-- 🟡 **`--autopilot` CLI flag** — wire autopilot mode to CLI entry point with `runAutopilot(goal)` loop
-- 🟡 **Safety net integration** — `checkCommandSafety()` called by shell tool before every execution
-- 🟡 **`/pin` **`/unpin`**** — wire PinnedContext into sessions and slash commands
-- 🟡 **Auto-compact** — automatic context compaction at 95% budget (configurable threshold)
+- ✅ **`--autopilot` CLI flag** — autopilot mode wired to CLI entry point with `runAutopilot(goal)` loop
+- ✅ **Safety net integration** — `checkCommandSafety()` called by shell tool before every execution
+- ✅ **`/pin` **`/unpin`**** — PinnedContext wired into sessions and slash commands
+- ✅ **Auto-compact** — automatic context compaction at 95% budget (configurable threshold)
 
 **CI/CD & scripting:**
-- 🟡 **`--json` flag** — structured JSON output for piping
-- 🟡 **`--quiet` / `-q`** — suppress banners, spinners, decorative output
-- 🟡 **`--yes` / `--no-confirm`** — auto-approve tool confirmations for automation
+- ✅ **`--json` flag** — structured JSON output for piping
+- ✅ **`--quiet` / `-q`** — suppress banners, spinners, decorative output
+- ✅ **`--yes` / `--no-confirm`** — auto-approve tool confirmations for automation
 
 **Extension & skill system:**
-- 🟡 **`/skill` command** — load, activate, and manage agent skills from files/URLs
-- 🟡 **Extension loader** — `.icopilot/extensions/` with manifest.json discovery + hot-reload
-- 🟡 **`/extension` command** — list, info, reload extensions
+- ✅ **`/skill` command** — load, activate, and manage agent skills from files/URLs
+- ✅ **Extension loader** — `.icopilot/extensions/` with manifest.json discovery + hot-reload
+- ✅ **`/extension` command** — list, info, reload extensions
 
 **Sub-agent architecture:**
-- 🟡 **`/agent` command** — delegate to specialized agents (explore, task, review, plan)
-- 🟡 **`/explore`** — codebase exploration with project context injection
-- 🟡 **Background tasks** — `/task` management for long-running agent operations
+- ✅ **`/agent` command** — delegate to specialized agents (explore, task, review, plan)
+- ✅ **`/explore`** — codebase exploration with project context injection
+- ✅ **Background tasks** — `/task` management for long-running agent operations
 
 **Session & memory enhancements:**
-- 🟡 **Persistent project memory** — `/memory` command; facts survive across sessions
-- 🟡 **`/share`** — session export/import bundles + clipboard format
-- 🟡 **Enhanced `/context`** — full breakdown by source with trim suggestions
+- ✅ **Persistent project memory** — `/memory` command; facts survive across sessions
+- ✅ **`/share`** — session export/import bundles + clipboard format
+- ✅ **Enhanced `/context`** — full breakdown by source with trim suggestions
 
 **Housekeeping:**
-- 🟡 **Version bump** — 1.3.0 across package.json, CLI, interactive mode
+- ✅ **Version bump** — 1.3.0 across package.json, CLI, interactive mode
 
 ---
 
@@ -444,17 +444,17 @@ CLI space.
 
 ---
 
-## v2.2 — Platform & Ecosystem (planned) 💡
+## v2.2 — Platform & Ecosystem (in progress) 🟡
 
 The next frontier — voice, browser UI, and ecosystem features.
 
 - ⬜ **Voice input** — speech-to-text for hands-free interaction
 - ⬜ **ACP protocol server** — Agent Client Protocol for tool interop
-- ⬜ **Browser/web UI** — `--browser` flag for web-based interface
-- ⬜ **Architect mode** — dual-model (planner + coder) for complex tasks
-- ⬜ **Git worktrees** — isolated branch work with AI
+- ✅ **Browser/web UI** — `--browser` flag for web-based interface
+- ✅ **Architect mode** — dual-model (planner + coder) for complex tasks
+- ✅ **Git worktrees** — isolated branch work with AI
 - ⬜ **Cloud-scheduled routines** — remote cron-like task execution
-- ⬜ **Vi/Emacs keybindings** — modal editing in the REPL
+- ✅ **Vi/Emacs keybindings** — modal editing in the REPL
 - ⬜ **Slack/Teams integration** — receive notifications and approve actions
 
 ---

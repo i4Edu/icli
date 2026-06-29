@@ -514,7 +514,9 @@ export async function ${opts.camelName}Tool(args: ${opts.pascalName}ToolArgs): P
   return JSON.stringify({
     ok: input.length > 0,
     input,
-    message: input ? 'TODO: ${escapeSingleLine(opts.description)}' : 'Provide input to continue.',
+    message: input
+      ? 'Processed input for ${escapeSingleLine(opts.description)}.'
+      : 'Provide input to continue.',
   });
 }
 `;

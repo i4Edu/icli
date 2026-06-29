@@ -22,6 +22,8 @@ const confirmPromptMock = vi.hoisted(() => vi.fn());
 const inputPromptMock = vi.hoisted(() => vi.fn());
 const selectPromptMock = vi.hoisted(() => vi.fn());
 const spawnSyncMock = vi.hoisted(() => vi.fn());
+const openBrowserMock = vi.hoisted(() => vi.fn());
+const worktreeCommandMock = vi.hoisted(() => vi.fn(() => 'Git worktrees\n'));
 const readClipboardMock = vi.hoisted(() => vi.fn());
 const copyTextToClipboardMock = vi.hoisted(() => vi.fn());
 const copyContextToClipboardMock = vi.hoisted(() => vi.fn());
@@ -125,6 +127,14 @@ vi.mock('../../src/intelligence/navigation.js', () => ({
 vi.mock('../../src/server/api-server.js', () => ({
   DEFAULT_API_PORT: 8787,
   getGlobalAPIServer: () => apiServerMock,
+}));
+
+vi.mock('../../src/util/browser.js', () => ({
+  openBrowser: openBrowserMock,
+}));
+
+vi.mock('../../src/commands/worktree-cmd.js', () => ({
+  worktreeCommand: worktreeCommandMock,
 }));
 
 vi.mock('../../src/providers/local-model.js', () => ({
@@ -330,6 +340,8 @@ describe('handleSlash', { timeout: 180_000 }, () => {
     expect(output).toContain('/workflow');
     expect(output).toContain('/tdd');
     expect(output).toContain('/editor');
+    expect(output).toContain('/serve');
+    expect(output).toContain('/worktree');
     expect(output).toContain('Ctrl+X Ctrl+E');
     expect(output).toContain('/auto-lint');
     expect(output).toContain('/auto-test');
@@ -832,6 +844,27 @@ describe('handleSlash', { timeout: 180_000 }, () => {
 
     expect(apiServerMock.stop).toHaveBeenCalled();
     expect(output).toContain('API server stopped');
+  });
+
+  it('recognizes /serve open [port]', async () => {
+    apiServerMock.start.mockResolvedValue(8787);
+    openBrowserMock.mockResolvedValue(undefined);
+    const { handleSlash } = await import('../../src/commands/slash.js');
+
+    await handleSlash('/serve open 8787', createContext());
+
+    expect(apiServerMock.start).toHaveBeenCalledWith(8787);
+    expect(openBrowserMock).toHaveBeenCalledWith('http://127.0.0.1:8787/');
+    expect(output).toContain('opened browser UI');
+  });
+
+  it('recognizes /worktree', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+
+    await handleSlash('/worktree list', createContext());
+
+    expect(worktreeCommandMock).toHaveBeenCalledWith(['list'], tmpDir);
+    expect(output).toContain('Git worktrees');
   });
 
   it('recognizes /heal --max', async () => {

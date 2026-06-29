@@ -13,6 +13,7 @@ import { logger } from './logger.js';
 import { hookManager, initializeLifecycleHooks } from './hooks/lifecycle.js';
 import { hookCommand } from './hooks/precommit.js';
 import { Marketplace } from './plugins/marketplace.js';
+import { openBrowser } from './util/browser.js';
 
 function friendlyError(err: any): string {
   const message = String(err?.message || err);
@@ -95,6 +96,40 @@ export async function run(opts: any): Promise<void> {
     });
   }
 
+  if (opts.autopilot && opts.architect) {
+    throw new Error('--architect cannot be combined with --autopilot.');
+  }
+
+  if (opts.browser !== undefined) {
+    const port = normalizeServePort(opts.browser);
+    const server = getGlobalAPIServer();
+    const actualPort = await server.start(port);
+    const url = `http://127.0.0.1:${actualPort}/`;
+    try {
+      await openBrowser(url);
+      process.stdout.write(theme.ok(`Opened browser UI at ${url}\n`));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(theme.warn(`failed to open browser automatically: ${message}\n`));
+      process.stdout.write(theme.dim(`Open ${url} manually.\n`));
+    }
+    const shutdown = async () => {
+      process.off('SIGINT', onSigint);
+      process.off('SIGTERM', onSigterm);
+      await stopGlobalAPIServer().catch(() => undefined);
+      process.exit(0);
+    };
+    const onSigint = () => {
+      void shutdown();
+    };
+    const onSigterm = () => {
+      void shutdown();
+    };
+    process.on('SIGINT', onSigint);
+    process.on('SIGTERM', onSigterm);
+    return;
+  }
+
   if (opts.serve !== undefined) {
     const port = normalizeServePort(opts.serve);
     const server = getGlobalAPIServer();
@@ -123,7 +158,11 @@ export async function run(opts: any): Promise<void> {
       await runAutopilot(opts.prompt, { model: opts.model, cwd: config.cwd });
       return;
     }
-    await runOneShot(opts.prompt, { model: opts.model, plan: !!opts.plan });
+    await runOneShot(opts.prompt, {
+      model: opts.model,
+      plan: !!opts.plan,
+      turnMode: opts.architect ? 'architect' : undefined,
+    });
     return;
   }
   if (opts.autopilot) {
@@ -131,10 +170,14 @@ export async function run(opts: any): Promise<void> {
   }
   markFirstPrompt();
   if (opts.tui) {
-    await runTui(opts.plan ? 'plan' : 'ask');
+    await runTui(opts.plan ? 'plan' : 'ask', {
+      defaultTurnMode: opts.architect ? 'architect' : undefined,
+    });
     return;
   }
-  await runInteractive(opts.plan ? 'plan' : 'ask');
+  await runInteractive(opts.plan ? 'plan' : 'ask', {
+    defaultTurnMode: opts.architect ? 'architect' : undefined,
+  });
 }
 
 export function createProgram(): Command {
@@ -152,6 +195,7 @@ export function createProgram(): Command {
     .option('--base-url <url>', 'override the provider base URL for OpenAI-compatible endpoints')
     .option('--plan', 'start in Plan Mode')
     .option('--autopilot', 'run prompt in autopilot mode')
+    .option('--architect', 'run in architect mode (planner + coder)')
     .option('--tui', 'start the experimental full-screen TUI')
     .option('--cwd <path>', 'set working directory')
     .option('-v, --verbose', 'enable verbose debug logging')
@@ -166,6 +210,7 @@ export function createProgram(): Command {
     .option('-y, --yes', 'auto-approve non-critical tool confirmations')
     .option('--no-confirm', 'alias for --yes')
     .option('--serve [port]', 'start the HTTP API server')
+    .option('--browser [port]', 'start the HTTP API server and open browser UI')
     .option('--perf-trace', 'print cold-start timing to stderr');
 
   program

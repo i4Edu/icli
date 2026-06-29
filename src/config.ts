@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { providerRegistry, resolveProviderApiKey } from './providers/custom-provider.js';
+import type { KeybindingMode } from './util/keybindings.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type ThemeName = 'auto' | 'light' | 'dark' | 'none';
@@ -37,6 +38,7 @@ export interface Config {
   testCmd: string;
   reasoningEffort?: ReasoningEffort;
   thinkTokens?: number;
+  keybindings?: { mode: KeybindingMode };
 }
 
 const HOME = os.homedir();
@@ -68,6 +70,7 @@ const DEFAULT_CONFIG: Config = {
   testCmd: '',
   reasoningEffort: undefined,
   thinkTokens: undefined,
+  keybindings: { mode: 'default' },
 };
 
 function parseBool(value: string | undefined): boolean | undefined {

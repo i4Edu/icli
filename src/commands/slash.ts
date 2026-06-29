@@ -155,6 +155,7 @@ import {
 import { AuditLogger, auditLogPath, type AuditEntry, type AuditStats } from '../security/audit.js';
 import { BridgeServer, DEFAULT_BRIDGE_PORT } from '../bridge/ide-bridge.js';
 import { DEFAULT_API_PORT, getGlobalAPIServer } from '../server/api-server.js';
+import { openBrowser } from '../util/browser.js';
 import { assertSandbox } from '../tools/sandbox.js';
 import { loadPolicy, shellCommandAllowed } from '../tools/policy.js';
 import { checkCommandSafety, formatSafetyWarning } from '../tools/safety.js';
@@ -166,6 +167,7 @@ import {
   setScheduleRunner,
   type ScheduledTask,
 } from './schedule-cmd.js';
+import { worktreeCommand } from './worktree-cmd.js';
 
 export interface SlashContext {
   session: Session;
@@ -316,6 +318,7 @@ ${theme.brand('Slash commands')}
   /diagram [type]             generate Mermaid architecture diagrams
   /extension [list|info|reload] inspect local extensions
   /serve <subcommand>         manage HTTP API server
+  /worktree <subcommand>      manage git worktrees
   /sandbox <run|shell|status|cleanup> use Docker sandbox helpers
   /run <command>             run a shell command and optionally add output to chat
   /plugin [subcommand]        search and manage marketplace plugins
@@ -1589,6 +1592,9 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'serve':
       process.stdout.write(await serveCommand(rest));
       return done();
+    case 'worktree':
+      process.stdout.write(worktreeCommand(rest, s.state.cwd));
+      return done();
     case 'plugin':
     case 'plugins':
       process.stdout.write(await pluginCommand(rest));
@@ -2755,12 +2761,26 @@ async function serveCommand(args: string[]): Promise<string> {
         `  sessions: ${theme.hl(String(apiServer.getSessionCount()))}`,
         '',
       ].join('\n');
+    case 'open': {
+      const parsedPort = parseServePort(rawPort);
+      if (typeof parsedPort === 'string') return `${theme.warn(parsedPort)}\n`;
+      const port = await apiServer.start(parsedPort ?? DEFAULT_API_PORT);
+      const url = `http://127.0.0.1:${port}/`;
+      try {
+        await openBrowser(url);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return `${theme.warn(`failed to open browser automatically: ${message}`)}\n${theme.dim(`Open ${url} manually.\n`)}`;
+      }
+      return `${theme.ok(`✔ opened browser UI at ${url}`)}\n`;
+    }
     default:
       return [
         theme.warn(`unknown serve subcommand: ${subcommand}`),
         'usage: /serve start [port]',
         '       /serve stop',
         '       /serve status',
+        '       /serve open [port]',
         '',
       ].join('\n');
   }

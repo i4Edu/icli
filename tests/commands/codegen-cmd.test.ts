@@ -47,6 +47,9 @@ describe('generateModule', () => {
       expect(generated.paths.test).toContain('.test.ts');
       expect(generated.source).toContain(sourceNeedle);
       expect(generated.source).toContain(extraNeedle);
+      if (type === 'tool') {
+        expect(generated.source).not.toContain('TODO:');
+      }
       expect(generated.test).toContain('vitest');
       expect(generated.test).toContain('.js');
     },

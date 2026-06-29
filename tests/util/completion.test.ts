@@ -73,6 +73,7 @@ describe('completion generators', () => {
     expect(script).toContain('/hook');
     expect(script).toContain('/diagram');
     expect(script).toContain('/serve');
+    expect(script).toContain('/worktree');
     expect(script).toContain('/conventions');
     expect(script).toContain('/plugin');
     expect(script).toContain('/tdd');
@@ -83,6 +84,8 @@ describe('completion generators', () => {
     expect(script).toContain('--local');
     expect(script).toContain('--provider');
     expect(script).toContain('--serve');
+    expect(script).toContain('--browser');
+    expect(script).toContain('--architect');
     expect(script).toContain('repo-guide');
   });
 });

@@ -1,13 +1,17 @@
 import readline from 'node:readline';
 import { theme } from './theme.js';
+import { attachKeybindings, applyKeybindingConfig, type KeybindingMode } from '../util/keybindings.js';
 
 export interface ReplPrompt {
   read(prompt: string): Promise<string>;
   close(): void;
+  getKeybindingMode?(): KeybindingMode;
 }
 
-/** Minimal readline-based prompt (history-enabled). */
-export function createPrompt(): ReplPrompt {
+/** Minimal readline-based prompt (history-enabled, with optional keybindings). */
+export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
+  const mode = keybindingMode ?? applyKeybindingConfig();
+  
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -15,6 +19,12 @@ export function createPrompt(): ReplPrompt {
     // Future DX: path completion can be added here without changing callers.
     historySize: 500,
   });
+
+  // Attach keybindings if configured
+  if (mode !== 'default') {
+    attachKeybindings(rl, mode);
+  }
+
   return {
     read(prompt: string): Promise<string> {
       return new Promise((resolve) => {
@@ -23,6 +33,9 @@ export function createPrompt(): ReplPrompt {
     },
     close() {
       rl.close();
+    },
+    getKeybindingMode() {
+      return mode;
     },
   };
 }

@@ -45,6 +45,25 @@ describe('CI scripting flags', () => {
     expect(config.defaultModel).toBe('llama3.2');
   }, 20_000);
 
+  it('routes --architect one-shot prompts through architect turn mode', async () => {
+    const runOneShotMock = vi.fn();
+    vi.doMock('../../src/modes/oneshot.js', () => ({
+      runOneShot: runOneShotMock,
+    }));
+
+    const { run } = await import('../../src/index.js');
+    await run({
+      prompt: 'design and implement caching',
+      architect: true,
+    });
+
+    expect(runOneShotMock).toHaveBeenCalledWith('design and implement caching', {
+      model: undefined,
+      plan: false,
+      turnMode: 'architect',
+    });
+  }, 20_000);
+
   it('suppresses the interactive banner when quiet mode is enabled', async () => {
     const read = vi.fn().mockRejectedValue(new Error('stop'));
     const close = vi.fn();

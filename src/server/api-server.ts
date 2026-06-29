@@ -132,6 +132,17 @@ export class APIServer {
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/') {
+        this.writeHtml(res, renderWebUiShell(this.requiresApiKey()));
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/favicon.ico') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/api/models') {
         const activeModels = [
           ...new Set([...this.sessions.values()].map((session) => session.state.model)),
@@ -312,6 +323,11 @@ export class APIServer {
     res.end(JSON.stringify(payload));
   }
 
+  private writeHtml(res: ServerResponse, html: string): void {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(html);
+  }
+
   private writeSSEHeaders(res: ServerResponse): void {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -330,7 +346,7 @@ export class APIServer {
   }
 
   private isAuthorized(req: IncomingMessage, pathname: string): boolean {
-    if (pathname === '/api/health') return true;
+    if (pathname === '/api/health' || pathname === '/' || pathname === '/favicon.ico') return true;
     const expected = process.env.ICOPILOT_API_KEY?.trim();
     if (!expected) return true;
 
@@ -561,6 +577,93 @@ function resolveImagePath(filePath: string, cwd: string): string {
     return path.join(os.homedir(), filePath.slice(2));
   }
   return path.isAbsolute(filePath) ? filePath : path.resolve(cwd, filePath);
+}
+
+function renderWebUiShell(authRequired: boolean): string {
+  const authHint = authRequired
+    ? 'API key required. Provide it below to call /api/chat.'
+    : 'No API key required.';
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iCopilot Browser UI</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui; background: #0b0f17; color: #e6edf3; }
+    .container { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { margin: 0 0 8px; font-size: 1.3rem; }
+    .hint { color: #9fb0c0; margin-bottom: 16px; }
+    textarea, input, button { font: inherit; }
+    textarea, input { width: 100%; box-sizing: border-box; background: #111826; color: #e6edf3; border: 1px solid #273244; border-radius: 8px; padding: 10px; }
+    textarea { min-height: 120px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+    button { background: #2563eb; border: 0; border-radius: 8px; color: white; padding: 10px 14px; cursor: pointer; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    pre { white-space: pre-wrap; background: #0f172a; border: 1px solid #273244; border-radius: 8px; padding: 12px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>iCopilot Browser UI</h1>
+    <div class="hint">${authHint}</div>
+    <label>API key (optional)</label>
+    <input id="apiKey" placeholder="X-API-Key value" />
+    <label style="display:block; margin-top:10px;">Message</label>
+    <textarea id="prompt" placeholder="Ask iCopilot..."></textarea>
+    <div class="row">
+      <input id="sessionId" placeholder="sessionId (optional)" />
+      <button id="send" type="button">Send</button>
+    </div>
+    <pre id="output">Ready.</pre>
+  </div>
+  <script>
+    const output = document.getElementById('output');
+    const promptEl = document.getElementById('prompt');
+    const apiKeyEl = document.getElementById('apiKey');
+    const sessionIdEl = document.getElementById('sessionId');
+    const sendButton = document.getElementById('send');
+
+    async function send() {
+      const message = promptEl.value.trim();
+      if (!message) return;
+      sendButton.disabled = true;
+      output.textContent = 'Thinking...';
+      try {
+        const headers = { 'content-type': 'application/json' };
+        const key = apiKeyEl.value.trim();
+        if (key) headers['x-api-key'] = key;
+        const payload = { message, sessionId: sessionIdEl.value.trim() || undefined, stream: false };
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+        });
+        const json = await response.json();
+        if (!response.ok) {
+          output.textContent = JSON.stringify(json, null, 2);
+          return;
+        }
+        if (json.session && json.session.id) sessionIdEl.value = json.session.id;
+        output.textContent = json.content || '(no content)';
+      } catch (error) {
+        output.textContent = String(error);
+      } finally {
+        sendButton.disabled = false;
+      }
+    }
+
+    sendButton.addEventListener('click', send);
+    promptEl.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        send();
+      }
+    });
+  </script>
+</body>
+</html>`;
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {

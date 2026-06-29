@@ -75,6 +75,11 @@ describe('APIServer', () => {
   });
 
   it('serves health and models responses with CORS headers', async () => {
+    const uiResponse = await fetch(`${baseUrl}/`);
+    expect(uiResponse.status).toBe(200);
+    expect(uiResponse.headers.get('content-type')).toContain('text/html');
+    expect(await uiResponse.text()).toContain('iCopilot Browser UI');
+
     const healthResponse = await fetch(`${baseUrl}/api/health`);
     expect(healthResponse.status).toBe(200);
     expect(healthResponse.headers.get('access-control-allow-origin')).toBe('*');

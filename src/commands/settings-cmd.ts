@@ -10,6 +10,7 @@ import {
   type ThemeName,
 } from '../config.js';
 import { theme } from '../ui/theme.js';
+import type { KeybindingMode } from '../util/keybindings.js';
 
 type PublicSettingKey =
   | 'model'
@@ -31,7 +32,8 @@ type PublicSettingKey =
   | 'policyPath'
   | 'jsonOutput'
   | 'quiet'
-  | 'autoApprove';
+  | 'autoApprove'
+  | 'keybindings';
 
 type ConfigKey = keyof Config;
 
@@ -48,6 +50,7 @@ const BOOLEAN_FALSE = /^(0|false|no|off)$/i;
 const LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 const THEMES: ThemeName[] = ['auto', 'light', 'dark', 'none'];
 const REASONING_LEVELS: ReasoningEffort[] = ['low', 'medium', 'high', 'max'];
+const KEYBINDING_MODES: KeybindingMode[] = ['default', 'vi', 'emacs'];
 
 const SETTING_DEFINITIONS: SettingDefinition<any>[] = [
   textSetting('model', 'defaultModel', ['defaultModel']),
@@ -73,6 +76,22 @@ const SETTING_DEFINITIONS: SettingDefinition<any>[] = [
   booleanSetting('jsonOutput', 'jsonOutput', ['json', 'json-output']),
   booleanSetting('quiet', 'quiet'),
   booleanSetting('autoApprove', 'autoApprove', ['auto-approve']),
+  {
+    key: 'keybindings',
+    configKey: 'keybindings',
+    aliases: ['keybinding'],
+    parse: (value: string) => {
+      const mode = value.trim().toLowerCase() as KeybindingMode;
+      if (!KEYBINDING_MODES.includes(mode)) {
+        throw new Error(`keybindings must be one of: ${KEYBINDING_MODES.join(', ')}`);
+      }
+      return { mode };
+    },
+    format: (value: any) => {
+      if (!value || typeof value !== 'object' || !('mode' in value)) return 'default';
+      return (value as { mode: KeybindingMode }).mode;
+    },
+  },
 ];
 
 export function showSettings(): string {

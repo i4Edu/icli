@@ -23,7 +23,10 @@ const FRAME_MS = 33;
 
 type StdoutWrite = typeof process.stdout.write;
 
-export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void> {
+export async function runTui(
+  initialMode: 'ask' | 'plan' = 'ask',
+  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' } = {},
+): Promise<void> {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
   await hookManager.emit('sessionStart', {
@@ -181,9 +184,11 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
           return;
         }
 
-        const turnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null }).turnMode;
+        const explicitTurnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null })
+          .turnMode;
+        const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
 
-        if (session.state.autopilotEnabled && !turnMode) {
+        if (session.state.autopilotEnabled && !effectiveTurnMode) {
           await runAutopilot(forwardInput, {
             session,
             signal: currentAbort.signal,
@@ -194,7 +199,7 @@ export async function runTui(initialMode: 'ask' | 'plan' = 'ask'): Promise<void>
             userInput: forwardInput,
             metrics,
             signal: currentAbort.signal,
-            turnMode: turnMode ?? undefined,
+            turnMode: effectiveTurnMode ?? undefined,
           });
         }
         await handlePostTurnContextBudget(session, currentAbort.signal);

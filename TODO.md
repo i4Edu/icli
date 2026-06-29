@@ -259,46 +259,13 @@
 - ✅ Clipboard operations — `/paste`, `/copy-context`, `/run` with output injection
 - ✅ Dead code detection — identify unused exports/functions
 
-## Phase 18 — Workflow Automation (v1.7) ✅
+## Phase 23 — Platform & Ecosystem (v2.2) 🟡
 
-- ✅ Workflow definitions — `.icopilot/workflows/*.yaml`
-- ✅ Built-in workflows — review-and-commit, test-fix-loop, release-prep
-- ✅ Conditional steps + loop constructs
-- ✅ GitHub Actions helper — generate workflow YAML from natural language
-- ✅ Pre-commit hook — `/review` + `/security` before commit
-- ✅ File watch triggers — run workflow on change
-- ✅ Release automation — version bump → changelog → tag → publish
-
-## Phase 19 — Knowledge & Learning (v1.8) ✅
-
-- ✅ Project RAG — chunk and index all docs for retrieval
-- ✅ External docs ingestion — API docs, framework guides
-- ✅ `/doc` command — generate JSDoc/docstring
-- ✅ README generation — scaffold from project analysis
-- ✅ Architecture diagrams — mermaid from code relationships
-- ✅ Style learning — adapt to user's coding patterns
-- ✅ Correction memory — remember user corrections
-- ✅ Project conventions — learn and enforce patterns
-
-## Phase 20 — Enterprise & Security (v1.9) ✅
-
-- ✅ Role-based tool access — restrict by user role
-- ✅ Audit logging — full trail of tool executions
-- ✅ SSO support — SAML/OIDC authentication
-- ✅ Proxy support — HTTP/HTTPS/SOCKS5
-- ✅ Air-gapped mode — local models (Ollama, vLLM)
-- ✅ Content filtering — prevent PII in prompts
-- ✅ Retention policies — auto-delete after N days
-
-## Phase 21 — The Complete Agentic OS (v2.0) ✅
-
-- ✅ Goal-driven development — describe feature → implement end-to-end
-- ✅ Self-healing builds — detect failure → diagnose → fix → retry
-- ✅ Test-driven agent — write tests first, implement until green
-- ✅ Multi-repo orchestration — coordinate across repositories
-- ✅ Plugin marketplace — `icopilot install <plugin>`
-- ✅ Custom model providers — any OpenAI-compatible endpoint
-- ✅ IDE bridge — bidirectional VS Code / Neovim communication
-- ✅ API server mode — expose as HTTP API
-- ✅ Container sandbox — Docker-based isolated execution
-- ✅ Cloud sessions — run in cloud, access from any terminal
+- ✅ Browser/web UI — `--browser` flag and API web shell
+- ✅ Architect mode — dual-model planner + coder flow
+- ✅ Git worktrees — `/worktree` command for list/add/remove/prune
+- ⬜ Voice input — speech-to-text for hands-free interaction
+- ⬜ ACP protocol server — Agent Client Protocol for tool interop
+- ⬜ Cloud-scheduled routines — remote cron-like task execution
+- ✅ Vi/Emacs keybindings — modal editing in the REPL
+- ⬜ Slack/Teams integration — receive notifications and approve actions

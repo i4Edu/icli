@@ -3,7 +3,10 @@ import { hookManager } from '../hooks/lifecycle.js';
 import { runTurn } from './turn.js';
 import { theme } from '../ui/theme.js';
 
-export async function runOneShot(prompt: string, opts: { model?: string; plan?: boolean } = {}) {
+export async function runOneShot(
+  prompt: string,
+  opts: { model?: string; plan?: boolean; turnMode?: 'ask' | 'code' | 'architect' } = {},
+) {
   const session = new Session({
     model: opts.model,
     mode: opts.plan ? 'plan' : 'ask',
@@ -23,7 +26,7 @@ export async function runOneShot(prompt: string, opts: { model?: string; plan?: 
   };
   process.on('SIGINT', onSigint);
   try {
-    await runTurn({ session, userInput: prompt, signal: ac.signal });
+    await runTurn({ session, userInput: prompt, signal: ac.signal, turnMode: opts.turnMode });
   } finally {
     process.off('SIGINT', onSigint);
     await hookManager.emit('sessionEnd', {
