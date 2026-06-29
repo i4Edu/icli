@@ -88,8 +88,8 @@ describe('scanForSecrets', () => {
     expect(output).toContain('Security findings');
     expect(output).toContain('MEDIUM');
     expect(output).toContain('LOW');
-    expect(output).toContain('src\\app.ts:1');
-    expect(output).toContain('config\\.env:1');
+    expect(output).toContain('app.ts:1');
+    expect(output).toContain('.env:1');
   });
 
   it('exports the configured extension list', () => {

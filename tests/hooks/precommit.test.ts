@@ -127,7 +127,7 @@ describe('precommit hook', () => {
       expect.objectContaining({
         name: 'security',
         passed: false,
-        findings: [expect.stringContaining('src\\leak.ts:1 Generic secret')],
+        findings: [expect.stringContaining('leak.ts:1 Generic secret')],
       }),
     ]);
   });

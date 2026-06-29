@@ -97,7 +97,7 @@ describe('CI scripting flags', () => {
 
     const { proposeWrite } = await import('../../src/tools/file-ops.js');
 
-    const writeResult = await proposeWrite('nested\\auto.txt', 'hello\n');
+    const writeResult = await proposeWrite(path.join('nested', 'auto.txt'), 'hello\n');
 
     expect(writeResult.wrote).toBe(true);
     expect(fs.readFileSync(path.join(tempRoot, 'nested', 'auto.txt'), 'utf8')).toBe('hello\n');
