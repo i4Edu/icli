@@ -12,6 +12,8 @@ import { config } from '../config.js';
 import { backgroundTaskManager } from './background.js';
 import { hookManager } from '../hooks/lifecycle.js';
 import { applyKeybindingConfig, getKeybindingHelp } from '../util/keybindings.js';
+import { getCloudRoutineScheduler } from '../cloud/routine-scheduler.js';
+import { createCloudRoutineExecutor } from '../cloud/routine-executor.js';
 
 const require = createRequire(import.meta.url);
 const VERSION = require('../../package.json').version as string;
@@ -29,6 +31,13 @@ export async function runInteractive(
     model: session.state.model,
   });
   const metrics = new MetricsCollector();
+  
+  const scheduler = getCloudRoutineScheduler();
+  if (config.cloudRoutines?.enabled) {
+    const executor = createCloudRoutineExecutor();
+    scheduler.setExecutor(executor);
+    scheduler.start();
+  }
   
   // Apply keybinding configuration
   const keybindingMode = applyKeybindingConfig();
@@ -166,6 +175,7 @@ export async function runInteractive(
       enqueueInput(line);
     }
   } finally {
+    scheduler.stop();
     process.off('SIGINT', onSigint);
     rl.close();
     await hookManager.emit('sessionEnd', {

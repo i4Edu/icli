@@ -83,6 +83,19 @@ as the TypeScript exports.
 - `shellCommandAllowed(cmd, policy)`
 - `writePathAllowed(absPath, policy, cwd)`
 
+### `src/acp/schema.ts` — **Experimental**
+
+- `AcpRequest`, `AcpResponse`, `AcpError`, `AcpTool` interfaces
+- `validateJsonRpcRequest(req): string | null`
+- `createResponse(result, id): AcpResponse`
+- `createError(code, message, id, data?): AcpResponse`
+- `JSON_RPC_ERROR_CODES` object with standard error codes
+
+### `src/acp/router.ts` — **Experimental**
+
+- `AcpRouter` class with `handle(request, context?): Promise<AcpResponse>`
+- Methods: `tools/list`, `tool/call`, `capabilities/get`
+
 ### `src/mcp/index.ts` — **Experimental**
 
 - `loadMcpServers(): Promise<void>`

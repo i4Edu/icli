@@ -11,6 +11,7 @@ Start here.
 ## Features
 
 - [Sessions & memory](./sessions.md)
+- [Cloud-scheduled routines](./cloud-routines.md)
 - [Model Context Protocol](./mcp.md)
 - [Workspace embeddings index](./indexing.md)
 - [Multi-model routing](./routing.md)
@@ -20,6 +21,8 @@ Start here.
 ## API & integration
 
 - [Public API](./api.md) — stability tiers and module-by-module reference
+- [Agent Client Protocol (ACP)](./acp.md) — external agent integration
+- [Slack/Teams integration](./teams-integration.md) — notification and approval workflows
 - [Future extension points](./future.md) — voice, team mode, marketplace
 
 ## Release & contribution

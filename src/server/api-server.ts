@@ -1,6 +1,7 @@
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import { type AddressInfo } from 'node:net';
 import { randomUUID } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { URL } from 'node:url';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import { parseFileRefs, renderFileRefBlock } from '../context/file-refs.js';
@@ -15,6 +16,7 @@ import { config } from '../config.js';
 import { buildSystemPrompt } from '../modes/turn.js';
 import { Session } from '../session/session.js';
 import { TOOL_SCHEMAS, dispatchTool } from '../tools/registry.js';
+import { AcpRouter } from '../acp/router.js';
 import path from 'node:path';
 import os from 'node:os';
 
@@ -56,6 +58,13 @@ export class APIServer {
   private sessions = new Map<string, Session>();
   private activeSessionId: string | null = null;
   private readonly startedAt = Date.now();
+  private readonly acpRouter = new AcpRouter({
+    onLog: (level, message, data) => {
+      if (config.verbose) {
+        console.error(`[ACP ${level.toUpperCase()}] ${message}`, data || '');
+      }
+    },
+  });
 
   async start(port = DEFAULT_API_PORT): Promise<number> {
     if (this.server) {
@@ -129,6 +138,11 @@ export class APIServer {
           authRequired: this.requiresApiKey(),
           sessionCount: this.getSessionCount(),
         });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/acp') {
+        await this.handleAcpRequest(req, res);
         return;
       }
 
@@ -305,6 +319,16 @@ export class APIServer {
         return;
       }
 
+      if (req.method === 'POST' && pathname === '/webhooks/slack') {
+        await this.handleSlackWebhook(req, res);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/webhooks/teams') {
+        await this.handleTeamsWebhook(req, res);
+        return;
+      }
+
       this.writeJson(res, 404, { error: `Route not found: ${req.method || 'GET'} ${pathname}` });
     } catch (error) {
       this.writeJson(res, 500, { error: formatError(error) });
@@ -316,6 +340,33 @@ export class APIServer {
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
     res.setHeader('Access-Control-Expose-Headers', 'Content-Type');
+  }
+
+  private async handleAcpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const contentType = req.headers['content-type'];
+    if (!contentType?.includes('application/json')) {
+      this.writeJson(res, 400, {
+        jsonrpc: '2.0',
+        error: { code: -32700, message: 'Content-Type must be application/json' },
+      });
+      return;
+    }
+
+    try {
+      const body = await readBody(req);
+      const request = body.trim() ? JSON.parse(body) : {};
+
+      const response = await this.acpRouter.handle(request);
+      const statusCode = response.error ? 200 : 200;
+      res.writeHead(statusCode, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(response));
+    } catch (error) {
+      const errorMsg = error instanceof SyntaxError ? 'Invalid JSON' : 'Request processing failed';
+      this.writeJson(res, 400, {
+        jsonrpc: '2.0',
+        error: { code: -32700, message: errorMsg },
+      });
+    }
   }
 
   private writeJson(res: ServerResponse, statusCode: number, payload: unknown): void {
@@ -346,7 +397,16 @@ export class APIServer {
   }
 
   private isAuthorized(req: IncomingMessage, pathname: string): boolean {
-    if (pathname === '/api/health' || pathname === '/' || pathname === '/favicon.ico') return true;
+    if (
+      pathname === '/api/health' ||
+      pathname === '/' ||
+      pathname === '/favicon.ico' ||
+      pathname === '/acp' ||
+      pathname === '/webhooks/slack' ||
+      pathname === '/webhooks/teams'
+    ) {
+      return true;
+    }
     const expected = process.env.ICOPILOT_API_KEY?.trim();
     if (!expected) return true;
 
@@ -394,6 +454,79 @@ export class APIServer {
 
   private resolveOrCreateSession(sessionId?: string): Session {
     return this.resolveSession(sessionId) ?? this.trackSession(new Session());
+  }
+
+  private async handleSlackWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const slackSigningSecret = process.env.ICOPILOT_SLACK_SIGNING_SECRET;
+
+    try {
+      const body = await readBody(req);
+      const payload = JSON.parse(body) as Record<string, unknown>;
+
+      if (payload.type === 'url_verification') {
+        this.writeJson(res, 200, { challenge: payload.challenge });
+        return;
+      }
+
+      if (slackSigningSecret) {
+        const signature = req.headers['x-slack-signature'] as string | undefined;
+        const timestamp = req.headers['x-slack-request-timestamp'] as string | undefined;
+
+        if (!signature || !timestamp || !this.validateSlackSignature(signature, timestamp, body, slackSigningSecret)) {
+          this.writeJson(res, 401, { error: 'Invalid signature' });
+          return;
+        }
+      }
+
+      const { getNotificationHandler } = await import('../extensions/team.js');
+      const { SlackNotificationHandler } = await import('../extensions/slack-provider.js');
+      const handler = getNotificationHandler();
+
+      if (handler instanceof SlackNotificationHandler) {
+        handler.handleWebhookEvent(payload);
+      }
+
+      this.writeJson(res, 200, { ok: true });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`[webhooks] Slack webhook error: ${msg}\n`);
+      this.writeJson(res, 400, { error: msg });
+    }
+  }
+
+  private async handleTeamsWebhook(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    try {
+      const body = await readBody(req);
+      const queryParams = new URL(`http://localhost${req.url || '/'}`, 'http://localhost').searchParams;
+      const id = queryParams.get('id');
+      const approved = req.url?.includes('/approve') ?? false;
+
+      if (!id) {
+        this.writeJson(res, 400, { error: 'Missing approval ID' });
+        return;
+      }
+
+      const { getNotificationHandler } = await import('../extensions/team.js');
+      const { TeamsNotificationHandler } = await import('../extensions/teams-provider.js');
+      const handler = getNotificationHandler();
+
+      if (handler instanceof TeamsNotificationHandler) {
+        const userId = (JSON.parse(body) as Record<string, unknown>)?.from?.id as string | undefined;
+        handler.handleApprovalResponse(id, approved, userId);
+      }
+
+      this.writeJson(res, 200, { ok: true });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`[webhooks] Teams webhook error: ${msg}\n`);
+      this.writeJson(res, 400, { error: msg });
+    }
+  }
+
+  private validateSlackSignature(signature: string, timestamp: string, body: string, secret: string): boolean {
+    const baseString = `v0:${timestamp}:${body}`;
+    const computed = `v0=${createHmac('sha256', secret).update(baseString).digest('hex')}`;
+    return computed === signature;
   }
 }
 

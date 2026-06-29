@@ -16,28 +16,43 @@ import { registerSpeechProvider } from 'icopilot/dist/extensions/voice.js';
 
 ## Voice input (speech-to-text)
 
-Core stub: `src/extensions/voice.ts`
+Core implementation: `src/extensions/voice.ts` and `/voice` slash command.
+
+### Available interfaces
 
 ```ts
 export interface SpeechProvider {
   transcribe(audio: Buffer | NodeJS.ReadableStream): Promise<string>;
+  isConfigured(): boolean;
+}
+
+export interface AudioCapture {
+  startCapture(): Promise<void>;
+  stopCapture(): Promise<Buffer>;
 }
 
 export function registerSpeechProvider(p: SpeechProvider): void;
 export function getSpeechProvider(): SpeechProvider;
+export function isVoiceInputConfigured(): boolean;
 ```
 
-The default provider throws: voice is not configured.
+### Usage
 
-Recommended implementations:
+Start recording audio and transcribe via `/voice start|stop|status|cancel`:
 
-- Local/private: `node-record-lpcm16` for microphone capture plus `whisper.cpp` for transcription.
-- Cloud: Azure Speech or Deepgram for managed STT, streaming partials, diarization, and language detection.
+```
+/voice start       # Begin recording (provider must be configured)
+/voice stop        # Stop and transcribe
+/voice status      # Show current recording time
+/voice cancel      # Discard recording
+```
+
+If no STT provider is configured, `/voice` will prompt the user to install a plugin.
 
 ### How to plug in a real provider
 
 1. Publish an addon package, for example `@acme/icopilot-whisper`.
-2. Implement `SpeechProvider`.
+2. Implement `SpeechProvider` with `transcribe(audio)` and `isConfigured()` methods.
 3. Call `registerSpeechProvider()` from the addon entrypoint.
 4. Load that addon from user config or a future `/plugin load` command.
 
@@ -55,6 +70,10 @@ class WhisperProvider implements SpeechProvider {
     private readonly whisperBin: string,
     private readonly modelPath: string,
   ) {}
+
+  isConfigured(): boolean {
+    return !!process.env.WHISPER_BIN && !!process.env.WHISPER_MODEL;
+  }
 
   async transcribe(audio: Buffer | NodeJS.ReadableStream): Promise<string> {
     const workDir = path.join(process.cwd(), '.icopilot', 'voice');

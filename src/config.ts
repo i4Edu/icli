@@ -9,6 +9,23 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 export type ThemeName = 'auto' | 'light' | 'dark' | 'none';
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'max';
 
+export interface NotificationConfig {
+  provider: 'slack' | 'teams';
+  token: string;
+  channel: string;
+  autoApprove?: string[];
+}
+
+export interface CloudRoutinesConfig {
+  enabled: boolean;
+  pollingInterval?: number;
+}
+
+export interface AcpConfig {
+  enabled: boolean;
+  port?: number;
+}
+
 export interface Config {
   provider: string;
   endpoint: string;
@@ -39,6 +56,9 @@ export interface Config {
   reasoningEffort?: ReasoningEffort;
   thinkTokens?: number;
   keybindings?: { mode: KeybindingMode };
+  notifications?: NotificationConfig;
+  cloudRoutines?: CloudRoutinesConfig;
+  acp?: AcpConfig;
 }
 
 const HOME = os.homedir();
@@ -71,6 +91,8 @@ const DEFAULT_CONFIG: Config = {
   reasoningEffort: undefined,
   thinkTokens: undefined,
   keybindings: { mode: 'default' },
+  acp: { enabled: false, port: 5173 },
+  cloudRoutines: { enabled: false },
 };
 
 function parseBool(value: string | undefined): boolean | undefined {

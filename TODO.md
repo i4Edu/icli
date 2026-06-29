@@ -264,8 +264,8 @@
 - ✅ Browser/web UI — `--browser` flag and API web shell
 - ✅ Architect mode — dual-model planner + coder flow
 - ✅ Git worktrees — `/worktree` command for list/add/remove/prune
-- ⬜ Voice input — speech-to-text for hands-free interaction
-- ⬜ ACP protocol server — Agent Client Protocol for tool interop
-- ⬜ Cloud-scheduled routines — remote cron-like task execution
+- ✅ Voice input — speech-to-text for hands-free interaction via `/voice` command
+- ✅ ACP protocol server — Agent Client Protocol for tool interop
+- ✅ Cloud-scheduled routines — remote cron-like task execution
 - ✅ Vi/Emacs keybindings — modal editing in the REPL
-- ⬜ Slack/Teams integration — receive notifications and approve actions
+- ✅ Slack/Teams integration — receive notifications and approve actions

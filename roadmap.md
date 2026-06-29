@@ -448,14 +448,14 @@ CLI space.
 
 The next frontier — voice, browser UI, and ecosystem features.
 
-- ⬜ **Voice input** — speech-to-text for hands-free interaction
-- ⬜ **ACP protocol server** — Agent Client Protocol for tool interop
+- ✅ **Voice input** — speech-to-text for hands-free interaction via `/voice` command
+- ✅ **ACP protocol server** — Agent Client Protocol for tool interop
 - ✅ **Browser/web UI** — `--browser` flag for web-based interface
 - ✅ **Architect mode** — dual-model (planner + coder) for complex tasks
 - ✅ **Git worktrees** — isolated branch work with AI
-- ⬜ **Cloud-scheduled routines** — remote cron-like task execution
+- ✅ **Cloud-scheduled routines** — remote cron-like task execution
 - ✅ **Vi/Emacs keybindings** — modal editing in the REPL
-- ⬜ **Slack/Teams integration** — receive notifications and approve actions
+- ✅ **Slack/Teams integration** — receive notifications and approve actions
 
 ---
 

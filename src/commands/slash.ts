@@ -48,6 +48,7 @@ import {
   setThinkTokens,
 } from './reasoning-cmd.js';
 import { stashCommand } from './stash-cmd.js';
+import { notifyCommand } from './notify-cmd.js';
 import { buildChangelogPrompt } from './changelog-cmd.js';
 import { releaseCommand } from './release-cmd.js';
 import { buildFixPrompt } from './fix-cmd.js';
@@ -61,11 +62,12 @@ import { formatDiagnostics, runDiagnostics } from './doctor-cmd.js';
 import { explainShellCommand } from './explain-shell-cmd.js';
 import { codegenCommand } from './codegen-cmd.js';
 import { buildGeneratePrompt } from './generate-cmd.js';
+import { voiceCommand } from './voice-cmd.js';
 import { actionsCommand } from './actions-cmd.js';
 import { buildMultiConfig, formatMultiResponses } from './multi-cmd.js';
 import { agentCommand } from './agent-cmd.js';
 import { TDDAgent, type TDDSpec, type TDDResult } from '../agents/tdd-agent.js';
-import { exploreCommand } from './explore-cmd.js';
+import { acpCommand } from './acp-cmd.js';
 import { skillCommand } from './skill-cmd.js';
 import { docCommand } from './doc-cmd.js';
 import { triggerCommand as runTriggerCommand } from './trigger-cmd.js';
@@ -168,6 +170,8 @@ import {
   type ScheduledTask,
 } from './schedule-cmd.js';
 import { worktreeCommand } from './worktree-cmd.js';
+import { exploreCommand } from './explore-cmd.js';
+import { cloudRoutineCommand } from './cloud-routine-cmd.js';
 
 export interface SlashContext {
   session: Session;
@@ -296,6 +300,7 @@ ${theme.brand('Slash commands')}
   /alias [list|set|remove]    manage custom command aliases
   /skill                      manage reusable skill sources
   /stash                      stash conversation state for later
+  /notify <command>           configure Slack/Teams notifications
   /explain-shell <cmd>        explain a shell command step by step
   /generate <goal>            generate a shell command for a goal
   /actions <desc>|list|validate generate or inspect GitHub Actions workflows
@@ -308,6 +313,7 @@ ${theme.brand('Slash commands')}
   /watch <pattern> <cmd>      file watcher configuration
   /web <url> [focus]          fetch a web page into conversation context
   /bridge <subcommand>        manage IDE bridge websocket server
+  /acp [subcommand]           manage ACP (Agent Client Protocol) server
   /error-watch <action>       watch build errors and suggest fixes
   /memory                     manage persistent + auto-learned memory
   /corrections                manage remembered user corrections
@@ -319,8 +325,10 @@ ${theme.brand('Slash commands')}
   /extension [list|info|reload] inspect local extensions
   /serve <subcommand>         manage HTTP API server
   /worktree <subcommand>      manage git worktrees
+  /cloud-routine <subcommand> manage cloud-scheduled routines
   /sandbox <run|shell|status|cleanup> use Docker sandbox helpers
   /run <command>             run a shell command and optionally add output to chat
+  /voice [start|stop|status] voice input (speech-to-text, requires provider plugin)
   /plugin [subcommand]        search and manage marketplace plugins
   /workflow [subcommand]      manage workflow definitions
   /exit, /quit               quit iCopilot
@@ -1412,6 +1420,13 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'stash':
       process.stdout.write(stashCommand(rest, s));
       return done();
+    case 'notify': {
+      const output = await notifyCommand(rest);
+      if (output) {
+        process.stdout.write(`${output}\n`);
+      }
+      return done();
+    }
     case 'explain-shell': {
       const payload = explainShellCommand(arg);
       process.stdout.write(
@@ -1595,6 +1610,12 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'worktree':
       process.stdout.write(worktreeCommand(rest, s.state.cwd));
       return done();
+    case 'cloud-routine':
+      process.stdout.write(await cloudRoutineCommand(arg));
+      return done();
+    case 'voice':
+      process.stdout.write(await voiceCommand(rest));
+      return done();
     case 'plugin':
     case 'plugins':
       process.stdout.write(await pluginCommand(rest));
@@ -1602,6 +1623,9 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'workflow':
     case 'workflows':
       process.stdout.write(await workflowCommand(rest, s.state.cwd));
+      return done();
+    case 'acp':
+      process.stdout.write(await acpCommand({ subcommand: rest[0], args: rest.slice(1) }));
       return done();
     case 'exit':
     case 'quit':
