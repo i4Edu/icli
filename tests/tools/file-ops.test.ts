@@ -48,8 +48,6 @@ describe('proposeWrite', () => {
 
     expect(result).toMatchObject({ wrote: false, bytes: 0 });
     expect(fs.readFileSync(path.join(tmpDir, 'existing.txt'), 'utf8')).toBe('old\n');
-    expect(select).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Apply this patch?' }),
-    );
+    expect(select).toHaveBeenCalledWith(expect.objectContaining({ message: 'Apply this patch?' }));
   });
 });

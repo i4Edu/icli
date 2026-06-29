@@ -96,8 +96,6 @@ describe('editFileTool', () => {
     expect(fs.readFileSync(path.join(tmpDir, 'example.txt'), 'utf8')).toBe(
       'alpha\nBETA\nGAMMA\ndelta\n',
     );
-    expect(select).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'Apply this patch?' }),
-    );
+    expect(select).toHaveBeenCalledWith(expect.objectContaining({ message: 'Apply this patch?' }));
   });
 });
