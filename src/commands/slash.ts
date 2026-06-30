@@ -499,6 +499,7 @@ const KNOWN_SLASH_COMMANDS = [
   'exit',
   'quit',
 ] as const;
+const KNOWN_SLASH_COMMAND_SET = new Set<string>(KNOWN_SLASH_COMMANDS);
 const MIN_PREFIX_LENGTH = 2;
 const MAX_AMBIGUOUS_MATCHES = 6;
 const MAX_SUGGESTIONS = 5;
@@ -1815,7 +1816,7 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
 function resolveSlashCommand(rawCommand: string): SlashCommandResolution {
   const command = rawCommand.trim().toLowerCase();
   if (!command) return { kind: 'unknown', suggestions: [] };
-  if (KNOWN_SLASH_COMMANDS.includes(command as (typeof KNOWN_SLASH_COMMANDS)[number])) {
+  if (KNOWN_SLASH_COMMAND_SET.has(command)) {
     return { kind: 'exact', command };
   }
   if (command.length >= MIN_PREFIX_LENGTH) {
@@ -1830,10 +1831,15 @@ function resolveSlashCommand(rawCommand: string): SlashCommandResolution {
 
 function suggestSlashCommands(command: string): string[] {
   if (!command) return [];
-  const exactPrefix = KNOWN_SLASH_COMMANDS.filter((known) => known.startsWith(command));
-  const contains = KNOWN_SLASH_COMMANDS.filter(
-    (known) => !known.startsWith(command) && known.includes(command),
-  );
+  const exactPrefix: string[] = [];
+  const contains: string[] = [];
+  for (const known of KNOWN_SLASH_COMMANDS) {
+    if (known.startsWith(command)) {
+      exactPrefix.push(known);
+      continue;
+    }
+    if (known.includes(command)) contains.push(known);
+  }
   if (exactPrefix.length || contains.length) {
     return [...exactPrefix, ...contains].slice(0, MAX_SUGGESTIONS);
   }

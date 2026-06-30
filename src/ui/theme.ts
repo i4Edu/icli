@@ -76,9 +76,7 @@ export function banner(version: string, model: string, sessionDir?: string): str
   const session = `${c.gray('Session:')} ${c.hex(green).bold('active')} ${c.gray(`(${sessDir})`)}`;
   const modelLine = `${c.gray('Model:')} ${c.hex(blue)(model)}`;
   const hints = safeUnicode
-    ? hintSegments
-        .map((segment) => c.gray(segment.split(' ')[0]) + segment.slice(segment.indexOf(' ')))
-        .join('  ')
+    ? hintSegments.map((segment) => formatHintSegment(segment, c.gray)).join('  ')
     : plainHints;
 
   return [
@@ -90,4 +88,12 @@ export function banner(version: string, model: string, sessionDir?: string): str
     `  ${hints}`,
     '',
   ].join('\n');
+}
+
+function formatHintSegment(segment: string, colorize: (text: string) => string): string {
+  const firstSpace = segment.indexOf(' ');
+  if (firstSpace === -1) return colorize(segment);
+  const key = segment.slice(0, firstSpace);
+  const suffix = segment.slice(firstSpace);
+  return `${colorize(key)}${suffix}`;
 }
