@@ -551,7 +551,7 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     if (resolvedCommand.suggestions.length > 0) {
       process.stdout.write(
         theme.warn(
-          `unknown command: /${cmd}\nDid you mean: ${resolvedCommand.suggestions.map((value) => `/${value}`).join(', ')} ?\n(try /help)\n`,
+          `unknown command: /${cmd}\nDid you mean: ${resolvedCommand.suggestions.map((value) => `/${value}`).join(', ')}?\n(try /help)\n`,
         ),
       );
       return done();

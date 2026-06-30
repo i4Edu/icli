@@ -55,7 +55,7 @@ export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.W
 
 export function banner(version: string, model: string, sessionDir?: string): string {
   const sessDir = sessionDir ?? '~/.icopilot/sessions/';
-  const hintSegments = ['/help commands', '/ slash hints', '@file context'] as const;
+  const hintSegments = ['/help commands', 'type / for slash hints', '@file context'] as const;
   const plainHints = hintSegments.join('  ');
   if (!colorEnabled()) {
     return [
