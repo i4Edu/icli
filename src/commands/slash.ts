@@ -1828,7 +1828,35 @@ function suggestSlashCommands(command: string): string[] {
   const contains = KNOWN_SLASH_COMMANDS.filter(
     (known) => !known.startsWith(command) && known.includes(command),
   );
-  return [...exactPrefix, ...contains].slice(0, 5);
+  if (exactPrefix.length || contains.length) return [...exactPrefix, ...contains].slice(0, 5);
+
+  const fuzzy = KNOWN_SLASH_COMMANDS.map((known) => ({
+    known,
+    distance: levenshteinDistance(command, known),
+  }))
+    .filter((entry) => entry.distance <= 2)
+    .sort((a, b) => a.distance - b.distance || a.known.localeCompare(b.known))
+    .map((entry) => entry.known);
+  return fuzzy.slice(0, 5);
+}
+
+function levenshteinDistance(left: string, right: string): number {
+  if (left === right) return 0;
+  if (!left) return right.length;
+  if (!right) return left.length;
+
+  const prev = new Array(right.length + 1).fill(0).map((_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const temp = prev[j];
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diagonal + cost);
+      diagonal = temp;
+    }
+  }
+  return prev[right.length];
 }
 
 function done(
