@@ -1,6 +1,6 @@
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
-import { simpleGit } from 'simple-git';
+import simpleGit from 'simple-git';
 import { loadAliases, resolveAlias } from '../commands/alias-cmd.js';
 import { MetricsCollector } from '../commands/metrics-cmd.js';
 import { handleSlash } from '../commands/slash.js';
@@ -69,6 +69,7 @@ export async function runTui(
   let activeTab = 0;
   let gitBranch = '';
   let branchInFlight = false;
+  let lastCwd = session.state.cwd;
   const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
 
   // Resolve the current git branch once (and on cwd change) for the status dock.
@@ -133,6 +134,12 @@ export async function runTui(
     dirty = false;
     const { rows, cols } = size();
 
+    // Refresh branch if cwd changed since the last render.
+    if (session.state.cwd !== lastCwd) {
+      lastCwd = session.state.cwd;
+      refreshBranch();
+    }
+
     // Absolute row anchors (1-indexed for ANSI cursor positioning):
     //   row 1            → tabbed navigation header
     //   rows 2..dockRow-1 → hero canvas + conversation timeline
@@ -145,9 +152,9 @@ export async function runTui(
     // The status dock is locked exactly 3 rows above the absolute bottom, so the
     // four bottom rows are: dock, magenta separator, input dock, footer.
     const dockRow = Math.max(chatTop, rows - 3);
-    const separatorRow = dockRow + 1;
-    const inputRow = dockRow + 2;
-    const footerRow = dockRow + 3;
+    const separatorRow = Math.min(dockRow + 1, rows);
+    const inputRow = Math.min(dockRow + 2, rows);
+    const footerRow = Math.min(dockRow + 3, rows);
     const chatBottom = dockRow - 1;
     const chatHeight = Math.max(1, chatBottom - chatTop + 1);
 
@@ -359,8 +366,8 @@ function heroCanvas(session: Session, cols: number): string[] {
       provider: 'GitHub Models',
       experimental: '/experimental [Active]',
       tips: [
-        'Tip: Run /mcp search to scan the registry for external tool configurations.',
-        'All file system permissions are active for the current sandbox path.',
+        'Tip: Run /doctor to diagnose your environment configuration and tool availability.',
+        'Tool access is determined by your configured role and policy settings.',
         `Active model: ${modelShort}. Type /help for commands or @ to target files.`,
       ],
     },

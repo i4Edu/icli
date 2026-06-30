@@ -111,10 +111,15 @@ export function renderStatusDock(left: string, right: string, cols: number): str
   const leftWidth = visibleWidth(left);
   const rightWidth = visibleWidth(right);
 
+  // Right side alone fills or overflows the terminal — show only right side.
+  if (rightWidth >= cols) {
+    return stripAnsi(right).slice(0, cols);
+  }
+
   if (leftWidth + 1 + rightWidth > cols) {
     const room = Math.max(0, cols - rightWidth - 1);
     const clippedLeft = stripAnsi(left).slice(0, room);
-    const gap = ' '.repeat(Math.max(1, cols - clippedLeft.length - rightWidth));
+    const gap = ' '.repeat(Math.max(0, cols - clippedLeft.length - rightWidth));
     return `${clippedLeft}${gap}${right}`;
   }
 

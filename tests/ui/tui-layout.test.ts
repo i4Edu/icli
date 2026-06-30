@@ -95,6 +95,13 @@ describe('renderStatusDock', () => {
     expect(visibleWidth(dock)).toBeLessThanOrEqual(COLS);
     expect(stripAnsi(dock).endsWith('Usage: 4/1000 credits')).toBe(true);
   });
+
+  it('shows only the right side when it alone fills the terminal width', () => {
+    const right = 'x'.repeat(COLS);
+    const dock = renderStatusDock('left', right, COLS);
+    expect(visibleWidth(dock)).toBe(COLS);
+    expect(stripAnsi(dock)).toBe(right);
+  });
 });
 
 describe('magentaSeparator', () => {
