@@ -1,5 +1,6 @@
 import readline from 'node:readline';
 import { Writable } from 'node:stream';
+import simpleGit from 'simple-git';
 import { loadAliases, resolveAlias } from '../commands/alias-cmd.js';
 import { MetricsCollector } from '../commands/metrics-cmd.js';
 import { handleSlash } from '../commands/slash.js';
@@ -12,6 +13,15 @@ import {
   showCursor,
   size,
 } from '../ui/screen.js';
+import {
+  WORKSPACE_TABS,
+  renderTabBar,
+  renderHero,
+  renderStatusDock,
+  magentaSeparator,
+  renderFooter,
+} from '../ui/tui-layout.js';
+import { safeUnicode } from '../ui/theme.js';
 import { handlePostTurnContextBudget } from './auto-compact.js';
 import { backgroundTaskManager } from './background.js';
 import { runAutopilot } from './autopilot.js';
@@ -20,6 +30,7 @@ import { hookManager } from '../hooks/lifecycle.js';
 
 const VERSION = '1.3.0';
 const FRAME_MS = 33;
+const CREDIT_BUDGET = 1000;
 
 type StdoutWrite = typeof process.stdout.write;
 
@@ -55,7 +66,31 @@ export async function runTui(
   let cleaned = false;
   let frame: NodeJS.Timeout | undefined;
   let currentAbort: AbortController | null = null;
+  let activeTab = 0;
+  let gitBranch = '';
+  let branchInFlight = false;
+  let lastCwd = session.state.cwd;
   const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
+
+  // Resolve the current git branch once (and on cwd change) for the status dock.
+  // A simple in-flight guard avoids overlapping lookups racing to set gitBranch.
+  const refreshBranch = () => {
+    if (branchInFlight) return;
+    branchInFlight = true;
+    void (async () => {
+      try {
+        const git = simpleGit(session.state.cwd);
+        if (await git.checkIsRepo()) {
+          gitBranch = (await git.revparse(['--abbrev-ref', 'HEAD'])).trim();
+          markDirty();
+        }
+      } catch {
+        /* not a git repo — leave the branch blank */
+      } finally {
+        branchInFlight = false;
+      }
+    })();
+  };
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -75,7 +110,7 @@ export async function runTui(
     process.stdout.write = originalWrite;
     process.stdout.off('resize', onResize);
     process.off('SIGINT', onSigint);
-    process.stdin.off('keypress', markDirty);
+    process.stdin.off('keypress', onKeypress);
     if (frame) clearInterval(frame);
     rl.close();
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
@@ -98,43 +133,79 @@ export async function runTui(
     if (!dirty) return;
     dirty = false;
     const { rows, cols } = size();
+
+    // Refresh branch if cwd changed since the last render.
+    if (session.state.cwd !== lastCwd) {
+      lastCwd = session.state.cwd;
+      refreshBranch();
+    }
+
+    // Absolute row anchors (1-indexed for ANSI cursor positioning):
+    //   row 1            → tabbed navigation header
+    //   rows 2..dockRow-1 → hero canvas + conversation timeline
+    //   dockRow           → status dock (locked 3 rows above the bottom)
+    //   dockRow + 1       → magenta boundary line
+    //   dockRow + 2       → input dock
+    //   rows (bottom)     → persistent footer
+    const tabRow = 1;
     const chatTop = 2;
-    const chatBottom = Math.max(chatTop, rows - 3);
+    // The status dock is locked exactly 3 rows above the absolute bottom, so the
+    // four bottom rows are: dock, magenta separator, input dock, footer.
+    const dockRow = Math.max(chatTop, rows - 3);
+    const separatorRow = Math.min(dockRow + 1, rows);
+    const inputRow = Math.min(dockRow + 2, rows);
+    const footerRow = Math.min(dockRow + 3, rows);
+    const chatBottom = dockRow - 1;
     const chatHeight = Math.max(1, chatBottom - chatTop + 1);
 
     writeRaw('\x1b[2J\x1b[H');
-    writeRaw(statusLine(session, cols, busy));
 
-    const lines = wrapLines(chat.trimEnd(), Math.max(1, cols));
+    // Row 0 — tabbed navigation header.
+    writeRaw(`\x1b[${tabRow};1H`);
+    writeRaw(renderTabBar(activeTab, cols));
+
+    // Conversation timeline (hero canvas shown only while it is empty).
+    const showHero = !chat.trim();
+    const heroLines = showHero ? heroCanvas(session, cols) : [];
+    const lines = showHero ? heroLines : wrapLines(chat.trimEnd(), Math.max(1, cols));
     const visible = lines.slice(-chatHeight);
     for (let i = 0; i < chatHeight; i++) {
       writeRaw(`\x1b[${chatTop + i};1H`);
-      writeRaw(pad(visible[i] || '', cols));
+      // Hero lines are already padded to the full width (and carry ANSI), so
+      // they are written verbatim; plain chat lines are padded here.
+      writeRaw(showHero ? visible[i] || '' : padToCols(visible[i] || '', cols));
     }
 
-    // separator with thinking indicator
-    writeRaw(`\x1b[${Math.max(1, rows - 2)};1H`);
+    // Status dock — left: cwd + branch, right: live consumption metrics.
+    writeRaw(`\x1b[${dockRow};1H`);
+    writeRaw(statusDock(session, gitBranch, cols, busy));
+
+    // Magenta boundary line.
+    writeRaw(`\x1b[${separatorRow};1H`);
     if (busy) {
       const thinkLabel = ' ◆ Copilot is thinking… ';
       const sideLen = Math.max(0, Math.floor((cols - thinkLabel.length) / 2));
       writeRaw(
-        '─'.repeat(sideLen) +
+        '\x1b[35m' +
+          '─'.repeat(sideLen) +
           thinkLabel +
-          '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)),
+          '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)) +
+          '\x1b[0m',
       );
     } else {
-      writeRaw('─'.repeat(cols));
+      writeRaw(magentaSeparator(cols));
     }
 
-    writeRaw(`\x1b[${Math.max(1, rows - 1)};1H`);
+    // Input dock — a single dedicated line bracket below the separator.
+    writeRaw(`\x1b[${inputRow};1H`);
     const promptIcon = busy ? '\x1b[33m◆\x1b[0m' : '\x1b[32m❯\x1b[0m';
-    const prompt = `${promptIcon} ${rl.line || ''}`;
-    writeRaw(pad(prompt, cols));
-    writeRaw(`\x1b[${rows};1H`);
-    const hint = busy
-      ? '\x1b[2m Ctrl+C to cancel  \x1b[0m'
-      : '\x1b[2m Enter to send  •  /help for commands  •  /suggest for shell commands \x1b[0m';
-    writeRaw(pad(hint, cols));
+    const buffer = (rl.line || '').replace(/\t/g, '');
+    writeRaw('\x1b[2K');
+    writeRaw(padToCols(`${promptIcon} ${buffer}`, cols));
+
+    // Absolute bottom row — persistent footer legend.
+    writeRaw(`\x1b[${footerRow};1H`);
+    writeRaw(renderFooter(cols));
   };
 
   const appendCaptured = (chunk: unknown) => {
@@ -248,12 +319,23 @@ export async function runTui(
   rl.on('close', () => {
     if (running) cleanup();
   });
-  process.stdin.on('keypress', markDirty);
+  const onKeypress = (_ch: unknown, key: readline.Key | undefined) => {
+    // Tab / Shift+Tab cycles the workspace navigation tabs.
+    if (key?.name === 'tab') {
+      const delta = key.shift ? -1 : 1;
+      activeTab = (activeTab + delta + WORKSPACE_TABS.length) % WORKSPACE_TABS.length;
+    }
+    markDirty();
+  };
+  process.stdin.on('keypress', onKeypress);
 
   altScreenEnter();
   hideCursor();
   clear();
-  chat = 'Welcome to iCopilot TUI prototype. Type /help for commands.\n';
+  // An empty timeline makes the renderer show the hero/branding canvas (with its
+  // tip bulletins) until the first turn produces conversation output.
+  chat = '';
+  refreshBranch();
 
   frame = setInterval(render, FRAME_MS);
   try {
@@ -276,12 +358,33 @@ export async function runTui(
   }
 }
 
-function statusLine(session: Session, cols: number, busy: boolean): string {
-  const mode = session.state.mode.toUpperCase();
+function heroCanvas(session: Session, cols: number): string[] {
   const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
-  const busyBadge = busy ? ' \x1b[33m◆ WORKING\x1b[0;7m' : '';
-  const text = ` \x1b[1miCopilot\x1b[0;7m v${VERSION}${busyBadge}  │  model: ${modelShort}  │  mode: ${mode}  │  Ctrl+C to exit `;
-  return `\x1b[7m${pad(text, cols)}\x1b[0m`;
+  return renderHero(
+    {
+      version: VERSION,
+      provider: 'GitHub Models',
+      experimental: '/experimental [Active]',
+      tips: [
+        'Tip: Run /doctor to diagnose your environment configuration and tool availability.',
+        'Tool access is determined by your configured role and policy settings.',
+        `Active model: ${modelShort}. Type /help for commands or @ to target files.`,
+      ],
+    },
+    cols,
+  );
+}
+
+function statusDock(session: Session, branch: string, cols: number, busy: boolean): string {
+  const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
+  // Nerd-font git branch glyph (U+F02A2) when supported, plain label otherwise.
+  const branchIcon = safeUnicode ? '\u{F02A2} ' : 'git:';
+  const branchLabel = branch ? ` [${branchIcon}${branch}]` : '';
+  const left = `${session.state.cwd}${branchLabel}`;
+  const used = Math.min(CREDIT_BUDGET, Math.ceil(session.tokenUsage() / 1000));
+  const working = busy ? ' \x1b[33m◆ WORKING\x1b[0m  │ ' : '';
+  const right = `${working}Usage: ${used}/${CREDIT_BUDGET} credits  │  ${modelShort}`;
+  return renderStatusDock(left, right, cols);
 }
 
 function wrapLines(text: string, width: number): string[] {
@@ -295,7 +398,7 @@ function wrapLines(text: string, width: number): string[] {
   return out.length ? out : [''];
 }
 
-function pad(text: string, cols: number): string {
+function padToCols(text: string, cols: number): string {
   const clipped = text.length > cols ? text.slice(0, cols) : text;
   return clipped + ' '.repeat(Math.max(0, cols - clipped.length));
 }
