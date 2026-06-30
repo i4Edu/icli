@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.6] - 2026-06-30
+
+
+### Fixed
+- **Global npm install warning** — override `formdata-node` to `6.x` so published installs no longer pull deprecated `node-domexception@1.0.0`
+- **`/worktree list` test stability** — load the command module once per suite and reset the `spawnSync` mock before each test to avoid flaky full-suite timeouts
+
 ## [2.3.5] — 2026-06-30
 
 ### Fixed

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const spawnSyncMock = vi.hoisted(() => vi.fn());
 
@@ -11,8 +11,17 @@ vi.mock('node:child_process', async () => {
 });
 
 describe('worktreeCommand', () => {
-  it('lists worktrees', async () => {
-    const { worktreeCommand } = await import('../../src/commands/worktree-cmd.js');
+  let worktreeCommand: typeof import('../../src/commands/worktree-cmd.js').worktreeCommand;
+
+  beforeAll(async () => {
+    ({ worktreeCommand } = await import('../../src/commands/worktree-cmd.js'));
+  });
+
+  beforeEach(() => {
+    spawnSyncMock.mockReset();
+  });
+
+  it('lists worktrees', () => {
     spawnSyncMock
       .mockReturnValueOnce({ status: 0, stdout: 'true', stderr: '' })
       .mockReturnValueOnce({
@@ -36,8 +45,7 @@ describe('worktreeCommand', () => {
     expect(output).toContain('feat');
   });
 
-  it('adds worktree and creates branch when missing', async () => {
-    const { worktreeCommand } = await import('../../src/commands/worktree-cmd.js');
+  it('adds worktree and creates branch when missing', () => {
     spawnSyncMock
       .mockReturnValueOnce({ status: 0, stdout: 'true', stderr: '' })
       .mockReturnValueOnce({ status: 1, stdout: '', stderr: '' })
@@ -52,8 +60,7 @@ describe('worktreeCommand', () => {
     );
   });
 
-  it('removes a worktree with --force', async () => {
-    const { worktreeCommand } = await import('../../src/commands/worktree-cmd.js');
+  it('removes a worktree with --force', () => {
     spawnSyncMock
       .mockReturnValueOnce({ status: 0, stdout: 'true', stderr: '' })
       .mockReturnValueOnce({ status: 0, stdout: '', stderr: '' });
