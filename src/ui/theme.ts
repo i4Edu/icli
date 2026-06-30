@@ -53,23 +53,14 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
 
 export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
-// ─── ASCII logo (figlet "iCopilot") ──────────────────────────────────────────
-// Rendered in cyan/light-blue to match GitHub Copilot's design language.
-const ASCII_LOGO_LINES = [
-  ' ___               _ _       _   ',
-  '|_ _|___ ___  _ __(_) | ___ | |_ ',
-  " | |/ __/ _ \\| '_ \\ | |/ _ \\| __|",
-  ' | | (_| (_) | |_) | | | (_) | |_ ',
-  '|___\\___\\___/| .__/|_|_|\\___/ \\__|',
-  '             |_|                  ',
-];
-
 export function banner(version: string, model: string, sessionDir?: string): string {
+  const sessDir = sessionDir ?? '~/.icopilot/sessions/';
   if (!colorEnabled()) {
     return [
       '',
-      'iCopilot  v' + version + '  model: ' + model,
-      '/help for commands · @file to add context · Tab to autocomplete',
+      `iCopilot CLI Agent v${version}  |  Provider: GitHub Models`,
+      `Session: active (${sessDir})  |  Model: ${model}`,
+      '/help for commands · / for slash hints · @file to add context',
       '',
     ].join('\n');
   }
@@ -78,35 +69,20 @@ export function banner(version: string, model: string, sessionDir?: string): str
   const green = name === 'light' ? '#166534' : '#3FB950';
   const blue = '#58A6FF';
 
-  // Render ASCII logo in cyan/light-blue
-  const logo = ASCII_LOGO_LINES.map((row) => `  ${c.hex(blue).bold(row)}`).join('\n');
-
-  const sessDir = sessionDir ?? '~/.icopilot/sessions/';
-  const divider = `  ${c.gray('─'.repeat(50))}`;
-
-  const diag1 =
-    `  ${c.hex(green)('●')} ` +
-    `${c.gray('Provider:')} ${c.hex(blue).bold('GitHub Models')} ` +
-    `${c.gray('(default: ' + model + ')')}`;
-
-  const diag2 =
-    `  ${c.hex(green)('●')} ` +
-    `${c.gray('Session: ')} ${c.hex(blue)('Active')} ` +
-    `${c.gray('(' + sessDir + ')')}`;
-
+  const title = `${c.hex(blue).bold('iCopilot CLI Agent')} ${c.gray('v' + version)}`;
+  const provider = `${c.gray('Provider:')} ${c.hex(blue).bold('GitHub Models')}`;
+  const session = `${c.gray('Session:')} ${c.hex(green).bold('active')} ${c.gray(`(${sessDir})`)}`;
+  const modelLine = `${c.gray('Model:')} ${c.hex(blue)(model)}`;
   const hints = safeUnicode
-    ? `${c.gray('/help')} for commands  ${c.gray('@file')} to add context  ${c.gray('Tab')} to autocomplete`
-    : `/help for commands  @file to add context  Tab to autocomplete`;
+    ? `${c.gray('/help')} commands  ${c.gray('/')} slash hints  ${c.gray('@file')} context`
+    : `/help commands  / slash hints  @file context`;
 
   return [
     '',
-    logo,
-    '',
-    diag1,
-    diag2,
-    divider,
-    '',
-    `  ${c.gray('v' + version)}  ${c.gray('·')}  ${c.hex(blue)(model)}`,
+    `  ${title}`,
+    `  ${provider}  ${c.gray('│')}  ${modelLine}`,
+    `  ${session}`,
+    `  ${c.gray('─'.repeat(68))}`,
     `  ${hints}`,
     '',
   ].join('\n');

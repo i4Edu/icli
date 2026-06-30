@@ -462,6 +462,16 @@ describe('handleSlash', { timeout: 180_000 }, () => {
     expect(output).toContain('model');
   });
 
+  it('accepts unique slash command prefixes', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+    const ctx = createContext();
+
+    await handleSlash('/mod gpt-4o', ctx);
+
+    expect(ctx.session.setModel).toHaveBeenCalledWith('gpt-4o');
+    expect(output).toContain('/mod → /model');
+  });
+
   it('recognizes /provider and /provider set', async () => {
     const { handleSlash } = await import('../../src/commands/slash.js');
     const ctx = createContext();
@@ -929,11 +939,20 @@ describe('handleSlash', { timeout: 180_000 }, () => {
     expect(output).toContain('build-a-tdd-helper.test.ts');
   });
 
-  it('reports unknown slash commands as consumed', async () => {
+  it('shows suggestions for near-miss slash commands', async () => {
     const { handleSlash } = await import('../../src/commands/slash.js');
-    const result = await handleSlash('/wat', createContext());
+    const result = await handleSlash('/modl gpt-4o', createContext());
 
     expect(result).toEqual({ handled: true, consumed: true });
-    expect(output).toContain('unknown command: /wat');
+    expect(output).toContain('unknown command: /modl');
+    expect(output).toContain('Did you mean: /model');
+  });
+
+  it('reports unknown slash commands as consumed', async () => {
+    const { handleSlash } = await import('../../src/commands/slash.js');
+    const result = await handleSlash('/zzz', createContext());
+
+    expect(result).toEqual({ handled: true, consumed: true });
+    expect(output).toContain('unknown command: /zzz');
   });
 });

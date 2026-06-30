@@ -362,6 +362,149 @@ const apiServer = getGlobalAPIServer();
 const sandboxByCwd = new Map<string, ContainerSandbox>();
 let lastTddResult: TDDResult | null = null;
 
+const KNOWN_SLASH_COMMANDS = [
+  'help',
+  'clear',
+  'new',
+  'model',
+  'provider',
+  'cwd',
+  'diff',
+  'changes',
+  'git-log',
+  'context',
+  'usage',
+  'settings',
+  'feedback',
+  'pin',
+  'unpin',
+  'read-only',
+  'ro',
+  'every',
+  'after',
+  'schedule',
+  'tokens',
+  'editor',
+  'reasoning',
+  'think-tokens',
+  'compact',
+  'sessions',
+  'cloud',
+  'export',
+  'share',
+  'paste',
+  'copy',
+  'copy-context',
+  'handoff',
+  'plan',
+  'edit-format',
+  'autopilot',
+  'goal',
+  'commit',
+  'pr',
+  'review',
+  'diff-review',
+  'issue',
+  'branch',
+  'index',
+  'rag',
+  'search',
+  'goto',
+  'refs',
+  'route',
+  'undo',
+  'redo',
+  'cost',
+  'snippets',
+  'snippet',
+  'profile',
+  'profiles',
+  'role',
+  'style',
+  'conventions',
+  'stats',
+  'audit',
+  'metrics',
+  'explain',
+  'suggest',
+  'summary',
+  'compare',
+  'env',
+  'template',
+  'readme',
+  'changelog',
+  'release',
+  'fix',
+  'heal',
+  'lint',
+  'test',
+  'auto-lint',
+  'auto-test',
+  'auto-fix',
+  'tdd',
+  'doctor',
+  'todo',
+  'todos',
+  'task',
+  'tasks',
+  'deps',
+  'init',
+  'security',
+  'proxy',
+  'filter',
+  'retention',
+  'dead-code',
+  'refactor',
+  'stacktrace',
+  'bookmark',
+  'bookmarks',
+  'alias',
+  'skill',
+  'history',
+  'stash',
+  'notify',
+  'explain-shell',
+  'generate',
+  'actions',
+  'codegen',
+  'multi',
+  'agent',
+  'parallel',
+  'explore',
+  'trigger',
+  'triggers',
+  'watch',
+  'web',
+  'bridge',
+  'error-watch',
+  'memory',
+  'corrections',
+  'team-memory',
+  'repo',
+  'space',
+  'doc',
+  'diagram',
+  'extension',
+  'extensions',
+  'sandbox',
+  'serve',
+  'worktree',
+  'cloud-routine',
+  'voice',
+  'plugin',
+  'plugins',
+  'workflow',
+  'workflows',
+  'acp',
+  'exit',
+  'quit',
+] as const;
+
+type SlashCommandResolution =
+  | { kind: 'exact' | 'prefix'; command: string }
+  | { kind: 'ambiguous'; matches: string[] }
+  | { kind: 'unknown'; suggestions: string[] };
+
 errorWatcher.onError((error) => {
   process.stdout.write(
     `${theme.warn(`[error-watch] ${formatParsedError(error)}`)}\n${theme.dim(`${suggestFix(error)}\n`)}\n`,
@@ -390,7 +533,31 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const arg = rest.join(' ');
   const s = ctx.session;
   const roleManager = getRoleManager(s.state.cwd);
-  const normalizedCommand = cmd.toLowerCase();
+  const resolvedCommand = resolveSlashCommand(cmd);
+  if (resolvedCommand.kind === 'ambiguous') {
+    process.stdout.write(
+      theme.warn(
+        `ambiguous command: /${cmd}\nmatches: ${resolvedCommand.matches.map((value) => `/${value}`).join(', ')}\n`,
+      ),
+    );
+    return done();
+  }
+  if (resolvedCommand.kind === 'unknown') {
+    if (resolvedCommand.suggestions.length > 0) {
+      process.stdout.write(
+        theme.warn(
+          `unknown command: /${cmd}\nDid you mean: ${resolvedCommand.suggestions.map((value) => `/${value}`).join(', ')} ?\n(try /help)\n`,
+        ),
+      );
+      return done();
+    }
+    process.stdout.write(theme.warn(`unknown command: /${cmd}  (try /help)\n`));
+    return done();
+  }
+  const normalizedCommand = resolvedCommand.command;
+  if (resolvedCommand.kind === 'prefix' && cmd.toLowerCase() !== normalizedCommand) {
+    process.stdout.write(theme.dim(`↳ /${cmd} → /${normalizedCommand}\n`));
+  }
   setScheduleRunner(ctx.schedulePrompt ?? null);
 
   if (normalizedCommand !== 'help' && normalizedCommand !== 'role') {
@@ -1639,6 +1806,29 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(theme.warn(`unknown command: /${cmd}  (try /help)\n`));
       return done();
   }
+}
+
+function resolveSlashCommand(rawCommand: string): SlashCommandResolution {
+  const command = rawCommand.trim().toLowerCase();
+  if (!command) return { kind: 'unknown', suggestions: [] };
+  if (KNOWN_SLASH_COMMANDS.includes(command as (typeof KNOWN_SLASH_COMMANDS)[number])) {
+    return { kind: 'exact', command };
+  }
+  if (command.length >= 2) {
+    const prefixMatches = KNOWN_SLASH_COMMANDS.filter((known) => known.startsWith(command));
+    if (prefixMatches.length === 1) return { kind: 'prefix', command: prefixMatches[0] };
+    if (prefixMatches.length > 1) return { kind: 'ambiguous', matches: prefixMatches.slice(0, 6) };
+  }
+  return { kind: 'unknown', suggestions: suggestSlashCommands(command) };
+}
+
+function suggestSlashCommands(command: string): string[] {
+  if (!command) return [];
+  const exactPrefix = KNOWN_SLASH_COMMANDS.filter((known) => known.startsWith(command));
+  const contains = KNOWN_SLASH_COMMANDS.filter(
+    (known) => !known.startsWith(command) && known.includes(command),
+  );
+  return [...exactPrefix, ...contains].slice(0, 5);
 }
 
 function done(
