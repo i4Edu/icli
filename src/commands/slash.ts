@@ -499,6 +499,10 @@ const KNOWN_SLASH_COMMANDS = [
   'exit',
   'quit',
 ] as const;
+const MIN_PREFIX_LENGTH = 2;
+const MAX_AMBIGUOUS_MATCHES = 6;
+const MAX_SUGGESTIONS = 5;
+const MAX_LEVENSHTEIN_DISTANCE = 2;
 
 type SlashCommandResolution =
   | { kind: 'exact' | 'prefix'; command: string }
@@ -1814,10 +1818,12 @@ function resolveSlashCommand(rawCommand: string): SlashCommandResolution {
   if (KNOWN_SLASH_COMMANDS.includes(command as (typeof KNOWN_SLASH_COMMANDS)[number])) {
     return { kind: 'exact', command };
   }
-  if (command.length >= 2) {
+  if (command.length >= MIN_PREFIX_LENGTH) {
     const prefixMatches = KNOWN_SLASH_COMMANDS.filter((known) => known.startsWith(command));
     if (prefixMatches.length === 1) return { kind: 'prefix', command: prefixMatches[0] };
-    if (prefixMatches.length > 1) return { kind: 'ambiguous', matches: prefixMatches.slice(0, 6) };
+    if (prefixMatches.length > 1) {
+      return { kind: 'ambiguous', matches: prefixMatches.slice(0, MAX_AMBIGUOUS_MATCHES) };
+    }
   }
   return { kind: 'unknown', suggestions: suggestSlashCommands(command) };
 }
@@ -1828,16 +1834,18 @@ function suggestSlashCommands(command: string): string[] {
   const contains = KNOWN_SLASH_COMMANDS.filter(
     (known) => !known.startsWith(command) && known.includes(command),
   );
-  if (exactPrefix.length || contains.length) return [...exactPrefix, ...contains].slice(0, 5);
+  if (exactPrefix.length || contains.length) {
+    return [...exactPrefix, ...contains].slice(0, MAX_SUGGESTIONS);
+  }
 
   const fuzzy = KNOWN_SLASH_COMMANDS.map((known) => ({
     known,
     distance: levenshteinDistance(command, known),
   }))
-    .filter((entry) => entry.distance <= 2)
+    .filter((entry) => entry.distance <= MAX_LEVENSHTEIN_DISTANCE)
     .sort((a, b) => a.distance - b.distance || a.known.localeCompare(b.known))
     .map((entry) => entry.known);
-  return fuzzy.slice(0, 5);
+  return fuzzy.slice(0, MAX_SUGGESTIONS);
 }
 
 function levenshteinDistance(left: string, right: string): number {
