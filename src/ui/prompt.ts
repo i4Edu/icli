@@ -195,7 +195,7 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
         return;
       }
 
-      if (!/^\/\w/.test(line)) return;
+      if (!/^\/[\w-]*$/.test(line)) return;
 
       const [hits] = slashCompleter(line);
       if (!hits.length) return;

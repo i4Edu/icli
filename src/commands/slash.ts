@@ -362,6 +362,154 @@ const apiServer = getGlobalAPIServer();
 const sandboxByCwd = new Map<string, ContainerSandbox>();
 let lastTddResult: TDDResult | null = null;
 
+const KNOWN_SLASH_COMMANDS = [
+  'help',
+  'clear',
+  'new',
+  'model',
+  'provider',
+  'cwd',
+  'diff',
+  'changes',
+  'git-log',
+  'context',
+  'usage',
+  'settings',
+  'feedback',
+  'pin',
+  'unpin',
+  'read-only',
+  'ro',
+  'every',
+  'after',
+  'schedule',
+  'tokens',
+  'editor',
+  'reasoning',
+  'think-tokens',
+  'compact',
+  'sessions',
+  'cloud',
+  'export',
+  'share',
+  'paste',
+  'copy',
+  'copy-context',
+  'handoff',
+  'plan',
+  'edit-format',
+  'autopilot',
+  'goal',
+  'commit',
+  'pr',
+  'review',
+  'diff-review',
+  'issue',
+  'branch',
+  'index',
+  'rag',
+  'search',
+  'goto',
+  'refs',
+  'route',
+  'undo',
+  'redo',
+  'cost',
+  'snippets',
+  'snippet',
+  'profile',
+  'profiles',
+  'role',
+  'style',
+  'conventions',
+  'stats',
+  'audit',
+  'metrics',
+  'explain',
+  'suggest',
+  'summary',
+  'compare',
+  'env',
+  'template',
+  'readme',
+  'changelog',
+  'release',
+  'fix',
+  'heal',
+  'lint',
+  'test',
+  'auto-lint',
+  'auto-test',
+  'auto-fix',
+  'tdd',
+  'doctor',
+  'todo',
+  'todos',
+  'task',
+  'tasks',
+  'deps',
+  'init',
+  'security',
+  'proxy',
+  'filter',
+  'retention',
+  'dead-code',
+  'refactor',
+  'stacktrace',
+  'bookmark',
+  'bookmarks',
+  'alias',
+  'skill',
+  'history',
+  'stash',
+  'notify',
+  'explain-shell',
+  'generate',
+  'actions',
+  'codegen',
+  'multi',
+  'agent',
+  'parallel',
+  'explore',
+  'trigger',
+  'triggers',
+  'watch',
+  'web',
+  'bridge',
+  'error-watch',
+  'memory',
+  'corrections',
+  'team-memory',
+  'repo',
+  'space',
+  'doc',
+  'diagram',
+  'extension',
+  'extensions',
+  'sandbox',
+  'serve',
+  'worktree',
+  'cloud-routine',
+  'voice',
+  'plugin',
+  'plugins',
+  'workflow',
+  'workflows',
+  'acp',
+  'exit',
+  'quit',
+] as const;
+const KNOWN_SLASH_COMMAND_SET = new Set<string>(KNOWN_SLASH_COMMANDS);
+const MIN_PREFIX_LENGTH = 2;
+const MAX_AMBIGUOUS_MATCHES = 6;
+const MAX_SUGGESTIONS = 5;
+const MAX_LEVENSHTEIN_DISTANCE = 2;
+
+type SlashCommandResolution =
+  | { kind: 'exact' | 'prefix'; command: string }
+  | { kind: 'ambiguous'; matches: string[] }
+  | { kind: 'unknown'; suggestions: string[] };
+
 errorWatcher.onError((error) => {
   process.stdout.write(
     `${theme.warn(`[error-watch] ${formatParsedError(error)}`)}\n${theme.dim(`${suggestFix(error)}\n`)}\n`,
@@ -390,7 +538,31 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const arg = rest.join(' ');
   const s = ctx.session;
   const roleManager = getRoleManager(s.state.cwd);
-  const normalizedCommand = cmd.toLowerCase();
+  const resolvedCommand = resolveSlashCommand(cmd);
+  if (resolvedCommand.kind === 'ambiguous') {
+    process.stdout.write(
+      theme.warn(
+        `ambiguous command: /${cmd}\nmatches: ${resolvedCommand.matches.map((value) => `/${value}`).join(', ')}\n`,
+      ),
+    );
+    return done();
+  }
+  if (resolvedCommand.kind === 'unknown') {
+    if (resolvedCommand.suggestions.length > 0) {
+      process.stdout.write(
+        theme.warn(
+          `unknown command: /${cmd}\nDid you mean: ${resolvedCommand.suggestions.map((value) => `/${value}`).join(', ')}?\n(try /help)\n`,
+        ),
+      );
+      return done();
+    }
+    process.stdout.write(theme.warn(`unknown command: /${cmd}  (try /help)\n`));
+    return done();
+  }
+  const normalizedCommand = resolvedCommand.command;
+  if (resolvedCommand.kind === 'prefix' && cmd.toLowerCase() !== normalizedCommand) {
+    process.stdout.write(theme.dim(`↳ /${cmd} → /${normalizedCommand}\n`));
+  }
   setScheduleRunner(ctx.schedulePrompt ?? null);
 
   if (normalizedCommand !== 'help' && normalizedCommand !== 'role') {
@@ -1639,6 +1811,66 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       process.stdout.write(theme.warn(`unknown command: /${cmd}  (try /help)\n`));
       return done();
   }
+}
+
+function resolveSlashCommand(rawCommand: string): SlashCommandResolution {
+  const command = rawCommand.trim().toLowerCase();
+  if (!command) return { kind: 'unknown', suggestions: [] };
+  if (KNOWN_SLASH_COMMAND_SET.has(command)) {
+    return { kind: 'exact', command };
+  }
+  if (command.length >= MIN_PREFIX_LENGTH) {
+    const prefixMatches = KNOWN_SLASH_COMMANDS.filter((known) => known.startsWith(command));
+    if (prefixMatches.length === 1) return { kind: 'prefix', command: prefixMatches[0] };
+    if (prefixMatches.length > 1) {
+      return { kind: 'ambiguous', matches: prefixMatches.slice(0, MAX_AMBIGUOUS_MATCHES) };
+    }
+  }
+  return { kind: 'unknown', suggestions: suggestSlashCommands(command) };
+}
+
+function suggestSlashCommands(command: string): string[] {
+  if (!command) return [];
+  const exactPrefix: string[] = [];
+  const contains: string[] = [];
+  for (const known of KNOWN_SLASH_COMMANDS) {
+    if (known.startsWith(command)) {
+      exactPrefix.push(known);
+      continue;
+    }
+    if (known.includes(command)) contains.push(known);
+  }
+  if (exactPrefix.length || contains.length) {
+    return [...exactPrefix, ...contains].slice(0, MAX_SUGGESTIONS);
+  }
+
+  const fuzzy = KNOWN_SLASH_COMMANDS.map((known) => ({
+    known,
+    distance: levenshteinDistance(command, known),
+  }))
+    .filter((entry) => entry.distance <= MAX_LEVENSHTEIN_DISTANCE)
+    .sort((a, b) => a.distance - b.distance || a.known.localeCompare(b.known))
+    .map((entry) => entry.known);
+  return fuzzy.slice(0, MAX_SUGGESTIONS);
+}
+
+function levenshteinDistance(left: string, right: string): number {
+  if (left === right) return 0;
+  if (!left) return right.length;
+  if (!right) return left.length;
+
+  const prev = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = prev[0];
+    prev[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const temp = prev[j];
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, diagonal + cost);
+      diagonal = temp;
+    }
+  }
+  return prev[right.length];
 }
 
 function done(
