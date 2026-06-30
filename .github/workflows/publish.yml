@@ -1,9 +1,13 @@
 name: publish
 
 on:
-  push:
+  pull_request:
     branches:
-      - 'copilot/publish-new-release'
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: read
@@ -11,6 +15,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: github.head_ref == 'copilot/publish-new-release'
     steps:
       - uses: actions/checkout@v4
 
