@@ -35,7 +35,10 @@ describe('copilotApiHeaders', () => {
 describe('getCopilotToken', () => {
   it('exchanges the github token and returns the copilot token', async () => {
     const fetchImpl = vi.fn(async () =>
-      jsonResponse(200, { token: 'tid=abc;exp=123', expires_at: Math.floor(Date.now() / 1000) + 1800 }),
+      jsonResponse(200, {
+        token: 'tid=abc;exp=123',
+        expires_at: Math.floor(Date.now() / 1000) + 1800,
+      }),
     ) as unknown as FetchLike;
 
     const token = await getCopilotToken('gho_test', fetchImpl);
@@ -68,7 +71,9 @@ describe('getCopilotToken', () => {
 
   it('throws an actionable error on 401/403', async () => {
     const fetchImpl = vi.fn(async () => jsonResponse(403, 'no copilot')) as unknown as FetchLike;
-    await expect(getCopilotToken('gho_bad', fetchImpl)).rejects.toThrow(/Copilot access|subscription/i);
+    await expect(getCopilotToken('gho_bad', fetchImpl)).rejects.toThrow(
+      /Copilot access|subscription/i,
+    );
   });
 
   it('throws when no token is returned', async () => {

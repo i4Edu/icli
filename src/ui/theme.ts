@@ -54,7 +54,7 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
 
 export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
-const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g; // eslint-disable-line no-control-regex
 
 function visibleLength(text: string): number {
   return text.replace(ANSI_PATTERN, '').length;

@@ -189,7 +189,9 @@ async function defaultExecuteTask(
     { role: 'user', content: task.prompt },
   ];
 
-  const response = await (await client()).chat.completions.create(
+  const response = await (
+    await client()
+  ).chat.completions.create(
     {
       model: options.model,
       messages,

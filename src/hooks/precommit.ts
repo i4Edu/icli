@@ -377,7 +377,9 @@ async function runReviewCheck(staged: StagedContext): Promise<EvaluatedCheckResu
         content: `Review this staged diff:\n\n${staged.diff.slice(0, 80_000)}`,
       },
     ];
-    const response = await (await client()).chat.completions.create({
+    const response = await (
+      await client()
+    ).chat.completions.create({
       model: config.defaultModel,
       messages,
       temperature: 0.1,
