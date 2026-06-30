@@ -55,6 +55,8 @@ export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.W
 
 export function banner(version: string, model: string, sessionDir?: string): string {
   const sessDir = sessionDir ?? '~/.icopilot/sessions/';
+  const hintSegments = ['/help commands', '/ slash hints', '@file context'] as const;
+  const plainHints = hintSegments.join('  ');
   if (!colorEnabled()) {
     return [
       '',
@@ -74,8 +76,10 @@ export function banner(version: string, model: string, sessionDir?: string): str
   const session = `${c.gray('Session:')} ${c.hex(green).bold('active')} ${c.gray(`(${sessDir})`)}`;
   const modelLine = `${c.gray('Model:')} ${c.hex(blue)(model)}`;
   const hints = safeUnicode
-    ? `${c.gray('/help')} commands  ${c.gray('/')} slash hints  ${c.gray('@file')} context`
-    : `/help commands  / slash hints  @file context`;
+    ? hintSegments
+        .map((segment) => c.gray(segment.split(' ')[0]) + segment.slice(segment.indexOf(' ')))
+        .join('  ')
+    : plainHints;
 
   return [
     '',

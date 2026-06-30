@@ -1845,7 +1845,7 @@ function levenshteinDistance(left: string, right: string): number {
   if (!left) return right.length;
   if (!right) return left.length;
 
-  const prev = new Array(right.length + 1).fill(0).map((_, index) => index);
+  const prev = Array.from({ length: right.length + 1 }, (_, index) => index);
   for (let i = 1; i <= left.length; i += 1) {
     let diagonal = prev[0];
     prev[0] = i;
