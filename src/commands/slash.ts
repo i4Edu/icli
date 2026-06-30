@@ -337,6 +337,7 @@ ${theme.brand('Inline')}
   /ask <message>             discuss only for one turn
   /code <message>            implement directly for one turn
   /architect <message>       plan briefly, then implement for one turn
+  /reason <message>          stream reasoning, then a polished answer
   @path/to/file              inject file contents into next message
   Ctrl+X Ctrl+E              open editor for a multi-line prompt
   Ctrl-C                     interrupt streaming (does not exit)

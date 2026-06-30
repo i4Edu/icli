@@ -1,7 +1,13 @@
-import 'dotenv/config';
+import { config as loadDotenv } from 'dotenv';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+
+// Load .env for normal runs, but skip it under the test runner so a developer's
+// local .env (e.g. ICOPILOT_ENDPOINT) cannot leak into and break the test suite.
+if (!process.env.VITEST) {
+  loadDotenv();
+}
 import { providerRegistry, resolveProviderApiKey } from './providers/custom-provider.js';
 import type { KeybindingMode } from './util/keybindings.js';
 

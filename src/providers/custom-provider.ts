@@ -45,6 +45,25 @@ const BUILTIN_PROVIDERS: ProviderConfig[] = [
     defaultModel: 'gpt-4o-mini',
   },
   {
+    // The GitHub Copilot API, as used by the official Copilot CLI/IDE clients.
+    // Authenticates by exchanging a GitHub token for a short-lived Copilot
+    // token (see src/api/copilot-token.ts). Same endpoint for all models.
+    name: 'copilot',
+    baseUrl: 'https://api.business.githubcopilot.com',
+    models: [
+      'gpt-4o',
+      'gpt-4o-mini',
+      'gpt-4.1',
+      'o3-mini',
+      'o4-mini',
+      'claude-3.5-sonnet',
+      'claude-3.7-sonnet',
+      'claude-sonnet-4',
+      'gemini-2.0-flash-001',
+    ],
+    defaultModel: 'gpt-4o',
+  },
+  {
     name: 'openai',
     baseUrl: 'https://api.openai.com/v1',
     models: ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'],
@@ -156,7 +175,13 @@ export function resolveProviderApiKey(provider: ProviderConfig): string | undefi
   if (provider.apiKey) return provider.apiKey;
   switch (provider.name) {
     case 'github':
-      return process.env.GITHUB_TOKEN || process.env.ICOPILOT_TOKEN || resolveGitHubCliToken();
+    case 'copilot':
+      return (
+        process.env.GITHUB_TOKEN ||
+        process.env.GH_TOKEN ||
+        process.env.ICOPILOT_TOKEN ||
+        resolveGitHubCliToken()
+      );
     case 'openai':
       return process.env.OPENAI_API_KEY || process.env.ICOPILOT_TOKEN;
     case 'anthropic':

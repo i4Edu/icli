@@ -133,6 +133,7 @@ const defaultSlashCommands = [
   'ask',
   'code',
   'architect',
+  'reason',
   'exit',
   'quit',
 ];

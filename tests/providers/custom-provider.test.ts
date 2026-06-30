@@ -150,6 +150,22 @@ describe('ProviderRegistry', () => {
     });
   });
 
+  it('reads GH_TOKEN for github/copilot when GITHUB_TOKEN is absent', async () => {
+    delete process.env.GITHUB_TOKEN;
+    delete process.env.ICOPILOT_TOKEN;
+    process.env.GH_TOKEN = 'gh-env-token';
+
+    const { ProviderRegistry, resolveProviderApiKey } =
+      await import('../../src/providers/custom-provider.js');
+    const registry = new ProviderRegistry({ configPath: providersPath });
+
+    expect(resolveProviderApiKey(registry.get('github')!)).toBe('gh-env-token');
+    expect(resolveProviderApiKey(registry.get('copilot')!)).toBe('gh-env-token');
+    expect(childProcessMocks.execFileSync).not.toHaveBeenCalled();
+
+    delete process.env.GH_TOKEN;
+  });
+
   it('tests providers through models.list and falls back to a chat completion probe', async () => {
     const { ProviderRegistry } = await import('../../src/providers/custom-provider.js');
     const registry = new ProviderRegistry({ configPath: providersPath });

@@ -10,7 +10,7 @@ export async function embed(texts: string[]): Promise<number[][]> {
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const input = texts.slice(i, i + BATCH_SIZE);
     try {
-      const response = await client().embeddings.create({
+      const response = await (await client()).embeddings.create({
         model: EMBEDDING_MODEL,
         input,
       });

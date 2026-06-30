@@ -5,7 +5,7 @@ import { theme } from '../ui/theme.js';
 
 export async function runOneShot(
   prompt: string,
-  opts: { model?: string; plan?: boolean; turnMode?: 'ask' | 'code' | 'architect' } = {},
+  opts: { model?: string; plan?: boolean; turnMode?: 'ask' | 'code' | 'architect' | 'reason' } = {},
 ) {
   const session = new Session({
     model: opts.model,

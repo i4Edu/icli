@@ -22,6 +22,10 @@ describe('parseModePrefix', () => {
       mode: 'architect',
       message: 'redesign auth',
     });
+    expect(parseModePrefix('/reason diagnose network speed')).toEqual({
+      mode: 'reason',
+      message: 'diagnose network speed',
+    });
   });
 });
 

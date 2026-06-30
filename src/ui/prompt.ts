@@ -249,7 +249,7 @@ export function createPrompt(keybindingMode?: KeybindingMode): ReplPrompt {
 
 // ─── Prompt prefix (left border of input box) ─────────────────────────────
 export function prefix(mode: 'ask' | 'plan'): string {
-  const arrow = safeUnicode ? '❯' : '>';
+  const arrow = '>';
   const border = theme.dim('│');
   if (mode === 'plan') {
     return `  ${border} ${theme.badge('plan')} ${theme.user(arrow)} `;

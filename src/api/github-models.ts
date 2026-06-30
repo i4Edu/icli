@@ -10,27 +10,46 @@ import {
   resolveProviderApiKey,
   type ProviderConfig,
 } from '../providers/custom-provider.js';
+import { copilotApiHeaders, getCopilotToken } from './copilot-token.js';
 import { ProxyManager } from '../security/proxy.js';
 import { theme } from '../ui/theme.js';
 
 let _client: OpenAI | null = null;
 let _clientCacheKey: string | null = null;
 
-export function client(): OpenAI {
+export async function client(): Promise<OpenAI> {
   const provider = activeProvider();
   const proxyConfig = ProxyManager.shared().loadConfig();
+
+  let apiKey = config.token || resolveProviderApiKey(provider) || 'not-needed';
+  let headers = provider?.headers;
+
+  // The Copilot API requires a short-lived token exchanged from the GitHub
+  // token, plus editor identity headers — mirroring the official Copilot CLI.
+  if (provider?.name === 'copilot') {
+    const githubToken = config.token || resolveProviderApiKey(provider);
+    if (!githubToken) {
+      throw new Error(
+        'Copilot provider requires a GitHub token. Set GITHUB_TOKEN or GH_TOKEN, or run ' +
+          '`gh auth login` with a Copilot-enabled account.',
+      );
+    }
+    apiKey = await getCopilotToken(githubToken);
+    headers = { ...copilotApiHeaders(), ...(provider?.headers || {}) };
+  }
+
   const cacheKey = JSON.stringify({
     provider: config.provider,
     endpoint: config.endpoint,
-    token: config.token || resolveProviderApiKey(provider) || 'not-needed',
-    headers: provider?.headers || null,
+    token: apiKey,
+    headers: headers || null,
     proxy: proxyConfig,
   });
   if (_client && _clientCacheKey === cacheKey) return _client;
   _client = new OpenAI({
-    apiKey: config.token || resolveProviderApiKey(provider) || 'not-needed',
+    apiKey,
     baseURL: config.endpoint || provider?.baseUrl,
-    defaultHeaders: provider?.headers,
+    defaultHeaders: headers,
     httpAgent: ProxyManager.shared().getAgent(),
   });
   _clientCacheKey = cacheKey;
@@ -105,10 +124,33 @@ export async function streamChat(opts: StreamOpts): Promise<StreamResult> {
         attempt++;
         continue;
       }
+      const message = String(err?.message ?? err ?? '');
+      if (status === 401 || (status === 400 && /authorization/i.test(message))) {
+        throw new Error(authErrorHint(message));
+      }
       throw err;
     }
   }
   throw lastErr;
+}
+
+/**
+ * Build an actionable message for authentication failures (HTTP 401, or 400
+ * responses complaining about the Authorization header). Surfaces the active
+ * endpoint/provider and the most common token/endpoint mismatch fixes.
+ */
+function authErrorHint(detail: string): string {
+  const endpoint = config.endpoint || activeProvider()?.baseUrl || '(provider default)';
+  return [
+    `authentication failed: ${detail}`,
+    `  endpoint: ${endpoint}`,
+    `  provider: ${config.provider}`,
+    `Your token does not match this endpoint. Common fixes:`,
+    `  • For GitHub Models, unset ICOPILOT_ENDPOINT (default: ` +
+      `https://models.inference.ai.azure.com) and set GITHUB_TOKEN to a PAT with 'models:read'.`,
+    `  • For the Copilot API (https://api.business.githubcopilot.com), select the 'copilot' ` +
+      `provider (ICOPILOT_PROVIDER=copilot) so your GitHub token is exchanged for a Copilot token.`,
+  ].join('\n');
 }
 
 async function runOnce(opts: StreamOpts): Promise<StreamResult> {
@@ -121,7 +163,9 @@ async function runOnce(opts: StreamOpts): Promise<StreamResult> {
     ...buildChatReasoningParams(opts.model, provider?.maxTokens),
     stream: true,
   };
-  const stream = (await client().chat.completions.create(request, {
+  const stream = (await (
+    await client()
+  ).chat.completions.create(request, {
     signal: opts.signal,
   })) as unknown as AsyncIterable<ChatCompletionChunk>;
 

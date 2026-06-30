@@ -1,3 +1,4 @@
+import os from 'node:os';
 import chalk, { Chalk, supportsColor } from 'chalk';
 import type { ChalkInstance } from 'chalk';
 import { config, type ThemeName } from '../config.js';
@@ -53,47 +54,81 @@ export const theme: Record<string, Styler> & { badge: Styler } = {
 
 export const safeUnicode = process.platform !== 'win32' || Boolean(process.env.WT_SESSION);
 
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
+function visibleLength(text: string): number {
+  return text.replace(ANSI_PATTERN, '').length;
+}
+
+function shortenHome(p: string): string {
+  const home = os.homedir();
+  return p === home || p.startsWith(home + '/') ? '~' + p.slice(home.length) : p;
+}
+
+/**
+ * GitHub Copilot CLI-style welcome panel. Renders a rounded, bordered box
+ * with the product title, model/provider, working directory, and the core
+ * shortcut hints — mirroring the official Copilot CLI launch screen.
+ */
 export function banner(version: string, model: string, sessionDir?: string): string {
-  const sessDir = sessionDir ?? '~/.icopilot/sessions/';
-  const hintSegments = ['/help commands', 'type / for slash hints', '@file context'] as const;
-  const plainHints = hintSegments.join('  ');
+  void sessionDir;
+  const cols = process.stdout.columns || 80;
+  const corner = safeUnicode
+    ? { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│' }
+    : { tl: '+', tr: '+', bl: '+', br: '+', h: '-', v: '|' };
+  const indent = '  ';
+  const width = Math.max(60, cols - 6);
+  const cwd = shortenHome(process.cwd());
+
   if (!colorEnabled()) {
+    const top = `${indent}${corner.tl}${corner.h.repeat(width)}${corner.tr}`;
+    const bottom = `${indent}${corner.bl}${corner.h.repeat(width)}${corner.br}`;
+    const row = (text: string) =>
+      `${indent}${corner.v} ${text}${' '.repeat(Math.max(0, width - 1 - text.length))}${corner.v}`;
     return [
       '',
-      `iCopilot CLI Agent v${version}  |  Provider: GitHub Models`,
-      `Session: active (${sessDir})  |  Model: ${model}`,
-      '/help for commands · / for slash hints · @file to add context',
+      top,
+      row(`iCopilot CLI  v${version}`),
+      row(''),
+      row('Ask me to build, edit, explain, or run code in this repo.'),
+      row(`model ${model}   provider GitHub Models`),
+      row(`cwd ${cwd}`),
+      row(''),
+      row('/help for commands   @file to add context   /exit to quit'),
+      bottom,
       '',
     ].join('\n');
   }
 
-  const { c, name } = palette();
-  const green = name === 'light' ? '#166534' : '#3FB950';
+  const { c } = palette();
   const blue = '#58A6FF';
+  const border = (s: string) => c.gray(s);
+  const dim = (s: string) => c.gray(s);
+  const top = `${indent}${border(`${corner.tl}${corner.h.repeat(width)}${corner.tr}`)}`;
+  const bottom = `${indent}${border(`${corner.bl}${corner.h.repeat(width)}${corner.br}`)}`;
+  const row = (text: string) => {
+    const pad = ' '.repeat(Math.max(0, width - 1 - visibleLength(text)));
+    return `${indent}${border(corner.v)} ${text}${pad}${border(corner.v)}`;
+  };
 
-  const title = `${c.hex(blue).bold('iCopilot CLI Agent')} ${c.gray('v' + version)}`;
-  const provider = `${c.gray('Provider:')} ${c.hex(blue).bold('GitHub Models')}`;
-  const session = `${c.gray('Session:')} ${c.hex(green).bold('active')} ${c.gray(`(${sessDir})`)}`;
-  const modelLine = `${c.gray('Model:')} ${c.hex(blue)(model)}`;
-  const hints = safeUnicode
-    ? hintSegments.map((segment) => formatHintSegment(segment, c.gray)).join('  ')
-    : plainHints;
+  const title = `${c.hex(blue).bold('iCopilot CLI')}  ${dim('v' + version)}`;
+  const meta = `${dim('model')} ${c.hex(blue)(model)}   ${dim('provider')} ${c.hex(blue)('GitHub Models')}`;
+  const hints =
+    `${c.bold('/help')} ${dim('for commands')}   ` +
+    `${c.bold('@file')} ${dim('to add context')}   ` +
+    `${c.bold('/exit')} ${dim('to quit')}`;
 
   return [
     '',
-    `  ${title}`,
-    `  ${provider}  ${c.gray('│')}  ${modelLine}`,
-    `  ${session}`,
-    `  ${c.gray('─'.repeat(68))}`,
-    `  ${hints}`,
+    top,
+    row(title),
+    row(''),
+    row('Ask me to build, edit, explain, or run code in this repo.'),
+    row(meta),
+    row(`${dim('cwd')} ${dim(cwd)}`),
+    row(''),
+    row(hints),
+    bottom,
     '',
   ].join('\n');
-}
-
-function formatHintSegment(segment: string, colorize: (text: string) => string): string {
-  const firstSpace = segment.indexOf(' ');
-  if (firstSpace === -1) return colorize(segment);
-  const key = segment.slice(0, firstSpace);
-  const suffix = segment.slice(firstSpace);
-  return `${colorize(key)}${suffix}`;
 }

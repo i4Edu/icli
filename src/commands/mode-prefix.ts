@@ -1,4 +1,4 @@
-export type MessageModePrefix = 'ask' | 'code' | 'architect';
+export type MessageModePrefix = 'ask' | 'code' | 'architect' | 'reason';
 
 export interface ModePrefixResolution {
   matched: boolean;
@@ -13,7 +13,7 @@ export function parseModePrefix(input: string): {
   message: string;
 } {
   const trimmed = input.trim();
-  const match = trimmed.match(/^\/(ask|code|architect)(?:\s+(.*))?$/i);
+  const match = trimmed.match(/^\/(ask|code|architect|reason)(?:\s+(.*))?$/i);
   if (!match) {
     return { mode: null, message: input };
   }

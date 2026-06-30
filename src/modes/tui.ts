@@ -14,12 +14,14 @@ import {
   size,
 } from '../ui/screen.js';
 import {
-  WORKSPACE_TABS,
-  renderTabBar,
   renderHero,
   renderStatusDock,
   magentaSeparator,
   renderFooter,
+  renderHeaderBar,
+  renderContextPanel,
+  composeColumns,
+  renderFollowups,
 } from '../ui/tui-layout.js';
 import { safeUnicode } from '../ui/theme.js';
 import { handlePostTurnContextBudget } from './auto-compact.js';
@@ -36,7 +38,7 @@ type StdoutWrite = typeof process.stdout.write;
 
 export async function runTui(
   initialMode: 'ask' | 'plan' = 'ask',
-  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' } = {},
+  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' | 'reason' } = {},
 ): Promise<void> {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
@@ -66,7 +68,10 @@ export async function runTui(
   let cleaned = false;
   let frame: NodeJS.Timeout | undefined;
   let currentAbort: AbortController | null = null;
-  let activeTab = 0;
+  const recentCommands: string[] = [];
+  let followups: string[] = [];
+  let followupIndex = 0;
+  let lastTurnOutput = '';
   let gitBranch = '';
   let branchInFlight = false;
   let lastCwd = session.state.cwd;
@@ -141,16 +146,16 @@ export async function runTui(
     }
 
     // Absolute row anchors (1-indexed for ANSI cursor positioning):
-    //   row 1            → tabbed navigation header
-    //   rows 2..dockRow-1 → hero canvas + conversation timeline
-    //   dockRow           → status dock (locked 3 rows above the bottom)
-    //   dockRow + 1       → magenta boundary line
-    //   dockRow + 2       → input dock
-    //   rows (bottom)     → persistent footer
-    const tabRow = 1;
+    //   row 1                 → header bar (title + status cluster)
+    //   rows 2..dockRow-1     → split view: left output stream │ right context panel
+    //   dockRow               → status dock (locked 3 rows above the bottom)
+    //   dockRow + 1           → follow-up chips (or magenta boundary)
+    //   dockRow + 2           → input dock
+    //   rows (bottom)         → persistent footer
+    const headerRow = 1;
     const chatTop = 2;
     // The status dock is locked exactly 3 rows above the absolute bottom, so the
-    // four bottom rows are: dock, magenta separator, input dock, footer.
+    // four bottom rows are: dock, follow-ups/separator, input dock, footer.
     const dockRow = Math.max(chatTop, rows - 3);
     const separatorRow = Math.min(dockRow + 1, rows);
     const inputRow = Math.min(dockRow + 2, rows);
@@ -158,29 +163,55 @@ export async function runTui(
     const chatBottom = dockRow - 1;
     const chatHeight = Math.max(1, chatBottom - chatTop + 1);
 
+    // Column geometry: left output stream takes the bulk, the contextual panel
+    // claims a slim fixed-ish right column (3 cols reserved for " │ ").
+    const rightWidth = Math.max(18, Math.min(34, Math.floor(cols * 0.3)));
+    const leftWidth = Math.max(20, cols - rightWidth - 3);
+
     writeRaw('\x1b[2J\x1b[H');
 
-    // Row 0 — tabbed navigation header.
-    writeRaw(`\x1b[${tabRow};1H`);
-    writeRaw(renderTabBar(activeTab, cols));
+    const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
 
-    // Conversation timeline (hero canvas shown only while it is empty).
+    // Row 1 — header bar.
+    writeRaw(`\x1b[${headerRow};1H`);
+    writeRaw(
+      renderHeaderBar(
+        { online: !busy, mode: session.state.mode, model: modelShort, sessionId: session.state.id },
+        cols,
+      ),
+    );
+
+    // Split view — left output/input stream, right contextual panel.
     const showHero = !chat.trim();
-    const heroLines = showHero ? heroCanvas(session, cols) : [];
-    const lines = showHero ? heroLines : wrapLines(chat.trimEnd(), Math.max(1, cols));
-    const visible = lines.slice(-chatHeight);
+    const leftSource = showHero
+      ? heroCanvas(session, leftWidth)
+      : wrapLines(chat.trimEnd(), Math.max(1, leftWidth));
+    const leftLines = leftSource.slice(-chatHeight);
+
+    const rightLines = renderContextPanel(
+      {
+        sessionId: session.state.id,
+        model: modelShort,
+        mode: session.state.mode,
+        cwd: session.state.cwd,
+        branch: gitBranch,
+        recentCommands,
+      },
+      rightWidth,
+      chatHeight,
+    );
+
+    const splitRows = composeColumns(leftLines, rightLines, leftWidth, rightWidth, chatHeight);
     for (let i = 0; i < chatHeight; i++) {
       writeRaw(`\x1b[${chatTop + i};1H`);
-      // Hero lines are already padded to the full width (and carry ANSI), so
-      // they are written verbatim; plain chat lines are padded here.
-      writeRaw(showHero ? visible[i] || '' : padToCols(visible[i] || '', cols));
+      writeRaw(splitRows[i] ?? '');
     }
 
     // Status dock — left: cwd + branch, right: live consumption metrics.
     writeRaw(`\x1b[${dockRow};1H`);
     writeRaw(statusDock(session, gitBranch, cols, busy));
 
-    // Magenta boundary line.
+    // Follow-up chips line (falls back to the magenta boundary when empty).
     writeRaw(`\x1b[${separatorRow};1H`);
     if (busy) {
       const thinkLabel = ' ◆ Copilot is thinking… ';
@@ -192,6 +223,9 @@ export async function runTui(
           '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)) +
           '\x1b[0m',
       );
+    } else if (followups.length) {
+      writeRaw('\x1b[2K');
+      writeRaw(renderFollowups(followups, followupIndex, cols));
     } else {
       writeRaw(magentaSeparator(cols));
     }
@@ -210,7 +244,9 @@ export async function runTui(
 
   const appendCaptured = (chunk: unknown) => {
     const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-    chat += stripAnsi(text);
+    const plain = stripAnsi(text);
+    chat += plain;
+    lastTurnOutput += plain;
     markDirty();
   };
 
@@ -240,8 +276,14 @@ export async function runTui(
     const trimmed = line.trim();
     if (!trimmed) return;
 
+    if (!scheduled) {
+      recentCommands.push(trimmed);
+      if (recentCommands.length > 20) recentCommands.shift();
+    }
+
     busy = true;
     currentAbort = new AbortController();
+    lastTurnOutput = '';
     const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
     chat += `\n${scheduled ? '⏱' : '❯'} ${line}\n`;
     markDirty();
@@ -271,8 +313,9 @@ export async function runTui(
           return;
         }
 
-        const explicitTurnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null })
-          .turnMode;
+        const explicitTurnMode = (
+          slash as { turnMode?: 'ask' | 'code' | 'architect' | 'reason' | null }
+        ).turnMode;
         const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
 
         if (session.state.autopilotEnabled && !effectiveTurnMode) {
@@ -304,6 +347,8 @@ export async function runTui(
       releaseStdout();
       currentAbort = null;
       busy = false;
+      followups = extractFollowups(lastTurnOutput);
+      followupIndex = 0;
       markDirty();
       const next = pendingInputs.shift();
       if (next) void handleLine(next.line, next.scheduled);
@@ -315,15 +360,29 @@ export async function runTui(
   if (process.stdin.isTTY) process.stdin.setRawMode(true);
   process.stdout.on('resize', onResize);
   process.on('SIGINT', onSigint);
-  rl.on('line', (line) => void handleLine(line));
+  rl.on('line', (line) => {
+    if (!line.trim() && followups.length) {
+      const idx = ((followupIndex % followups.length) + followups.length) % followups.length;
+      const choice = followups[idx];
+      followups = [];
+      followupIndex = 0;
+      void handleLine(choice);
+      return;
+    }
+    void handleLine(line);
+  });
   rl.on('close', () => {
     if (running) cleanup();
   });
   const onKeypress = (_ch: unknown, key: readline.Key | undefined) => {
-    // Tab / Shift+Tab cycles the workspace navigation tabs.
-    if (key?.name === 'tab') {
-      const delta = key.shift ? -1 : 1;
-      activeTab = (activeTab + delta + WORKSPACE_TABS.length) % WORKSPACE_TABS.length;
+    // Ctrl+N / Ctrl+P cycle the inline follow-up chips; Esc clears them.
+    if (key?.ctrl && key.name === 'n' && followups.length) {
+      followupIndex = (followupIndex + 1) % followups.length;
+    } else if (key?.ctrl && key.name === 'p' && followups.length) {
+      followupIndex = (followupIndex - 1 + followups.length) % followups.length;
+    } else if (key?.name === 'escape') {
+      followups = [];
+      followupIndex = 0;
     }
     markDirty();
   };
@@ -401,6 +460,49 @@ function wrapLines(text: string, width: number): string[] {
 function padToCols(text: string, cols: number): string {
   const clipped = text.length > cols ? text.slice(0, cols) : text;
   return clipped + ' '.repeat(Math.max(0, cols - clipped.length));
+}
+
+function cleanLabel(s: string): string {
+  // For markdown links like [label](ca://s?q=…), use only the link text.
+  const link = s.match(/\[([^\]]+)\]\([^)]*\)/);
+  const base = link ? link[1] : s;
+  return base.replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32);
+}
+
+/**
+ * Derive selectable follow-up actions from a completed turn's output. Prefers a
+ * markdown "Next steps" list, falling back to inline `[chip]` style suggestions.
+ */
+function extractFollowups(text: string): string[] {
+  if (!text) return [];
+  const out: string[] = [];
+  const lines = text.split(/\r?\n/);
+  let collecting = false;
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^#{0,3}\s*next steps?\b/i.test(line) || /^next steps?:/i.test(line)) {
+      collecting = true;
+      continue;
+    }
+    if (!collecting) continue;
+    const m = line.match(/^(?:[-*]|\d+[.)])\s+(.*)$/);
+    if (m) {
+      const label = cleanLabel(m[1]);
+      if (label) out.push(label);
+      if (out.length >= 4) break;
+    } else if (line !== '') {
+      break;
+    }
+  }
+  if (out.length) return out;
+
+  const chip = /\[([^\]\n]{2,40})\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = chip.exec(text)) !== null && out.length < 4) {
+    const label = cleanLabel(match[1]);
+    if (label && !/https?:|\.(md|ts|js|json)$/i.test(label)) out.push(label);
+  }
+  return out;
 }
 
 function stripAnsi(text: string): string {

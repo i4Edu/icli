@@ -24,7 +24,7 @@ function friendlyError(err: any): string {
   if (!config.token && config.provider === 'github') {
     return (
       'Authentication is not configured for provider "github".\n' +
-      '  Set GITHUB_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
+      '  Set GITHUB_TOKEN, GH_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
     );
   }
 
@@ -32,7 +32,7 @@ function friendlyError(err: any): string {
     if (config.provider === 'github') {
       return (
         'Authentication is not configured for provider "github".\n' +
-        '  Set GITHUB_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
+        '  Set GITHUB_TOKEN, GH_TOKEN, set ICOPILOT_TOKEN, or sign in with `gh auth login`.'
       );
     }
     return `Authentication is not configured for provider "${config.provider}".\n  Set the provider-specific API key env var, ICOPILOT_TOKEN, or add \`token\` to ~/.icopilotrc.json.`;
@@ -171,7 +171,7 @@ export async function run(opts: any): Promise<void> {
     await runOneShot(opts.prompt, {
       model: opts.model,
       plan: !!opts.plan,
-      turnMode: opts.architect ? 'architect' : undefined,
+      turnMode: opts.architect ? 'architect' : opts.reason ? 'reason' : undefined,
     });
     return;
   }
@@ -181,12 +181,12 @@ export async function run(opts: any): Promise<void> {
   markFirstPrompt();
   if (opts.tui) {
     await runTui(opts.plan ? 'plan' : 'ask', {
-      defaultTurnMode: opts.architect ? 'architect' : undefined,
+      defaultTurnMode: opts.architect ? 'architect' : opts.reason ? 'reason' : undefined,
     });
     return;
   }
   await runInteractive(opts.plan ? 'plan' : 'ask', {
-    defaultTurnMode: opts.architect ? 'architect' : undefined,
+    defaultTurnMode: opts.architect ? 'architect' : opts.reason ? 'reason' : undefined,
   });
 }
 
@@ -221,6 +221,7 @@ export function createProgram(): Command {
     .option('--plan', 'start in Plan Mode')
     .option('--autopilot', 'run prompt in autopilot mode')
     .option('--architect', 'run in architect mode (planner + coder)')
+    .option('--reason', 'stream reasoning, then a polished answer with next steps')
     .option('--tui', 'start the experimental full-screen TUI')
     .option('--cwd <path>', 'set working directory')
     .option('-v, --verbose', 'enable verbose debug logging')

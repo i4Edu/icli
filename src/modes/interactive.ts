@@ -22,7 +22,7 @@ const VERSION = require('../../package.json').version as string;
 
 export async function runInteractive(
   initialMode: 'ask' | 'plan' = 'ask',
-  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' } = {},
+  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' | 'reason' } = {},
 ) {
   const session = new Session({ mode: initialMode });
   await session.initializeGitContext();
@@ -131,8 +131,9 @@ export async function runInteractive(
             continue;
           }
 
-          const explicitTurnMode = (slash as { turnMode?: 'ask' | 'code' | 'architect' | null })
-            .turnMode;
+          const explicitTurnMode = (
+            slash as { turnMode?: 'ask' | 'code' | 'architect' | 'reason' | null }
+          ).turnMode;
           const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
 
           if (session.state.autopilotEnabled && !effectiveTurnMode) {

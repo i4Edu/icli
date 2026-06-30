@@ -64,6 +64,25 @@ describe('CI scripting flags', () => {
     });
   }, 20_000);
 
+  it('routes --reason one-shot prompts through reason turn mode', async () => {
+    const runOneShotMock = vi.fn();
+    vi.doMock('../../src/modes/oneshot.js', () => ({
+      runOneShot: runOneShotMock,
+    }));
+
+    const { run } = await import('../../src/index.js');
+    await run({
+      prompt: 'diagnose network speed',
+      reason: true,
+    });
+
+    expect(runOneShotMock).toHaveBeenCalledWith('diagnose network speed', {
+      model: undefined,
+      plan: false,
+      turnMode: 'reason',
+    });
+  }, 20_000);
+
   it('suppresses the interactive banner when quiet mode is enabled', async () => {
     const read = vi.fn().mockRejectedValue(new Error('stop'));
     const close = vi.fn();

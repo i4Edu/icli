@@ -7,7 +7,7 @@ import { streamChat } from '../api/github-models.js';
 import { TOOL_SCHEMAS, dispatchTool } from '../tools/registry.js';
 import { StreamSink } from '../ui/render.js';
 import { theme } from '../ui/theme.js';
-import { PLAN_SYSTEM, getAskSystemPrompt } from '../commands/prompts.js';
+import { PLAN_SYSTEM, REASON_SYSTEM, getAskSystemPrompt } from '../commands/prompts.js';
 import { parseFileRefs, renderFileRefBlock } from '../context/file-refs.js';
 import { renderGitContextBlock } from '../context/git-context.js';
 import {
@@ -65,7 +65,7 @@ export interface TurnOpts {
   userInput: string;
   metrics?: MetricsCollector;
   signal: AbortSignal;
-  turnMode?: 'ask' | 'code' | 'architect';
+  turnMode?: 'ask' | 'code' | 'architect' | 'reason';
 }
 
 /**
@@ -365,7 +365,7 @@ interface TurnProfile {
 
 function resolveTurnProfile(
   session: Session,
-  turnMode?: 'ask' | 'code' | 'architect',
+  turnMode?: 'ask' | 'code' | 'architect' | 'reason',
 ): TurnProfile {
   const askPrompt = session.state.systemPrompt ?? getAskSystemPrompt();
   switch (turnMode) {
@@ -388,6 +388,12 @@ function resolveTurnProfile(
       return {
         baseMode: 'ask',
         systemPrompt: `${askPrompt}\n\n${ARCHITECT_MODE_PROMPT}`,
+        tools: TOOL_SCHEMAS,
+      };
+    case 'reason':
+      return {
+        baseMode: 'ask',
+        systemPrompt: `${askPrompt}\n\n${REASON_SYSTEM}`,
         tools: TOOL_SCHEMAS,
       };
     default:

@@ -17,8 +17,8 @@ export function runDiagnostics(): DiagnosticCheck[] {
   return [
     {
       name: 'GITHUB_TOKEN',
-      status: process.env.GITHUB_TOKEN ? 'ok' : 'fail',
-      message: process.env.GITHUB_TOKEN ? 'set' : 'not set',
+      status: process.env.GITHUB_TOKEN || process.env.GH_TOKEN ? 'ok' : 'fail',
+      message: process.env.GITHUB_TOKEN || process.env.GH_TOKEN ? 'set' : 'not set',
     },
     {
       name: '~/.icopilotrc.json',

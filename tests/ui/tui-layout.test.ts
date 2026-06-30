@@ -6,6 +6,10 @@ import {
   renderStatusDock,
   magentaSeparator,
   renderFooter,
+  renderHeaderBar,
+  renderContextPanel,
+  composeColumns,
+  renderFollowups,
   parseSlashCommand,
   stripAnsi,
   visibleWidth,
@@ -119,6 +123,103 @@ describe('renderFooter', () => {
     expect(footer).toContain('[PageUp/Down] Scroll Output');
     expect(footer).toContain('[/] System Commands');
     expect(footer).toContain('[@] Target Context');
+  });
+
+  it('advertises the follow-up navigation keys', () => {
+    const footer = stripAnsi(renderFooter(160));
+    expect(footer).toContain('[Ctrl+N/Ctrl+P] Cycle Follow-ups');
+    expect(footer).toContain('[Esc] Clear');
+  });
+});
+
+describe('renderHeaderBar', () => {
+  it('left-aligns the title and right-aligns the status cluster', () => {
+    const bar = renderHeaderBar(
+      { online: true, mode: 'ask', model: 'gpt-4o-mini', sessionId: 'abcdef123456' },
+      COLS,
+    );
+    const plain = stripAnsi(bar);
+    expect(visibleWidth(bar)).toBe(COLS);
+    expect(plain.startsWith('iCopilot CLI')).toBe(true);
+    expect(plain).toContain('online');
+    expect(plain).toContain('ask');
+    expect(plain).toContain('gpt-4o-mini');
+    expect(plain.trimEnd().endsWith('#abcdef')).toBe(true);
+  });
+
+  it('reports offline status', () => {
+    const plain = stripAnsi(
+      renderHeaderBar({ online: false, mode: 'plan', model: 'm', sessionId: 'x' }, COLS),
+    );
+    expect(plain).toContain('offline');
+  });
+});
+
+describe('renderContextPanel', () => {
+  it('renders session and recent sections padded to the panel geometry', () => {
+    const lines = renderContextPanel(
+      {
+        sessionId: 'sess1234',
+        model: 'gpt-4o-mini',
+        mode: 'ask',
+        cwd: '/workspaces/icli',
+        branch: 'main',
+        recentCommands: ['check speed', 'compare plans'],
+      },
+      28,
+      14,
+    );
+    expect(lines).toHaveLength(14);
+    for (const line of lines) expect(visibleWidth(line)).toBe(28);
+    const plain = lines.map(stripAnsi).join('\n');
+    expect(plain).toContain('Session');
+    expect(plain).toContain('Recent');
+    expect(plain).toContain('main');
+    // Most-recent command is listed first.
+    expect(plain).toContain('compare plans');
+  });
+
+  it('shows a placeholder when there are no recent commands', () => {
+    const lines = renderContextPanel(
+      { sessionId: 's', model: 'm', mode: 'ask', cwd: '/tmp', recentCommands: [] },
+      24,
+      10,
+    );
+    expect(lines.map(stripAnsi).join('\n')).toContain('(no commands yet)');
+  });
+});
+
+describe('composeColumns', () => {
+  it('joins both columns with an aligned vertical divider', () => {
+    const rows = composeColumns(['left'], ['right'], 10, 8, 3);
+    expect(rows).toHaveLength(3);
+    for (const row of rows) {
+      expect(visibleWidth(row)).toBe(10 + 3 + 8); // left + ' | ' + right
+      expect(stripAnsi(row)).toContain('│');
+    }
+    expect(stripAnsi(rows[0]).startsWith('left')).toBe(true);
+    expect(stripAnsi(rows[0]).endsWith('right   ')).toBe(true);
+  });
+});
+
+describe('renderFollowups', () => {
+  it('renders chips and brightens the active one', () => {
+    const line = renderFollowups(['diagnose network', 'optimize config'], 1, COLS);
+    const plain = stripAnsi(line);
+    expect(plain).toContain('[diagnose network]');
+    expect(plain).toContain('[optimize config]');
+    expect(plain).toContain('next:');
+    // Active chip (index 1) carries the bright/green styling.
+    expect(line).toContain('\x1b[32m[optimize config]');
+  });
+
+  it('returns an empty string with no items', () => {
+    expect(renderFollowups([], 0, COLS)).toBe('');
+  });
+
+  it('wraps the active index into range', () => {
+    const line = renderFollowups(['a', 'b'], 5, COLS);
+    expect(stripAnsi(line)).toContain('[a]');
   });
 });
 
