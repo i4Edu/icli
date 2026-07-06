@@ -270,50 +270,50 @@
 - ✅ Vi/Emacs keybindings — modal editing in the REPL
 - ✅ Slack/Teams integration — receive notifications and approve actions
 
-## Phase 24 — Observability & Team Quality (v2.3) ⬜
+## Phase 24 — Observability & Team Quality (v2.3) ✅
 
-- ⬜ Reasoning trace view (`/trace` command with per-step tool/model timeline)
-- ⬜ Token attribution by command (surface top token/cost drivers in `/tokens` + `/cost`)
-- ⬜ Model comparison runs (same prompt across selected models with diff summary)
-- ⬜ Output quality scoring (confidence + risk signal for tool/file actions)
-- ⬜ Batch prompt execution (`/batch <file>` with progress and result export)
+- ✅ Reasoning trace view (`/trace` command with per-step tool/model timeline)
+- ✅ Token attribution by command (surface top token/cost drivers in `/tokens` + `/cost`)
+- ✅ Model comparison runs (same prompt across selected models with diff summary)
+- ✅ Output quality scoring (confidence + risk signal for tool/file actions)
+- ✅ Batch prompt execution (`/batch <file>` with progress and result export)
 
-## Phase 25 — Admin & Governance (v2.4) ⬜
+## Phase 25 — Admin & Governance (v2.4) ✅
 
-- ⬜ Organization config layer (`.icopilot/org.yaml` inherited defaults + policy)
-- ⬜ Role-based access controls (command/tool allowlist per role)
-- ⬜ Centralized audit stream (structured events to external sink)
-- ⬜ Token/cost quotas (per-user and per-project budget enforcement)
-- ⬜ Compliance profiles (SOC2/HIPAA-style policy presets)
+- ✅ Organization config layer (`.icopilot/org.yaml` inherited defaults + policy)
+- ✅ Role-based access controls (command/tool allowlist per role)
+- ✅ Centralized audit stream (structured events to external sink)
+- ✅ Token/cost quotas (per-user and per-project budget enforcement)
+- ✅ Compliance profiles (SOC2/HIPAA-style policy presets)
 
-## Phase 26 — Integration Hub (v2.5) ⬜
+## Phase 26 — Integration Hub (v2.5) ✅
 
-- ⬜ Jira/Linear integration (link sessions to tickets, sync status)
-- ⬜ Observability connectors (Datadog/Splunk/OpenTelemetry export)
-- ⬜ Deployment metadata hooks (attach CI/release context to sessions)
-- ⬜ External knowledge connectors (ingest docs/wiki for retrieval)
-- ⬜ Remote execution targets (SSH/container/cloud runner routing)
+- ✅ Jira/Linear integration (link sessions to tickets, sync status)
+- ✅ Observability connectors (Datadog/Splunk/OpenTelemetry export)
+- ✅ Deployment metadata hooks (attach CI/release context to sessions)
+- ✅ External knowledge connectors (ingest docs/wiki for retrieval)
+- ✅ Remote execution targets (SSH/container/cloud runner routing)
 
-## Phase 27 — Enterprise Agent Platform (v3.0) ⬜
+## Phase 27 — Enterprise Agent Platform (v3.0) ✅
 
-- ⬜ Workspace tenancy (team/project-scoped memory and policy isolation)
-- ⬜ Approval workflows (configurable human gates for risky operations)
-- ⬜ SLO-aware automations (runbooks for CI failures and incident triage)
-- ⬜ Fleet policy rollout (central versioning for skills/workflows/policies)
-- ⬜ Cross-repo orchestration hardening (reliable multi-repo coordination)
+- ✅ Workspace tenancy (team/project-scoped memory and policy isolation)
+- ✅ Approval workflows (configurable human gates for risky operations)
+- ✅ SLO-aware automations (runbooks for CI failures and incident triage)
+- ✅ Fleet policy rollout (central versioning for skills/workflows/policies)
+- ✅ Cross-repo orchestration hardening (reliable multi-repo coordination)
 
-## Phase 28 — Adaptive Multi-Agent Intelligence (v3.5) ⬜
+## Phase 28 — Adaptive Multi-Agent Intelligence (v3.5) ✅
 
-- ⬜ Plan refinement loops (iterative decomposition before execution)
-- ⬜ Dependency-aware scheduling (task graph based parallel execution)
-- ⬜ Self-recovery strategies (backtracking + alternative-path retries)
-- ⬜ Consensus reasoning (multi-model or multi-agent conflict resolution)
-- ⬜ Outcome learning (learn preferred strategies from execution traces)
+- ✅ Plan refinement loops (iterative decomposition before execution)
+- ✅ Dependency-aware scheduling (task graph based parallel execution)
+- ✅ Self-recovery strategies (backtracking + alternative-path retries)
+- ✅ Consensus reasoning (multi-model or multi-agent conflict resolution)
+- ✅ Outcome learning (learn preferred strategies from execution traces)
 
-## Phase 29 — Autonomous Software Delivery OS (v4.0) ⬜
+## Phase 29 — Autonomous Software Delivery OS (v4.0) ✅
 
-- ⬜ Goal-to-release pipeline (plan → code → test → release assets)
-- ⬜ Continuous self-verification (automatic lint/test/security loops)
-- ⬜ Self-documenting delivery (ADRs, API docs, changelog generation)
-- ⬜ Incident-aware operations (detect, triage, and propose remediations)
-- ⬜ Universal execution fabric (local/container/cloud execution orchestration)
+- ✅ Goal-to-release pipeline (plan → code → test → release assets)
+- ✅ Continuous self-verification (automatic lint/test/security loops)
+- ✅ Self-documenting delivery (ADRs, API docs, changelog generation)
+- ✅ Incident-aware operations (detect, triage, and propose remediations)
+- ✅ Universal execution fabric (local/container/cloud execution orchestration)

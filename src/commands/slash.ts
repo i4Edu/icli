@@ -41,6 +41,8 @@ import { gitLogCommand } from './git-log-cmd.js';
 import { envCommand } from './env-cmd.js';
 import { TodoList, todoCommand } from './todo-cmd.js';
 import { tokensCommand } from './tokens-cmd.js';
+import { traceCommand } from './trace-cmd.js';
+import { batchCommand } from './batch-cmd.js';
 import {
   getReasoningConfig,
   parseTokenBudget,
@@ -217,6 +219,8 @@ ${theme.brand('Slash commands')}
   /schedule                  list active scheduled prompts
   /schedule cancel <id>      cancel a scheduled prompt
   /tokens                    show detailed token usage breakdown
+  /trace [show|clear|export] inspect or export reasoning trace data
+  /batch <file> [flags]      run a batch prompt file with optional export
   /editor                    open $VISUAL/$EDITOR for a multi-line prompt
   /reasoning [level]         show or set reasoning effort (low|medium|high|max)
   /think-tokens [budget]     show or set reasoning token budget (8k, 0.5M, 0=off)
@@ -853,6 +857,12 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     }
     case 'tokens':
       process.stdout.write(tokensCommand(s));
+      return done();
+    case 'trace':
+      process.stdout.write(traceCommand(rest, s));
+      return done();
+    case 'batch':
+      process.stdout.write(await batchCommand(rest));
       return done();
     case 'editor': {
       const content = await openEditor();
