@@ -41,7 +41,10 @@ import os from 'node:os';
 import { recordTurnSnapshot } from '../commands/changes-cmd.js';
 import { pickModel } from '../routing/router.js';
 
-const MAX_TOOL_HOPS = 6;
+const MAX_TOOL_HOPS = (() => {
+  const v = Number(process.env.ICOPILOT_MAX_HOPS);
+  return Number.isFinite(v) && v > 0 ? Math.floor(v) : 15;
+})();
 const ASK_ONLY_SYSTEM = `You are iCopilot in question-only mode.
 
 Answer directly, explain tradeoffs when helpful, and stay concise.

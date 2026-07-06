@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import type {
   ChatCompletionChunk,
+  ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
   ChatCompletionTool,
 } from 'openai/resources/chat/completions';
@@ -44,14 +45,17 @@ export async function client(): Promise<OpenAI> {
     token: apiKey,
     headers: headers || null,
     proxy: proxyConfig,
+    timeout: config.timeout ?? null,
   });
   if (_client && _clientCacheKey === cacheKey) return _client;
-  _client = new OpenAI({
+  const openaiInit = {
     apiKey,
     baseURL: config.endpoint || provider?.baseUrl,
     defaultHeaders: headers,
     httpAgent: ProxyManager.shared().getAgent(),
-  });
+    ...(config.timeout ? { timeout: config.timeout * 1000 } : {}),
+  };
+  _client = new OpenAI(openaiInit);
   _clientCacheKey = cacheKey;
   return _client;
 }
@@ -85,6 +89,14 @@ type ChatReasoningParams = {
   reasoning_effort?: string;
 };
 
+interface ApiError {
+  status?: number;
+  response?: { status?: number; headers?: Record<string, string> };
+  headers?: { get?: (k: string) => string | null };
+  name?: string;
+  message?: unknown;
+}
+
 /**
  * Stream a chat completion from GitHub Models, with exponential backoff
  * on HTTP 429. Supports tool/function calling.
@@ -97,14 +109,15 @@ export async function streamChat(opts: StreamOpts): Promise<StreamResult> {
   while (attempt < maxAttempts) {
     try {
       return await runOnce(opts);
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastErr = err;
-      const status = err?.status ?? err?.response?.status;
-      if (err?.name === 'AbortError' || opts.signal?.aborted) throw err;
+      const e = err as ApiError;
+      const status = e?.status ?? e?.response?.status;
+      if (e?.name === 'AbortError' || opts.signal?.aborted) throw err;
 
       if (status === 429) {
         const retryAfter = Number(
-          err?.headers?.get?.('retry-after') || err?.response?.headers?.['retry-after'] || 0,
+          e?.headers?.get?.('retry-after') || e?.response?.headers?.['retry-after'] || 0,
         );
         const wait = retryAfter > 0 ? retryAfter * 1000 : 2 ** attempt * 1500;
         process.stderr.write(
@@ -124,7 +137,7 @@ export async function streamChat(opts: StreamOpts): Promise<StreamResult> {
         attempt++;
         continue;
       }
-      const message = String(err?.message ?? err ?? '');
+      const message = String(e?.message ?? err ?? '');
       if (status === 401 || (status === 400 && /authorization/i.test(message))) {
         throw new Error(authErrorHint(message));
       }
@@ -153,9 +166,15 @@ function authErrorHint(detail: string): string {
   ].join('\n');
 }
 
+type ChatRequest = Pick<
+  ChatCompletionCreateParamsStreaming,
+  'model' | 'messages' | 'tools' | 'temperature' | 'stream'
+> &
+  ChatReasoningParams;
+
 async function runOnce(opts: StreamOpts): Promise<StreamResult> {
   const provider = activeProvider();
-  const request: any = {
+  const request: ChatRequest = {
     model: opts.model,
     messages: opts.messages,
     tools: opts.tools,
@@ -165,7 +184,7 @@ async function runOnce(opts: StreamOpts): Promise<StreamResult> {
   };
   const stream = (await (
     await client()
-  ).chat.completions.create(request, {
+  ).chat.completions.create(request as ChatCompletionCreateParamsStreaming, {
     signal: opts.signal,
   })) as unknown as AsyncIterable<ChatCompletionChunk>;
 
@@ -176,7 +195,7 @@ async function runOnce(opts: StreamOpts): Promise<StreamResult> {
   for await (const chunk of stream) {
     const choice = chunk.choices?.[0];
     if (!choice) continue;
-    const delta: any = choice.delta || {};
+    const delta = choice.delta;
     if (typeof delta.content === 'string' && delta.content.length) {
       content += delta.content;
       opts.onToken(delta.content);
@@ -205,13 +224,15 @@ function buildChatReasoningParams(model: string, providerMaxTokens?: number): Ch
   if (supportsReasoningEffort(model) && config.reasoningEffort) {
     params.reasoning_effort = config.reasoningEffort;
   }
-  const completionBudget = resolveCompletionBudget(model, providerMaxTokens, config.thinkTokens);
+  // config.maxTokens (ICOPILOT_MAX_TOKENS) takes precedence over provider-level maxTokens.
+  const effectiveMaxTokens = config.maxTokens ?? providerMaxTokens;
+  const completionBudget = resolveCompletionBudget(model, effectiveMaxTokens, config.thinkTokens);
   if (completionBudget !== undefined) {
     params.max_completion_tokens = completionBudget;
     return params;
   }
-  if (providerMaxTokens) {
-    params.max_tokens = providerMaxTokens;
+  if (effectiveMaxTokens) {
+    params.max_tokens = effectiveMaxTokens;
   }
   return params;
 }

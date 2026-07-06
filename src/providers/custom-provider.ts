@@ -59,6 +59,7 @@ const BUILTIN_PROVIDERS: ProviderConfig[] = [
       'claude-3.5-sonnet',
       'claude-3.7-sonnet',
       'claude-sonnet-4',
+      'claude-sonnet-4.6',
       'gemini-2.0-flash-001',
     ],
     defaultModel: 'gpt-4o',

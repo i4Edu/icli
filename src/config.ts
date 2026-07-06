@@ -61,6 +61,8 @@ export interface Config {
   testCmd: string;
   reasoningEffort?: ReasoningEffort;
   thinkTokens?: number;
+  maxTokens?: number;
+  timeout?: number;
   keybindings?: { mode: KeybindingMode };
   notifications?: NotificationConfig;
   cloudRoutines?: CloudRoutinesConfig;
@@ -96,6 +98,8 @@ const DEFAULT_CONFIG: Config = {
   testCmd: '',
   reasoningEffort: undefined,
   thinkTokens: undefined,
+  maxTokens: undefined,
+  timeout: undefined,
   keybindings: { mode: 'default' },
   acp: { enabled: false, port: 5173 },
   cloudRoutines: { enabled: false },
@@ -252,6 +256,22 @@ function envConfig(): Partial<Config> {
   if (reasoningEffort) out.reasoningEffort = reasoningEffort;
   const thinkTokens = parseThinkTokens(process.env.ICOPILOT_THINK_TOKENS);
   if (thinkTokens !== undefined) out.thinkTokens = thinkTokens;
+  // ICOPILOT_MAX_TOKENS: cap on tokens generated per response.
+  if (process.env.ICOPILOT_MAX_TOKENS) {
+    const maxTokens = Number(process.env.ICOPILOT_MAX_TOKENS);
+    if (Number.isFinite(maxTokens) && maxTokens > 0) out.maxTokens = Math.floor(maxTokens);
+  }
+  // ICOPILOT_CONTEXT_TOKENS: alias for ICOPILOT_CTX_WINDOW (context window size).
+  if (process.env.ICOPILOT_CONTEXT_TOKENS && !process.env.ICOPILOT_CTX_WINDOW) {
+    const contextTokens = Number(process.env.ICOPILOT_CONTEXT_TOKENS);
+    if (Number.isFinite(contextTokens) && contextTokens > 0)
+      out.contextWindow = Math.floor(contextTokens);
+  }
+  // ICOPILOT_TIMEOUT: request timeout in seconds.
+  if (process.env.ICOPILOT_TIMEOUT) {
+    const timeoutSec = Number(process.env.ICOPILOT_TIMEOUT);
+    if (Number.isFinite(timeoutSec) && timeoutSec > 0) out.timeout = timeoutSec;
+  }
   return out;
 }
 
