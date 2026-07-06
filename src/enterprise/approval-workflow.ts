@@ -125,7 +125,9 @@ export class ApprovalWorkflow {
 
   checkGate(action: string): ApprovalGate | null {
     const normalizedAction = requireValue(action, 'action');
-    const gates = [...this.gates.values()].sort((left, right) => right.trigger.length - left.trigger.length);
+    const gates = [...this.gates.values()].sort(
+      (left, right) => right.trigger.length - left.trigger.length,
+    );
     for (const gate of gates) {
       if (matchesTrigger(gate.trigger, normalizedAction)) {
         return cloneGate(gate);
@@ -179,12 +181,13 @@ export function loadApprovalGates(cwd = config.cwd): ApprovalGate[] {
 
   try {
     const parsed = parse(fs.readFileSync(file, 'utf8')) as unknown;
-    const rawGates =
-      Array.isArray(parsed)
-        ? parsed
-        : parsed && typeof parsed === 'object' && Array.isArray((parsed as Record<string, unknown>).gates)
-          ? ((parsed as Record<string, unknown>).gates as unknown[])
-          : [];
+    const rawGates = Array.isArray(parsed)
+      ? parsed
+      : parsed &&
+          typeof parsed === 'object' &&
+          Array.isArray((parsed as Record<string, unknown>).gates)
+        ? ((parsed as Record<string, unknown>).gates as unknown[])
+        : [];
     return rawGates.map(normalizeGate);
   } catch {
     return [];
@@ -226,14 +229,14 @@ function normalizeGate(value: ApprovalGate): ApprovalGate {
     trigger: requireValue(value.trigger, 'gate trigger'),
     requiredApprovers: normalizePositiveInteger(value.requiredApprovers, 'required approvers'),
     timeout: normalizePositiveInteger(value.timeout, 'timeout'),
-    escalation: typeof value.escalation === 'string' && value.escalation.trim().length > 0 ? value.escalation.trim() : undefined,
+    escalation:
+      typeof value.escalation === 'string' && value.escalation.trim().length > 0
+        ? value.escalation.trim()
+        : undefined,
   };
 }
 
-function normalizeApproval(
-  value: Approval,
-  expectedDecision: Approval['decision'],
-): Approval {
+function normalizeApproval(value: Approval, expectedDecision: Approval['decision']): Approval {
   if (value.decision !== expectedDecision) {
     throw new Error(`approval decision must be ${expectedDecision}`);
   }
@@ -241,7 +244,10 @@ function normalizeApproval(
     userId: requireValue(value.userId, 'approval user id'),
     decision: value.decision,
     timestamp: normalizeTimestamp(value.timestamp),
-    comment: typeof value.comment === 'string' && value.comment.trim().length > 0 ? value.comment.trim() : undefined,
+    comment:
+      typeof value.comment === 'string' && value.comment.trim().length > 0
+        ? value.comment.trim()
+        : undefined,
   };
 }
 

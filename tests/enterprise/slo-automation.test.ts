@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  SLOAutomation,
-  formatSLOStatus,
-} from '../../src/enterprise/slo-automation.js';
+import { SLOAutomation, formatSLOStatus } from '../../src/enterprise/slo-automation.js';
 
 describe('SLOAutomation', () => {
   it('tracks statuses and breached SLOs', () => {

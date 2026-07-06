@@ -55,7 +55,10 @@ const DEFAULT_WORKSPACE_CONFIG: WorkspaceConfig = {
 export class WorkspaceTenancy {
   private readonly workspaces = new Map<string, Workspace>();
 
-  constructor(private readonly workspaceConfig: WorkspaceConfig = loadWorkspaceConfig() ?? DEFAULT_WORKSPACE_CONFIG) {}
+  constructor(
+    private readonly workspaceConfig: WorkspaceConfig = loadWorkspaceConfig() ??
+      DEFAULT_WORKSPACE_CONFIG,
+  ) {}
 
   createWorkspace(input: WorkspaceCreateInput): Workspace {
     const workspace = normalizeWorkspace(input, this.workspaceConfig);
@@ -170,7 +173,11 @@ function normalizeWorkspace(
     policies,
     memoryScope:
       input.memoryScope ??
-      (workspaceConfig.memorySharing ? 'workspace' : workspaceConfig.isolation === 'shared' ? 'organization' : 'private'),
+      (workspaceConfig.memorySharing
+        ? 'workspace'
+        : workspaceConfig.isolation === 'shared'
+          ? 'organization'
+          : 'private'),
     createdAt: normalizeTimestamp(input.createdAt),
   };
 }

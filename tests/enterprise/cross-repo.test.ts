@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CrossRepoCoordinator,
-  formatCoordinationStatus,
-} from '../../src/enterprise/cross-repo.js';
+import { CrossRepoCoordinator, formatCoordinationStatus } from '../../src/enterprise/cross-repo.js';
 
 describe('CrossRepoCoordinator', () => {
   it('plans, executes, lists active work, and resolves conflicts', () => {

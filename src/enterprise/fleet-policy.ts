@@ -63,13 +63,15 @@ export class FleetPolicyManager {
     return clonePolicy(normalized);
   }
 
-  deployPolicy(
-    id: string,
-    strategy?: FleetPolicy['rolloutStrategy'],
-  ): PolicyRollout {
+  deployPolicy(id: string, strategy?: FleetPolicy['rolloutStrategy']): PolicyRollout {
     const policy = this.requirePolicy(id);
     const effectiveStrategy = strategy ?? policy.rolloutStrategy;
-    const rollout = createRollout(policy.id, policy.targets, effectiveStrategy, this.now().toISOString());
+    const rollout = createRollout(
+      policy.id,
+      policy.targets,
+      effectiveStrategy,
+      this.now().toISOString(),
+    );
     this.rollouts.set(policy.id, rollout);
     return cloneRollout(rollout);
   }
@@ -99,7 +101,9 @@ export class FleetPolicyManager {
   }
 
   listPolicies(): FleetPolicy[] {
-    return [...this.policies.values()].map(clonePolicy).sort((left, right) => left.name.localeCompare(right.name));
+    return [...this.policies.values()]
+      .map(clonePolicy)
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   validatePolicy(policy: FleetPolicy): PolicyValidationResult {
@@ -112,9 +116,12 @@ export class FleetPolicyManager {
     for (const rule of policy.rules) {
       if (!rule.id.trim()) errors.push('policy rule id is required');
       if (!rule.type.trim()) errors.push(`policy rule ${rule.id || '<unknown>'} type is required`);
-      if (!rule.condition.trim()) errors.push(`policy rule ${rule.id || '<unknown>'} condition is required`);
-      if (!rule.action.trim()) errors.push(`policy rule ${rule.id || '<unknown>'} action is required`);
-      if (!rule.severity.trim()) errors.push(`policy rule ${rule.id || '<unknown>'} severity is required`);
+      if (!rule.condition.trim())
+        errors.push(`policy rule ${rule.id || '<unknown>'} condition is required`);
+      if (!rule.action.trim())
+        errors.push(`policy rule ${rule.id || '<unknown>'} action is required`);
+      if (!rule.severity.trim())
+        errors.push(`policy rule ${rule.id || '<unknown>'} severity is required`);
     }
     return {
       valid: errors.length === 0,
@@ -137,12 +144,13 @@ export function loadFleetPolicies(cwd = config.cwd): FleetPolicy[] {
 
   try {
     const parsed = parse(fs.readFileSync(file, 'utf8')) as unknown;
-    const rawPolicies =
-      Array.isArray(parsed)
-        ? parsed
-        : parsed && typeof parsed === 'object' && Array.isArray((parsed as Record<string, unknown>).policies)
-          ? ((parsed as Record<string, unknown>).policies as unknown[])
-          : [];
+    const rawPolicies = Array.isArray(parsed)
+      ? parsed
+      : parsed &&
+          typeof parsed === 'object' &&
+          Array.isArray((parsed as Record<string, unknown>).policies)
+        ? ((parsed as Record<string, unknown>).policies as unknown[])
+        : [];
     return rawPolicies.map((policy) => normalizePolicy(policy as FleetPolicy));
   } catch {
     return [];

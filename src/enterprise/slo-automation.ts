@@ -53,7 +53,10 @@ export class SLOAutomation {
   private readonly slos = new Map<string, SLO>();
   private readonly runbooks = new Map<string, Runbook>();
   private readonly metricProvider: (metric: string, window: SLO['window']) => number;
-  private readonly stepExecutor: (step: RunbookStep, context: Record<string, unknown>) => boolean | string;
+  private readonly stepExecutor: (
+    step: RunbookStep,
+    context: Record<string, unknown>,
+  ) => boolean | string;
 
   constructor(options: SLOAutomationOptions = {}) {
     this.metricProvider = options.metricProvider ?? (() => 100);
@@ -126,7 +129,9 @@ export class SLOAutomation {
   }
 
   listSLOs(): SLO[] {
-    return [...this.slos.values()].map(cloneSLO).sort((left, right) => left.name.localeCompare(right.name));
+    return [...this.slos.values()]
+      .map(cloneSLO)
+      .sort((left, right) => left.name.localeCompare(right.name));
   }
 
   getBreached(): SLOStatus[] {
@@ -150,9 +155,7 @@ export function formatSLOStatus(statuses: SLOStatus[]): string {
   const lines = [theme.brand('SLO status'), ''];
   for (const status of statuses) {
     const state = status.breached ? theme.err('breached') : theme.ok('healthy');
-    lines.push(
-      `  ${theme.hl(status.slo.name)} ${state} ${theme.dim(`(${status.slo.window})`)}`,
-    );
+    lines.push(`  ${theme.hl(status.slo.name)} ${state} ${theme.dim(`(${status.slo.window})`)}`);
     lines.push(
       `    current: ${status.current.toFixed(2)}  target: ${status.slo.target.toFixed(2)}  budget remaining: ${status.budgetRemaining.toFixed(2)}`,
     );
@@ -168,7 +171,10 @@ function normalizeSLO(slo: SLO): SLO {
     target: clampPercentage(slo.target),
     metric: requireValue(slo.metric, 'slo metric'),
     window: slo.window,
-    runbook: typeof slo.runbook === 'string' && slo.runbook.trim().length > 0 ? slo.runbook.trim() : undefined,
+    runbook:
+      typeof slo.runbook === 'string' && slo.runbook.trim().length > 0
+        ? slo.runbook.trim()
+        : undefined,
   };
 }
 
@@ -176,7 +182,9 @@ function normalizeRunbook(runbook: Runbook): Runbook {
   return {
     id: requireValue(runbook.id, 'runbook id'),
     name: requireValue(runbook.name, 'runbook name'),
-    triggers: [...new Set(runbook.triggers.map((trigger) => requireValue(trigger, 'runbook trigger')))],
+    triggers: [
+      ...new Set(runbook.triggers.map((trigger) => requireValue(trigger, 'runbook trigger'))),
+    ],
     steps: runbook.steps.map((step) => ({
       id: requireValue(step.id, 'runbook step id'),
       action: requireValue(step.action, 'runbook action'),

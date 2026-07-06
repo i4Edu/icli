@@ -55,7 +55,7 @@ export async function executeBatch(
   let cursor = 0;
 
   const worker = async (): Promise<void> => {
-    while (true) {
+    for (;;) {
       const currentIndex = cursor;
       cursor += 1;
       if (currentIndex >= prompts.length) return;
@@ -75,7 +75,8 @@ export async function executeBatch(
           prompt: renderedPrompt,
           output,
           tokens:
-            response.usage?.total_tokens ?? countTokensSync(renderedPrompt) + countTokensSync(output),
+            response.usage?.total_tokens ??
+            countTokensSync(renderedPrompt) + countTokensSync(output),
           durationMs: Date.now() - startedAt,
           status: 'success',
         };
@@ -93,7 +94,9 @@ export async function executeBatch(
     }
   };
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, prompts.length || 1) }, () => worker()));
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, prompts.length || 1) }, () => worker()),
+  );
 
   const totalTokens = results.reduce((sum, result) => sum + result.tokens, 0);
   const totalDuration = results.reduce((sum, result) => sum + result.durationMs, 0);
@@ -131,7 +134,9 @@ export function formatBatchReport(report: BatchReport): string {
     lines.push(
       `  ${result.id.padEnd(12)} ${status.padEnd(5)} ${theme.hl(String(result.tokens).padStart(6))} tk  ${theme.dim(formatDuration(result.durationMs)).padStart(8)}`,
     );
-    lines.push(`    ${result.status === 'success' ? shorten(result.output, 120) : theme.err(result.error || 'unknown error')}`);
+    lines.push(
+      `    ${result.status === 'success' ? shorten(result.output, 120) : theme.err(result.error || 'unknown error')}`,
+    );
   }
   lines.push('');
 
@@ -145,7 +150,11 @@ export function exportBatchReport(
 ): void {
   const resolvedPath = path.resolve(outputPath);
   const payload =
-    format === 'json' ? JSON.stringify(report, null, 2) : format === 'csv' ? toCsv(report) : toMarkdown(report);
+    format === 'json'
+      ? JSON.stringify(report, null, 2)
+      : format === 'csv'
+        ? toCsv(report)
+        : toMarkdown(report);
   fs.writeFileSync(resolvedPath, payload, 'utf8');
 }
 
@@ -208,16 +217,20 @@ function toCsv(report: BatchReport): string {
 
 function toMarkdown(report: BatchReport): string {
   const header = ['# Batch report', '', formatBatchReport(report)];
-  const details = report.results.map((result) => [
-    `## ${result.id}`,
-    '',
-    `- Status: ${result.status}`,
-    `- Tokens: ${result.tokens}`,
-    `- Duration: ${result.durationMs}ms`,
-    `- Prompt: ${result.prompt}`,
-    result.status === 'success' ? `- Output: ${result.output}` : `- Error: ${result.error ?? 'unknown error'}`,
-    '',
-  ].join('\n'));
+  const details = report.results.map((result) =>
+    [
+      `## ${result.id}`,
+      '',
+      `- Status: ${result.status}`,
+      `- Tokens: ${result.tokens}`,
+      `- Duration: ${result.durationMs}ms`,
+      `- Prompt: ${result.prompt}`,
+      result.status === 'success'
+        ? `- Output: ${result.output}`
+        : `- Error: ${result.error ?? 'unknown error'}`,
+      '',
+    ].join('\n'),
+  );
   return [...header, ...details].join('\n');
 }
 

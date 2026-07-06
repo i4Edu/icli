@@ -25,7 +25,9 @@ export async function batchCommand(args: string[]): Promise<string> {
     exportBatchReport(report, path.resolve(config.cwd, options.outPath), options.format);
   }
 
-  const suffix = options.outPath ? `\n${theme.ok(`✔ exported report to ${path.resolve(config.cwd, options.outPath)}`)}` : '';
+  const suffix = options.outPath
+    ? `\n${theme.ok(`✔ exported report to ${path.resolve(config.cwd, options.outPath)}`)}`
+    : '';
   return `${formatBatchReport(report).trimEnd()}${suffix}\n`;
 }
 

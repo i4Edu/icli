@@ -152,7 +152,9 @@ function buildDifferences(results: ComparisonResult[]): string[] {
     differences.push('Models take noticeably different framing approaches in their opening lines.');
   }
 
-  const tokenSpread = Math.max(...results.map((result) => result.tokens)) - Math.min(...results.map((result) => result.tokens));
+  const tokenSpread =
+    Math.max(...results.map((result) => result.tokens)) -
+    Math.min(...results.map((result) => result.tokens));
   if (tokenSpread > 500) {
     differences.push('Token usage varies significantly across the selected models.');
   }

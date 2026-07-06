@@ -40,7 +40,7 @@ describe('FleetPolicyManager', () => {
         '    rules:',
         '      - id: deny-shell',
         '        type: command',
-        '        condition: command == \"rm -rf /\"',
+        '        condition: command == "rm -rf /"',
         '        action: deny',
         '        severity: critical',
         '',

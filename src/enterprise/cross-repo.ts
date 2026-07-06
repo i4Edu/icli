@@ -112,7 +112,12 @@ export class CrossRepoCoordinator {
 
   listActive(): RepoCoordination[] {
     return [...this.plans.values()]
-      .filter((coordination) => coordination.status === 'planned' || coordination.status === 'running' || coordination.status === 'conflict')
+      .filter(
+        (coordination) =>
+          coordination.status === 'planned' ||
+          coordination.status === 'running' ||
+          coordination.status === 'conflict',
+      )
       .map((coordination) => cloneCoordination(coordination));
   }
 
@@ -135,7 +140,9 @@ export class CrossRepoCoordinator {
 
     coordination.status = coordination.changes.some((entry) => entry.status === 'conflict')
       ? 'conflict'
-      : coordination.changes.every((entry) => entry.status === 'applied' || entry.status === 'reverted')
+      : coordination.changes.every(
+            (entry) => entry.status === 'applied' || entry.status === 'reverted',
+          )
         ? 'complete'
         : coordination.status;
 
