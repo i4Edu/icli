@@ -7,9 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-07-06
+
+### Added — v4.0 Autonomous Software Delivery OS
+- **Goal-to-release pipeline** — plan → code → test → release assets in a single goal-driven flow
+- **Continuous self-verification** — automatic lint/test/security loops with configurable guardrails
+- **Self-documenting delivery** — ADRs, API docs, and changelog auto-generated on every delivery
+- **Incident-aware operations** — detect production incidents, triage, and propose remediations
+- **Universal execution fabric** — seamless local/container/cloud execution orchestration
+
+## [3.5.0] - 2026-07-04
+
+### Added — v3.5 Adaptive Multi-Agent Intelligence
+- **Plan refinement loops** — iterative decomposition and validation before execution begins
+- **Dependency-aware scheduling** — task graph based parallel execution with optimal ordering
+- **Self-recovery strategies** — automatic backtracking + alternative-path retries on failure
+- **Consensus reasoning** — multi-model or multi-agent conflict resolution for higher accuracy
+- **Outcome learning** — learn preferred strategies from execution traces to improve over time
+
+## [3.0.0] - 2026-07-02
+
+### Added — v3.0 Enterprise Agent Platform
+- **Workspace tenancy** — team/project-scoped memory and policy isolation
+- **Approval workflows** — configurable human gates for risky operations
+- **SLO-aware automation** — runbooks for CI failures and incident triage
+- **Fleet policy rollout** — central versioning for skills/workflows/policies across organization
+- **Cross-repo orchestration hardening** — reliable multi-repo coordination with conflict detection
+
+## [2.5.0] - 2026-07-01
+
+### Added — v2.5 Integration Hub
+- **Jira/Linear integration** — link sessions to tickets, bidirectional status sync
+- **Observability connectors** — Datadog/Splunk/OpenTelemetry event forwarding
+- **Deployment metadata hooks** — attach CI/release context to sessions automatically
+- **External knowledge connectors** — ingest docs/wiki for retrieval-augmented generation
+- **Remote execution targets** — SSH/container/cloud runner routing for distributed commands
+
 ## [2.4.0] - 2026-06-30
 
-- No changes recorded.
+### Added — v2.4 Admin & Governance
+- **Organization config layer** — `.icopilot/org.yaml` inherited defaults + policy enforcement
+- **Role-based access controls** — command/tool allowlist per role
+- **Centralized audit stream** — structured events to external sink (Datadog, Splunk, etc.)
+- **Token/cost quotas** — per-user and per-project budget enforcement
+- **Compliance profiles** — SOC2/HIPAA-style policy presets
 
 ## [2.3.6] - 2026-06-30
 
