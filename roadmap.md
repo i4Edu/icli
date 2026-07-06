@@ -444,7 +444,7 @@ CLI space.
 
 ---
 
-## v2.2 — Platform & Ecosystem (in progress) 🟡
+## v2.2 — Platform & Ecosystem ✅
 
 The next frontier — voice, browser UI, and ecosystem features.
 
@@ -456,6 +456,78 @@ The next frontier — voice, browser UI, and ecosystem features.
 - ✅ **Cloud-scheduled routines** — remote cron-like task execution
 - ✅ **Vi/Emacs keybindings** — modal editing in the REPL
 - ✅ **Slack/Teams integration** — receive notifications and approve actions
+
+---
+
+## v2.3 — Observability & Team Quality ⬜
+
+Focused visibility into model behavior, cost, and output quality.
+
+- ⬜ **Reasoning trace view** — inspect step-level model/tool flow for a turn
+- ⬜ **Token attribution** — show command-by-command token and cost drivers
+- ⬜ **Model comparison runs** — side-by-side outcomes for selected prompts
+- ⬜ **Quality scoring** — confidence + risk signals for generated actions
+- ⬜ **Batch prompt execution** — queue prompt files and export summarized results
+
+---
+
+## v2.4 — Admin & Governance ⬜
+
+Organization-level controls for secure and scalable team usage.
+
+- ⬜ **Org config layer** — inherited `.icopilot/org.yaml` policy + defaults
+- ⬜ **Role-based command access** — enforce command/tool gates by role
+- ⬜ **Centralized audit stream** — export session/tool events to external sinks
+- ⬜ **Token/cost quotas** — per-user and per-project budget guardrails
+- ⬜ **Compliance profiles** — preset policy bundles for SOC2/HIPAA-style controls
+
+---
+
+## v2.5 — Integration Hub ⬜
+
+Deeper interoperability with issue trackers and deployment systems.
+
+- ⬜ **Issue tracker bridges** — Jira/Linear linking and bidirectional status sync
+- ⬜ **Observability connectors** — Datadog/Splunk/OpenTelemetry event forwarding
+- ⬜ **Deployment context hooks** — attach build/release metadata to sessions
+- ⬜ **External knowledge connectors** — ingest docs/wikis for retrieval
+- ⬜ **Remote execution targets** — orchestrate commands on SSH/container targets
+
+---
+
+## v3.0 — Enterprise Agent Platform ⬜
+
+Reliable multi-user agent operations for large engineering organizations.
+
+- ⬜ **Workspace tenancy** — project/team isolation with scoped policies and memory
+- ⬜ **Approval workflows** — configurable human gates for risky actions
+- ⬜ **SLO-aware automation** — runbooks for build/CI/incident response tasks
+- ⬜ **Fleet policy rollout** — centralized rollout/versioning for skills and workflows
+- ⬜ **Cross-repo orchestration hardening** — robust coordination across repo graphs
+
+---
+
+## v3.5 — Adaptive Multi-Agent Intelligence ⬜
+
+Smarter planning, delegation, and recovery across complex tasks.
+
+- ⬜ **Plan refinement loops** — iterative decomposition before execution
+- ⬜ **Dependency-aware scheduling** — optimize parallelism from task graphs
+- ⬜ **Self-recovery strategies** — backtracking + alternative-path retries
+- ⬜ **Consensus reasoning** — reconcile output from multiple models/agents
+- ⬜ **Outcome learning** — reinforcement from successful and failed execution traces
+
+---
+
+## v4.0 — Autonomous Software Delivery OS ⬜
+
+End-to-end autonomous engineering with strong safety and governance.
+
+- ⬜ **Goal-to-release pipeline** — plan, implement, validate, and prepare release assets
+- ⬜ **Continuous self-verification** — automatic test/lint/security loops with guardrails
+- ⬜ **Self-documenting delivery** — ADRs, API docs, and changelog generation by default
+- ⬜ **Incident-aware operations** — detect, triage, and propose production remediations
+- ⬜ **Universal execution fabric** — local, container, and cloud runner orchestration
 
 ---
 
