@@ -151,6 +151,10 @@ export class TDDAgent {
 
   implement(testFile: string): string {
     const spec = this.readEmbeddedSpec(testFile);
+    return this.renderImplementation(spec);
+  }
+
+  private renderImplementation(spec: TDDSpec): string {
     const specLiteral = JSON.stringify(spec, null, 2);
     return [
       'export interface GeneratedTDDArtifact {',
@@ -221,7 +225,7 @@ export class TDDAgent {
     const firstRun = this.runTests(files.testFile);
 
     if (firstRun.failed > 0 || !fs.existsSync(files.sourceFile)) {
-      fs.writeFileSync(files.sourceFile, this.implement(files.testFile), 'utf8');
+      fs.writeFileSync(files.sourceFile, this.renderImplementation(normalized), 'utf8');
       cycles += 1;
     }
 
