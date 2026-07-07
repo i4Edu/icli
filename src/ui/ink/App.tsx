@@ -129,8 +129,7 @@ function getFileSuggestions(partial: string, cwd: string): string[] {
 export function App({ appState, callbacks, registerHandle }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  // Cap cols to prevent separator overflow in live area (live area has slight offset vs Static)
-  const cols = Math.min((stdout.columns || 80), 200);
+  const cols = stdout.columns || 80;
 
   // ── Completed (frozen) history — only grows, never mutates ──────────────
   const [completedHistory, setCompletedHistory] = useState<HistoryMessage[]>([]);
@@ -364,8 +363,16 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
 
     // Enter
     if (key.return) {
-      // @ file suggestion: only Tab completes, Enter submits the message as-is
-      // (so "explain @src/app.ts" + Enter submits, not re-completes)
+      // @ file suggestion selection
+      if (atSuggestions.length) {
+        const chosen = atSuggestions[atIndex];
+        if (chosen && atMatch) {
+          const val = inputBuffer.slice(0, inputBuffer.lastIndexOf(atMatch[0])) + chosen + ' ';
+          setInputBuffer(val);
+          setCursorPos(val.length);
+          return;
+        }
+      }
       // Slash autocomplete selection
       if (slashSuggestions.length && inputBuffer.startsWith('/') && !inputBuffer.includes(' ')) {
         const chosen = slashSuggestions[slashIndex];
@@ -593,7 +600,8 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         }
       </Static>
 
-      {/* ═══ TAB BAR — removed from live area; now inside AppHeader (Static) ═ */}
+      {/* ═══ TAB BAR ════════════════════════════════════════════════════════ */}
+      <TabBar activeTab={activeTab} cols={cols} isGitRepo={Boolean(appState.branch)} />
 
       {/* ═══ LIVE: streaming response (mutates every chunk) ════════════════ */}
       {(busy || liveContent.trim()) && (
