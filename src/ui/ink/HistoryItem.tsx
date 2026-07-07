@@ -61,14 +61,17 @@ export function HistoryItem({
   const hasReasoning = message.role === 'copilot' && Boolean(message.reasoning);
   const isUser = message.role === 'user';
 
+  // Cap width to prevent separator overflow (Static area aligns at col 0)
+  const w = Math.min(terminalWidth, 200);
+
   // Separator line with optional turn number and timestamp
   const sepLabel = turnNum != null ? `#${turnNum}` : '';
   const ts = message.timestamp ?? '';
   const label = [sepLabel, ts].filter(Boolean).join('  ');
-  const dashes = Math.max(0, terminalWidth - label.length);
+  const dashes = Math.max(0, w - label.length);
 
   return (
-    <Box flexDirection="column" width={terminalWidth}>
+    <Box flexDirection="column" width={w}>
       {/* Separator with turn number and optional timestamp */}
       <Box>
         {label ? (
@@ -77,7 +80,7 @@ export function HistoryItem({
             <Text color={colors.muted} dimColor>{label}</Text>
           </>
         ) : (
-          <Text color={colors.separator}>{'─'.repeat(terminalWidth)}</Text>
+          <Text color={colors.separator}>{'─'.repeat(w)}</Text>
         )}
       </Box>
 

@@ -129,7 +129,8 @@ function getFileSuggestions(partial: string, cwd: string): string[] {
 export function App({ appState, callbacks, registerHandle }: AppProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
-  const cols = stdout.columns || 80;
+  // Cap cols to prevent separator overflow in live area (live area has slight offset vs Static)
+  const cols = Math.min((stdout.columns || 80), 200);
 
   // ── Completed (frozen) history — only grows, never mutates ──────────────
   const [completedHistory, setCompletedHistory] = useState<HistoryMessage[]>([]);
@@ -592,8 +593,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         }
       </Static>
 
-      {/* ═══ TAB BAR ════════════════════════════════════════════════════════ */}
-      <TabBar activeTab={activeTab} cols={cols} isGitRepo={Boolean(appState.branch)} />
+      {/* ═══ TAB BAR — removed from live area; now inside AppHeader (Static) ═ */}
 
       {/* ═══ LIVE: streaming response (mutates every chunk) ════════════════ */}
       {(busy || liveContent.trim()) && (

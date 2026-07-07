@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text, useStdout } from 'ink';
 import { colors } from './theme.js';
+import { TabBar } from './TabBar.js';
 
 export type TuiMode = 'ask' | 'plan' | 'autopilot';
 
@@ -22,16 +23,20 @@ export function AppHeader({
   mode,
 }: AppHeaderProps): React.ReactElement {
   const { stdout } = useStdout();
-  const cols = stdout.columns || 80;
+  // Cap to actual terminal width minus 2 to prevent overflow wrapping
+  const cols = Math.min((stdout.columns || 80), 200);
+  const w = cols;
   const branchPart = branch ? `  \uE0A0 ${branch}` : '';
   const modeColor = mode === 'autopilot' ? colors.warning : mode === 'plan' ? colors.brand : colors.success;
   const modeLabel = mode === 'ask' ? ' ASK ' : mode === 'plan' ? ' PLAN ' : ' AUTO ';
   const promptSymbol = mode === 'autopilot' ? '⚡' : mode === 'plan' ? '◈' : '❯';
 
   return (
-    <Box flexDirection="column" width="100%">
+    <Box flexDirection="column" width={cols}>
+      {/* Tab bar at top — renders once, stays in scrollback */}
+      <TabBar activeTab="session" cols={w} isGitRepo={Boolean(branch)} />
       <Box>
-        <Text color={colors.accent}>{'═'.repeat(cols)}</Text>
+        <Text color={colors.accent}>{'═'.repeat(w)}</Text>
       </Box>
       <Box paddingX={1}>
         <Text bold color={colors.brand}>{'iCopilot'}</Text>
@@ -60,7 +65,7 @@ export function AppHeader({
         <Text dimColor color={colors.muted}>{' · Ctrl+C quit'}</Text>
       </Box>
       <Box>
-        <Text color={colors.accent}>{'═'.repeat(cols)}</Text>
+        <Text color={colors.accent}>{'═'.repeat(w)}</Text>
       </Box>
       <Box><Text> </Text></Box>
     </Box>
