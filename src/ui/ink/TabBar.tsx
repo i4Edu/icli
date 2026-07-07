@@ -39,7 +39,9 @@ export function TabBar({ activeTab, cols, isGitRepo }: TabBarProps): React.React
           return (
             <React.Fragment key={tab.id}>
               {gap ? <Text>{gap}</Text> : null}
-              <Text bold color="white" backgroundColor="#1F6FEB">{` [${tab.label}] `}</Text>
+              {/* backgroundColor is supported at runtime in Ink v5 but missing from types */}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              <Text bold color="white" {...{ backgroundColor: '#1F6FEB' } as any}>{` [${tab.label}] `}</Text>
             </React.Fragment>
           );
         }

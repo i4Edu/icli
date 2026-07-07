@@ -363,16 +363,8 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
 
     // Enter
     if (key.return) {
-      // @ file suggestion selection
-      if (atSuggestions.length) {
-        const chosen = atSuggestions[atIndex];
-        if (chosen && atMatch) {
-          const val = inputBuffer.slice(0, inputBuffer.lastIndexOf(atMatch[0])) + chosen + ' ';
-          setInputBuffer(val);
-          setCursorPos(val.length);
-          return;
-        }
-      }
+      // @ file suggestion: only Tab completes, Enter submits the message as-is
+      // (so "explain @src/app.ts" + Enter submits, not re-completes)
       // Slash autocomplete selection
       if (slashSuggestions.length && inputBuffer.startsWith('/') && !inputBuffer.includes(' ')) {
         const chosen = slashSuggestions[slashIndex];
