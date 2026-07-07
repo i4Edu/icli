@@ -551,9 +551,9 @@ describe('handleSlash', { timeout: 180_000 }, () => {
 
     await handleSlash('/context', ctx);
 
-    expect(output).toContain('Context usage');
-    expect(output).toContain('History:');
-    expect(output).toContain('Files:');
+    expect(output).toContain('Context Window Usage');
+    expect(output).toContain('tokens used');
+    expect(output).toContain('Model:');
   });
 
   it('recognizes /settings show, set, and reset', async () => {

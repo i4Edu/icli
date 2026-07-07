@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Static, Text, useApp, useInput, useStdout } from 'ink';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { AppHeader } from './AppHeader.js';
 import { HistoryItem, type HistoryMessage } from './HistoryItem.js';
+import { TabBar, type ActiveTab } from './TabBar.js';
 import { colors } from './theme.js';
 
 // ─── Slash command registry for autocomplete ─────────────────────────────────
@@ -106,6 +109,21 @@ function prevWordStart(s: string, pos: number): number {
   return i;
 }
 
+// ─── @ file suggestions ───────────────────────────────────────────────────────
+
+function getFileSuggestions(partial: string, cwd: string): string[] {
+  try {
+    const prefix = partial.startsWith('@') ? partial.slice(1) : partial;
+    const dir = prefix.includes('/') ? join(cwd, prefix.slice(0, prefix.lastIndexOf('/'))) : cwd;
+    const search = prefix.includes('/') ? prefix.slice(prefix.lastIndexOf('/') + 1) : prefix;
+    const entries = readdirSync(dir, { withFileTypes: true });
+    return entries
+      .filter((e) => e.name.startsWith(search) && !e.name.startsWith('.'))
+      .slice(0, 8)
+      .map((e) => '@' + (prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/') + 1) : '') + e.name + (e.isDirectory() ? '/' : ''));
+  } catch { return []; }
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export function App({ appState, callbacks, registerHandle }: AppProps): React.ReactElement {
@@ -146,6 +164,21 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       : [];
   const [slashIndex, setSlashIndex] = useState(0);
 
+  // ── @ file autocomplete ───────────────────────────────────────────────────
+  const atMatch = inputBuffer.match(/@([^\s]*)$/);
+  const atSuggestions = useMemo(
+    () => atMatch ? getFileSuggestions(atMatch[0], appState.cwd.replace('~', process.env['HOME'] ?? '')) : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [inputBuffer, appState.cwd],
+  );
+  const [atIndex, setAtIndex] = useState(0);
+
+  // ── Quick help overlay ────────────────────────────────────────────────────
+  const [showHelp, setShowHelp] = useState(false);
+
+  // ── Tab bar ───────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<ActiveTab>('session');
+
   // ── Spinner ───────────────────────────────────────────────────────────────
   const [spinnerFrame, setSpinnerFrame] = useState(0);
 
@@ -160,6 +193,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
   const busyRef = useRef(false);
   const inputBufferRef = useRef('');
   const cursorPosRef = useRef(0);
+  const lastCtrlCRef = useRef<number>(0);
 
   // Keep refs in sync
   useEffect(() => { inputBufferRef.current = inputBuffer; }, [inputBuffer]);
@@ -184,6 +218,9 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
 
   // ── Reset slash index when suggestions change ─────────────────────────────
   useEffect(() => { setSlashIndex(0); }, [inputBuffer]);
+
+  // ── Reset atIndex when @ suggestions change ───────────────────────────────
+  useEffect(() => { setAtIndex(0); }, [inputBuffer]);
 
   // ── Register handle ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -242,8 +279,27 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
     // Ctrl+C
     if (key.ctrl && (input === 'c' || input === '\x03')) {
       if (busyRef.current) { callbacks.onCancel(); return; }
-      callbacks.onExit();
-      exit();
+      const now = Date.now();
+      if (now - lastCtrlCRef.current < 1000) {
+        callbacks.onExit();
+        exit();
+      } else {
+        lastCtrlCRef.current = now;
+        addNotification('Press Ctrl+C again to exit', 'info');
+        setInputBuffer('');
+        setCursorPos(0);
+      }
+      return;
+    }
+
+    // Ctrl+Q — queue message while busy
+    if (key.ctrl && (input === 'q' || input === '\x11')) {
+      if (inputBuffer.trim()) {
+        callbacks.onLine(inputBuffer);
+        setInputBuffer('');
+        setCursorPos(0);
+        addNotification('Message queued', 'info');
+      }
       return;
     }
 
@@ -284,10 +340,39 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       setCursorPos(inputBufferRef.current.length); return;
     }
 
+    // Ctrl+G — open external editor
+    if (key.ctrl && (input === 'g' || input === '\x07')) {
+      const editor = process.env['EDITOR'] ?? process.env['VISUAL'] ?? 'nano';
+      const tmpFile = `/tmp/icopilot-edit-${Date.now()}.txt`;
+      import('node:fs').then(({ writeFileSync, readFileSync, unlinkSync }) => {
+        import('node:child_process').then(({ execSync }) => {
+          try {
+            writeFileSync(tmpFile, inputBufferRef.current, 'utf8');
+            execSync(`${editor} ${tmpFile}`, { stdio: 'inherit' });
+            const content = readFileSync(tmpFile, 'utf8').trimEnd();
+            setInputBuffer(content);
+            setCursorPos(content.length);
+            try { unlinkSync(tmpFile); } catch { /* ok */ }
+          } catch { /* ignore */ }
+        });
+      });
+      return;
+    }
+
     if (busy) return;
 
     // Enter
     if (key.return) {
+      // @ file suggestion selection
+      if (atSuggestions.length) {
+        const chosen = atSuggestions[atIndex];
+        if (chosen && atMatch) {
+          const val = inputBuffer.slice(0, inputBuffer.lastIndexOf(atMatch[0])) + chosen + ' ';
+          setInputBuffer(val);
+          setCursorPos(val.length);
+          return;
+        }
+      }
       // Slash autocomplete selection
       if (slashSuggestions.length && inputBuffer.startsWith('/') && !inputBuffer.includes(' ')) {
         const chosen = slashSuggestions[slashIndex];
@@ -308,7 +393,16 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       return;
     }
 
-    // Tab — autocomplete
+    // Tab — autocomplete (@ takes priority over slash)
+    if (key.tab && atSuggestions.length) {
+      const chosen = atSuggestions[atIndex];
+      if (chosen && atMatch) {
+        const val = inputBuffer.slice(0, inputBuffer.lastIndexOf(atMatch[0])) + chosen + ' ';
+        setInputBuffer(val);
+        setCursorPos(val.length);
+      }
+      return;
+    }
     if (key.tab && slashSuggestions.length) {
       const chosen = slashSuggestions[slashIndex];
       if (chosen) {
@@ -392,9 +486,11 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       return;
     }
 
-    // Arrow up/down — navigate slash suggestions, followup chips, or input history
+    // Arrow up/down — navigate @ suggestions, slash suggestions, followup chips, or input history
     if (key.upArrow) {
-      if (slashSuggestions.length) {
+      if (atSuggestions.length) {
+        setAtIndex((i) => (i - 1 + atSuggestions.length) % atSuggestions.length);
+      } else if (slashSuggestions.length) {
         setSlashIndex((i) => (i - 1 + slashSuggestions.length) % slashSuggestions.length);
       } else if (followups.length) {
         setFollowupIndex((i) => (i - 1 + followups.length) % followups.length);
@@ -417,7 +513,9 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       return;
     }
     if (key.downArrow) {
-      if (slashSuggestions.length) {
+      if (atSuggestions.length) {
+        setAtIndex((i) => (i + 1) % atSuggestions.length);
+      } else if (slashSuggestions.length) {
         setSlashIndex((i) => (i + 1) % slashSuggestions.length);
       } else if (followups.length) {
         setFollowupIndex((i) => (i + 1) % followups.length);
@@ -460,6 +558,11 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
 
     // Regular character — insert at cursor position
     if (input && !key.ctrl && !key.meta) {
+      // ? alone on empty input → quick help toggle
+      if (input === '?' && !inputBuffer && !busy) {
+        setShowHelp((h) => !h);
+        return;
+      }
       setInputBuffer((b) => b.slice(0, cursorPos) + input + b.slice(cursorPos));
       setCursorPos((p) => p + input.length);
     }
@@ -496,6 +599,9 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
           )
         }
       </Static>
+
+      {/* ═══ TAB BAR ════════════════════════════════════════════════════════ */}
+      <TabBar activeTab={activeTab} cols={cols} isGitRepo={Boolean(appState.branch)} />
 
       {/* ═══ LIVE: streaming response (mutates every chunk) ════════════════ */}
       {(busy || liveContent.trim()) && (
@@ -580,6 +686,44 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         </Box>
       )}
 
+      {/* ═══ @ FILE AUTOCOMPLETE ═════════════════════════════════════════════ */}
+      {atSuggestions.length > 0 && (
+        <Box flexDirection="column" paddingX={2} marginBottom={0}>
+          <Box>
+            <Text color={colors.brand} dimColor>{'Files:'}</Text>
+          </Box>
+          {atSuggestions.map((s, i) => (
+            <Box key={s} paddingLeft={1}>
+              <Text bold={i === atIndex} color={i === atIndex ? colors.brand : colors.muted}>
+                {i === atIndex ? '▶ ' : '  '}
+              </Text>
+              <Text bold={i === atIndex} color={i === atIndex ? colors.brand : colors.muted}>{s}</Text>
+            </Box>
+          ))}
+          <Box paddingLeft={1}>
+            <Text dimColor>{'↑↓ navigate  Tab accept'}</Text>
+          </Box>
+        </Box>
+      )}
+
+      {/* ═══ QUICK HELP OVERLAY ══════════════════════════════════════════════ */}
+      {showHelp && (
+        <Box flexDirection="column" paddingX={2} paddingBottom={1} borderStyle="round" borderColor={colors.accent}>
+          <Text bold color={colors.accent}>Quick Reference</Text>
+          <Text color={colors.muted}>{'Shift+Tab    cycle modes (ASK → PLAN → AUTO)'}</Text>
+          <Text color={colors.muted}>{'Ctrl+T       toggle reasoning/thinking'}</Text>
+          <Text color={colors.muted}>{'Ctrl+C       cancel / exit (twice)'}</Text>
+          <Text color={colors.muted}>{'Ctrl+L       clear screen'}</Text>
+          <Text color={colors.muted}>{'↑/↓          input history'}</Text>
+          <Text color={colors.muted}>{'@path        attach file as context'}</Text>
+          <Text color={colors.muted}>{'#123         attach GitHub issue/PR'}</Text>
+          <Text color={colors.muted}>{'!cmd         run shell command directly'}</Text>
+          <Text color={colors.muted}>{'?            toggle this help'}</Text>
+          <Text color={colors.muted}>{'/help        full help'}</Text>
+          <Text dimColor>{'Press ? again to dismiss'}</Text>
+        </Box>
+      )}
+
       {/* ═══ COMPOSER ═══════════════════════════════════════════════════════ */}
       <Box>
         <Text color={colors.accent}>{'▄'.repeat(cols)}</Text>
@@ -596,7 +740,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         ) : null}
         <Text>{inputBuffer.slice(cursorPos + (busy ? 0 : 1))}</Text>
         {!inputBuffer && !busy && (
-          <Text dimColor>{'Ask anything, @ to attach, / for commands…'}</Text>
+          <Text dimColor>{'Enter @ to mention files or / for commands…'}</Text>
         )}
         {busy && <Text dimColor>{' (working…)'}</Text>}
       </Box>

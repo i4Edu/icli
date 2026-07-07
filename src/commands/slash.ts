@@ -208,8 +208,8 @@ ${theme.brand('Slash commands')}
   /diff                      show git diff (unstaged, then staged)
   /changes [last]            show changes since session start or last AI turn
   /git-log                   show recent git commits
-  /context [view]            show visual context usage and trim tools
-  /usage                     alias for /context
+  /context [sources|budget|trim]   show visual context usage bar chart
+  /usage                     show token and message usage metrics
   /pin <file>                pin a file to persistent context (or list pinned files)
   /unpin <file|--all>        remove pinned files from persistent context
   /read-only, /ro <path>     add a read-only context file
@@ -226,7 +226,7 @@ ${theme.brand('Slash commands')}
   /reasoning [level]         show or set reasoning effort (low|medium|high|max)
   /think-tokens [budget]     show or set reasoning token budget (8k, 0.5M, 0=off)
   /history                   browse recent conversation history
-  /compact                   summarize conversation, free token space
+  /compact                   compress old messages, free token space
   /settings [key] [value]    show, set, or reset runtime settings
   /feedback [type] [text]    save feedback locally and optionally open issues
   /sessions                  list and resume saved sessions
@@ -371,7 +371,7 @@ ${theme.brand('Customisation')}
 
 ${theme.brand('Info & Compat')}
   /models                    alias for /model
-  /session                   alias for /sessions
+  /session                   show current session info (ID, model, tokens, messages)
   /skills                    alias for /skill
   /cd <path>                 alias for /cwd
   /reset                     alias for /clear
@@ -632,7 +632,6 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const exactAliases: Record<string, string> = {
     models: 'model',
     cd: 'cwd',
-    session: 'sessions',
     resume: 'sessions',
     continue: 'sessions',
     fleet: 'parallel',
@@ -759,10 +758,41 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'git-log':
       process.stdout.write(await gitLogCommand(rest, s.state.cwd));
       return done();
-    case 'context':
-    case 'usage':
-      process.stdout.write(contextCommand(rest, s));
+    case 'context': {
+      const used = s.tokenUsage();
+      const modelLimits: Record<string, number> = {
+        'gpt-4o': 128000, 'gpt-4o-mini': 128000, 'gpt-4': 8192,
+        'claude-sonnet': 200000, 'claude-opus': 200000, 'claude-haiku': 200000,
+        'o1': 128000, 'o3': 200000,
+      };
+      const modelKey = Object.keys(modelLimits).find((k) => s.state.model.toLowerCase().includes(k));
+      const limit = modelLimits[modelKey ?? ''] ?? 128000;
+      const pct = Math.min(100, Math.round((used / limit) * 100));
+      const barWidth = 40;
+      const filled = Math.round((pct / 100) * barWidth);
+      const bar = '█'.repeat(filled) + '░'.repeat(barWidth - filled);
+      const color = pct > 90 ? '\x1b[31m' : pct > 70 ? '\x1b[33m' : '\x1b[32m';
+      const reset = '\x1b[0m';
+      process.stdout.write(`\n  Context Window Usage\n`);
+      process.stdout.write(`  ${color}${bar}${reset}  ${pct}%\n`);
+      process.stdout.write(`  ${used.toLocaleString()} / ${limit.toLocaleString()} tokens used\n`);
+      process.stdout.write(`  Model: ${s.state.model}\n\n`);
+      if (pct > 90) {
+        process.stdout.write(`  \x1b[33m⚠ Near limit — run /compact to compress history\x1b[0m\n\n`);
+      }
       return done();
+    }
+    case 'usage': {
+      const tokenUsage = s.tokenUsage();
+      const msgCount = s.state.messages?.length ?? 0;
+      process.stdout.write(`\n  Usage Metrics\n`);
+      process.stdout.write(`  ${'─'.repeat(40)}\n`);
+      process.stdout.write(`  Tokens used:  ~${tokenUsage.toLocaleString()}\n`);
+      process.stdout.write(`  Messages:     ${msgCount}\n`);
+      process.stdout.write(`  Model:        ${s.state.model}\n`);
+      process.stdout.write(`  ${'─'.repeat(40)}\n\n`);
+      return done();
+    }
     case 'settings': {
       if (!arg) {
         process.stdout.write(showSettings());
@@ -1006,9 +1036,35 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
       return done();
     }
     case 'compact': {
-      const summary = await compactSession(s, ctx.abort.signal);
-      s.compactInto(summary);
-      process.stdout.write(theme.ok('\n✔ history compacted.\n'));
+      const msgs = s.state.messages;
+      if (msgs.length < 6) {
+        process.stdout.write(theme.dim('Nothing to compact (fewer than 6 messages).\n'));
+        return done();
+      }
+      const systemMsgs = msgs.filter((m: any) => m.role === 'system');
+      const nonSystem = msgs.filter((m: any) => m.role !== 'system');
+      const keep = nonSystem.slice(-8);
+      const removed = nonSystem.length - keep.length;
+
+      if (removed <= 0) {
+        process.stdout.write(theme.dim('Context is already compact.\n'));
+        return done();
+      }
+
+      const toSummarize = nonSystem.slice(0, -8);
+      let userCount = 0; let assistantCount = 0;
+      for (const m of toSummarize) {
+        if ((m as any).role === 'user') userCount++;
+        else if ((m as any).role === 'assistant') assistantCount++;
+      }
+
+      const focusNote = arg ? ` (focus: ${arg})` : '';
+      const summaryMsg = `[Conversation history compacted${focusNote}: ${userCount} user messages and ${assistantCount} assistant responses summarized]`;
+      const summaryMessage = { role: 'system', content: summaryMsg };
+      s.state.messages = [...systemMsgs, summaryMessage as any, ...keep];
+
+      process.stdout.write(theme.ok(`✔ Compacted: removed ${removed} messages from history.\n`));
+      process.stdout.write(theme.dim(`  ${summaryMsg}\n`));
       return done();
     }
     case 'sessions': {
@@ -1948,8 +2004,21 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'resume':
     case 'continue':
       return done(false, '/sessions');
-    case 'session':
-      return done(false, '/sessions');
+    case 'session': {
+      const tokenUsage = s.tokenUsage();
+      const msgCount = s.state.messages?.length ?? 0;
+      const userMsgs = s.state.messages?.filter((m: any) => m.role === 'user').length ?? 0;
+      process.stdout.write(`\n  Session Info\n`);
+      process.stdout.write(`  ${'─'.repeat(40)}\n`);
+      process.stdout.write(`  ID:        ${s.state.id || 'unknown'}\n`);
+      process.stdout.write(`  Model:     ${s.state.model}\n`);
+      process.stdout.write(`  Mode:      ${s.state.mode || 'ask'}\n`);
+      process.stdout.write(`  CWD:       ${s.state.cwd}\n`);
+      process.stdout.write(`  Messages:  ${msgCount} total, ${userMsgs} from you\n`);
+      process.stdout.write(`  Tokens:    ~${tokenUsage.toLocaleString()}\n`);
+      process.stdout.write(`  ${'─'.repeat(40)}\n\n`);
+      return done();
+    }
     case 'skills':
       process.stdout.write(theme.dim('→ /skill (alias)\n'));
       // forward to skill handler

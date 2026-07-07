@@ -4,12 +4,21 @@ import { colors } from './theme.js';
 
 export type MessageRole = 'user' | 'copilot' | 'error' | 'info' | 'system';
 
+export interface ToolCallRecord {
+  id: string;
+  name: string;
+  argsPreview: string;
+  status: 'pending' | 'approved' | 'rejected' | 'done' | 'error';
+}
+
 export interface HistoryMessage {
   id: string;
   role: MessageRole;
   content: string;
-  reasoning?: string;  // optional thinking/reasoning text from the model
-  model?: string;      // model that generated this response
+  reasoning?: string;
+  model?: string;
+  timestamp?: string;
+  toolCalls?: ToolCallRecord[];
 }
 
 function SpeakerLabel({ role, model }: { role: MessageRole; model?: string }): React.ReactElement {
@@ -52,18 +61,20 @@ export function HistoryItem({
   const hasReasoning = message.role === 'copilot' && Boolean(message.reasoning);
   const isUser = message.role === 'user';
 
-  // Separator line with optional turn number
+  // Separator line with optional turn number and timestamp
   const sepLabel = turnNum != null ? `#${turnNum}` : '';
-  const sepLineLen = Math.max(0, terminalWidth - sepLabel.length);
+  const ts = message.timestamp ?? '';
+  const label = [sepLabel, ts].filter(Boolean).join('  ');
+  const dashes = Math.max(0, terminalWidth - label.length);
 
   return (
     <Box flexDirection="column" width={terminalWidth}>
-      {/* Separator with turn number */}
+      {/* Separator with turn number and optional timestamp */}
       <Box>
-        {sepLabel ? (
+        {label ? (
           <>
-            <Text color={colors.separator}>{'─'.repeat(Math.max(0, sepLineLen - 1))}</Text>
-            <Text color={colors.muted} dimColor>{sepLabel}</Text>
+            <Text color={colors.separator}>{'─'.repeat(Math.max(0, dashes - 1))}</Text>
+            <Text color={colors.muted} dimColor>{label}</Text>
           </>
         ) : (
           <Text color={colors.separator}>{'─'.repeat(terminalWidth)}</Text>
@@ -100,6 +111,29 @@ export function HistoryItem({
           <Box paddingLeft={1}>
             <Text dimColor>{message.reasoning}</Text>
           </Box>
+        </Box>
+      )}
+
+      {/* Tool call chips */}
+      {message.toolCalls && message.toolCalls.length > 0 && (
+        <Box flexDirection="column" paddingX={2} paddingBottom={1}>
+          {message.toolCalls.map((tc) => {
+            const statusIcon = tc.status === 'done' || tc.status === 'approved' ? '✔'
+              : tc.status === 'rejected' || tc.status === 'error' ? '✖'
+              : '⠙';
+            const statusColor = tc.status === 'done' || tc.status === 'approved' ? colors.success
+              : tc.status === 'rejected' || tc.status === 'error' ? colors.error
+              : colors.warning;
+            return (
+              <Box key={tc.id}>
+                <Text color={colors.muted}>{'  [⚙ '}</Text>
+                <Text color={colors.slash}>{tc.name}</Text>
+                {tc.argsPreview ? <Text color={colors.muted}>{`  ${tc.argsPreview}`}</Text> : null}
+                <Text color={colors.muted}>{']  '}</Text>
+                <Text color={statusColor}>{statusIcon}</Text>
+              </Box>
+            );
+          })}
         </Box>
       )}
 

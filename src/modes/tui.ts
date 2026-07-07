@@ -15,6 +15,7 @@ import { hookManager } from '../hooks/lifecycle.js';
 import { config } from '../config.js';
 import { App, type AppCallbacks, type AppState, type TuiHandle } from '../ui/ink/App.js';
 import { theme } from '../ui/theme.js';
+import { saveSession, generateSessionId, formatTimestamp, type StoredSession } from '../session/session-store.js';
 
 type TuiMode = 'ask' | 'plan' | 'autopilot';
 
@@ -98,6 +99,16 @@ export async function runTui(
   };
   (appState as any).initialMode = initialMode;
 
+  const sessionStoreId = generateSessionId();
+  const storedSession: StoredSession = {
+    id: sessionStoreId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    cwd: session.state.cwd,
+    model: modelShort,
+    messages: [],
+  };
+
   let handle: TuiHandle | null = null;
   let currentAbort: AbortController | null = null;
   let busy = false;
@@ -162,7 +173,17 @@ export async function runTui(
       id: nextId(),
       role: scheduled ? 'system' : 'user',
       content: line,
+      timestamp: formatTimestamp(),
     });
+    // Save to session store
+    storedSession.messages.push({
+      id: nextId(),
+      role: scheduled ? 'system' : 'user',
+      content: line,
+      timestamp: formatTimestamp(),
+    });
+    storedSession.updatedAt = new Date().toISOString();
+    saveSession(storedSession);
     handle?.setBusy(true);
 
     const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
@@ -255,6 +276,17 @@ export async function runTui(
 
       // Move live content to frozen history, clear the live panel.
       handle?.finishLive(plainAccumulator.trimEnd());
+      if (plainAccumulator.trim()) {
+        storedSession.messages.push({
+          id: `copilot-${Date.now()}`,
+          role: 'copilot',
+          content: plainAccumulator.trimEnd(),
+          timestamp: formatTimestamp(),
+          model: modelShort,
+        });
+        storedSession.updatedAt = new Date().toISOString();
+        saveSession(storedSession);
+      }
       handle?.setBusy(false);
       handle?.setTokenCount(session.tokenUsage());
       handle?.setFollowups(extractFollowups(plainAccumulator));
