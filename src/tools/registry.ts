@@ -13,6 +13,18 @@ import { searchSymbols, searchSymbolsSchema, type SearchSymbolFilter } from './s
 import { runInTerminal, runInTerminalSchema } from './run-in-terminal.js';
 import { withRetry } from './retry.js';
 import { webFetchTool, WEB_FETCH_SCHEMA } from './web.js';
+import {
+  browserFetch,
+  browserScreenshot,
+  BROWSER_FETCH_SCHEMA,
+  BROWSER_SCREENSHOT_SCHEMA,
+} from './browser.js';
+import {
+  githubSearch,
+  githubGetRepo,
+  GITHUB_SEARCH_SCHEMA,
+  GITHUB_GET_REPO_SCHEMA,
+} from './github-search.js';
 import { AuditLogger, type AuditResult } from '../security/audit.js';
 import { RoleManager, defaultRolesConfigPath } from '../security/roles.js';
 import { hookManager } from '../hooks/lifecycle.js';
@@ -159,6 +171,10 @@ export const TOOL_SCHEMAS: ChatCompletionTool[] = [
   listDirectorySchema,
   runInTerminalSchema,
   WEB_FETCH_SCHEMA,
+  BROWSER_FETCH_SCHEMA,
+  BROWSER_SCREENSHOT_SCHEMA,
+  GITHUB_SEARCH_SCHEMA,
+  GITHUB_GET_REPO_SCHEMA,
   DESCRIBE_IMAGE_SCHEMA,
 ];
 
@@ -341,6 +357,14 @@ async function dispatchBuiltIn(
       );
     case 'web_fetch':
       return webFetchTool(args as any);
+    case 'browser_fetch':
+      return browserFetch(args as any);
+    case 'browser_screenshot':
+      return browserScreenshot(args as any);
+    case 'github_search':
+      return githubSearch(args as any);
+    case 'github_get_repo':
+      return githubGetRepo(args as any);
     case 'describe_image':
       return JSON.stringify(readImage(args as any));
     default:
