@@ -179,13 +179,8 @@ export async function run(opts: any): Promise<void> {
     throw new Error('--autopilot requires --prompt.');
   }
   markFirstPrompt();
-  if (opts.tui) {
-    await runTui(opts.plan ? 'plan' : 'ask', {
-      defaultTurnMode: opts.architect ? 'architect' : opts.reason ? 'reason' : undefined,
-    });
-    return;
-  }
-  await runInteractive(opts.plan ? 'plan' : 'ask', {
+  // Always use the Copilot CLI-style TUI; --tui kept for backwards compatibility.
+  await runTui(opts.plan ? 'plan' : 'ask', {
     defaultTurnMode: opts.architect ? 'architect' : opts.reason ? 'reason' : undefined,
   });
 }
