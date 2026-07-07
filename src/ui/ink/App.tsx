@@ -7,22 +7,39 @@ import { colors } from './theme.js';
 // ─── Slash command registry for autocomplete ─────────────────────────────────
 
 const SLASH_COMMANDS = [
-  'help','exit','clear','model','mode','provider','context','usage','settings',
-  'cwd','diff','changes','git-log','copy','paste','copy-context','history',
-  'sessions','run','test','lint','fix','edit-format','auto-lint','auto-test',
-  'auto-fix','compact','review','security','audit','explain','explain-shell',
-  'shell','web','search','agent','goal','tdd','codegen','doc','diagram',
-  'snippets','snippet','template','alias','bookmark','bookmarks','handoff',
-  'share','export','stats','cost','tokens','think-tokens','sandbox','role',
-  'policy','filter','conventions','style','doctor','env','branch','worktree',
-  'commit','stash','undo','todo','todos','task','tasks','schedule','trigger',
-  'triggers','watch','voice','acp','batch','compare','deps','feedback',
-  'extensions','extension','space','explore','repo','summary','workflow',
-  'workflows','trace','stacktrace','retention','validate','generate','suggest',
-  'route','serve','status','start','stop','skill','team-memory',
-].sort();
+  // core
+  'help','exit','quit','clear','new','reset','model','mode','provider',
+  'context','usage','settings','cwd','cd','diff','changes','git-log','copy',
+  'paste','copy-context','history','sessions','resume','continue','session',
+  'rename','restart','run','test','lint','fix','edit-format','auto-lint',
+  'auto-test','auto-fix','compact','review','security','audit','explain',
+  'explain-shell','shell','web','search','agent','goal','tdd','codegen','doc',
+  'diagram','snippets','snippet','template','alias','bookmark','bookmarks',
+  'handoff','share','export','stats','cost','tokens','think-tokens','sandbox',
+  'role','policy','filter','conventions','style','doctor','env','branch',
+  'worktree','commit','stash','undo','todo','todos','task','tasks','schedule',
+  'trigger','triggers','watch','voice','acp','mcp','batch','compare','deps',
+  'feedback','bug','extensions','extension','space','explore','repo','summary',
+  'workflow','workflows','trace','stacktrace','retention','generate','suggest',
+  'route','serve','skill','skills','team-memory','fleet','parallel',
+  // tui.md parity
+  'add-dir','allow-all','app','chronicle','clikit','delegate','downgrade',
+  'experimental','fleet','ide','instructions','keep-alive','caffeinate',
+  'list-dirs','login','logout','lsp','permissions','remote','research',
+  'reset-allowed-tools','rubber-duck','streamer-mode','terminal-setup',
+  'theme','update','user','plan','autopilot','diff-review','index','rag',
+  'goto','refs','read-only','ro','pin','unpin','every','after','editor',
+  'reasoning','cloud','cloud-routine','bridge','error-watch','memory',
+  'corrections','readme','changelog','release','heal','dead-code','refactor',
+  'metrics','notify','actions','multi','init','proxy','retention','plugin',
+  'plugins','worktree','acp','serve',
+].filter((v,i,a)=>a.indexOf(v)===i).sort();
 
 const SPINNER_FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
+
+// ─── Mode type ────────────────────────────────────────────────────────────────
+
+export type TuiMode = 'ask' | 'plan' | 'autopilot';
 
 // ─── Public handle exposed to tui.ts ─────────────────────────────────────────
 
@@ -38,6 +55,7 @@ export interface TuiHandle {
   setTokenCount: (n: number) => void;
   setFollowups: (chips: string[]) => void;
   notify: (text: string, level?: 'info' | 'warn' | 'error') => void;
+  setMode: (mode: TuiMode) => void;
 }
 
 // ─── App props ────────────────────────────────────────────────────────────────
@@ -46,6 +64,7 @@ export interface AppCallbacks {
   onLine: (line: string) => Promise<void>;
   onCancel: () => void;
   onExit: () => void;
+  onModeChange?: (mode: TuiMode) => void;
 }
 
 export interface AppState {
@@ -54,6 +73,7 @@ export interface AppState {
   branch: string;
   cwd: string;
   version: string;
+  initialMode?: TuiMode;
 }
 
 interface AppProps {
@@ -70,6 +90,22 @@ interface Notification {
   id: number;
 }
 
+// ─── Word movement helpers ────────────────────────────────────────────────────
+
+function nextWordEnd(s: string, pos: number): number {
+  let i = pos;
+  while (i < s.length && s[i] === ' ') i++;
+  while (i < s.length && s[i] !== ' ') i++;
+  return i;
+}
+
+function prevWordStart(s: string, pos: number): number {
+  let i = pos;
+  while (i > 0 && s[i - 1] === ' ') i--;
+  while (i > 0 && s[i - 1] !== ' ') i--;
+  return i;
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 
 export function App({ appState, callbacks, registerHandle }: AppProps): React.ReactElement {
@@ -84,8 +120,20 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
   const [liveContent, setLiveContent] = useState('');
   const [busy, setBusyState] = useState(false);
 
-  // ── Input ────────────────────────────────────────────────────────────────
+  // ── Input with cursor position ────────────────────────────────────────────
   const [inputBuffer, setInputBuffer] = useState('');
+  const [cursorPos, setCursorPos] = useState(0);
+
+  // ── Input history ─────────────────────────────────────────────────────────
+  const [inputHistory, setInputHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [savedInput, setSavedInput] = useState('');
+
+  // ── Mode ──────────────────────────────────────────────────────────────────
+  const [mode, setModeState] = useState<TuiMode>(appState.initialMode ?? 'ask');
+
+  // ── Reasoning toggle ──────────────────────────────────────────────────────
+  const [showReasoning, setShowReasoning] = useState(false);
 
   // ── Followup chips ────────────────────────────────────────────────────────
   const [followups, setFollowupsState] = useState<string[]>([]);
@@ -110,6 +158,12 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
 
   // Refs for use inside async closures
   const busyRef = useRef(false);
+  const inputBufferRef = useRef('');
+  const cursorPosRef = useRef(0);
+
+  // Keep refs in sync
+  useEffect(() => { inputBufferRef.current = inputBuffer; }, [inputBuffer]);
+  useEffect(() => { cursorPosRef.current = cursorPos; }, [cursorPos]);
 
   // ── Spinner animation ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -160,16 +214,24 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         setFollowupIndex(0);
       },
       notify: addNotification,
+      setMode(m) { setModeState(m); },
     };
     registerHandle(handle);
   }, [registerHandle, addNotification]);
 
   // ── Submit a line ─────────────────────────────────────────────────────────
   const submitLine = useCallback(
-    (line: string) => {
-      setInputBuffer('');
-      setFollowupsState([]);
-      setFollowupIndex(0);
+    (line: string, preserveBuffer = false) => {
+      // Prepend to history (max 500), reset navigation
+      setInputHistory((prev) => [line, ...prev].slice(0, 500));
+      setHistoryIndex(-1);
+      setSavedInput('');
+      if (!preserveBuffer) {
+        setInputBuffer('');
+        setCursorPos(0);
+        setFollowupsState([]);
+        setFollowupIndex(0);
+      }
       void callbacks.onLine(line);
     },
     [callbacks],
@@ -185,6 +247,43 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       return;
     }
 
+    // Ctrl+D — exit
+    if (key.ctrl && (input === 'd' || input === '\x04')) {
+      callbacks.onExit();
+      exit();
+      return;
+    }
+
+    // Ctrl+L — clear screen
+    if (key.ctrl && (input === 'l' || input === '\x0c')) {
+      process.stdout.write('\x1b[2J\x1b[H');
+      return;
+    }
+
+    // Shift+Tab — mode cycling (\x1b[Z)
+    if ((key.shift && key.tab) || input === '\x1b[Z') {
+      const modes: TuiMode[] = ['ask', 'plan', 'autopilot'];
+      const next = modes[(modes.indexOf(mode) + 1) % modes.length];
+      setModeState(next);
+      callbacks.onModeChange?.(next);
+      addNotification(`Mode: ${next}`, 'info');
+      return;
+    }
+
+    // Ctrl+T — toggle reasoning
+    if (key.ctrl && (input === 't' || input === '\x14')) {
+      setShowReasoning((r) => !r);
+      return;
+    }
+
+    // Navigation shortcuts work even when busy
+    if (key.ctrl && (input === 'a' || input === '\x01')) {
+      setCursorPos(0); return;
+    }
+    if (key.ctrl && (input === 'e' || input === '\x05')) {
+      setCursorPos(inputBufferRef.current.length); return;
+    }
+
     if (busy) return;
 
     // Enter
@@ -192,7 +291,12 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       // Slash autocomplete selection
       if (slashSuggestions.length && inputBuffer.startsWith('/') && !inputBuffer.includes(' ')) {
         const chosen = slashSuggestions[slashIndex];
-        if (chosen) { setInputBuffer(`/${chosen} `); return; }
+        if (chosen) {
+          const val = `/${chosen} `;
+          setInputBuffer(val);
+          setCursorPos(val.length);
+          return;
+        }
       }
       // Followup chip
       if (!inputBuffer.trim() && followups.length) {
@@ -207,34 +311,108 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
     // Tab — autocomplete
     if (key.tab && slashSuggestions.length) {
       const chosen = slashSuggestions[slashIndex];
-      if (chosen) { setInputBuffer(`/${chosen} `); }
+      if (chosen) {
+        const val = `/${chosen} `;
+        setInputBuffer(val);
+        setCursorPos(val.length);
+      }
       return;
     }
 
-    // Backspace / Delete
+    // Ctrl+S — run but preserve input buffer
+    if (key.ctrl && (input === 's' || input === '\x13')) {
+      if (inputBuffer.trim()) {
+        void callbacks.onLine(inputBuffer);
+      }
+      return;
+    }
+
+    // Backspace / Delete — respect cursor position
     if (key.backspace || key.delete) {
-      setInputBuffer((b) => b.slice(0, -1));
+      if (cursorPos > 0) {
+        setInputBuffer((b) => b.slice(0, cursorPos - 1) + b.slice(cursorPos));
+        setCursorPos((p) => p - 1);
+      }
       return;
     }
 
-    // Ctrl+U — clear line
+    // Ctrl+H — same as backspace
+    if (key.ctrl && (input === 'h' || input === '\x08')) {
+      if (cursorPos > 0) {
+        setInputBuffer((b) => b.slice(0, cursorPos - 1) + b.slice(cursorPos));
+        setCursorPos((p) => p - 1);
+      }
+      return;
+    }
+
+    // Ctrl+K — delete to end of line
+    if (key.ctrl && (input === 'k' || input === '\x0b')) {
+      setInputBuffer((b) => b.slice(0, cursorPos));
+      return;
+    }
+
+    // Ctrl+U — delete to start of line (respects cursor)
     if (key.ctrl && (input === 'u' || input === '\x15')) {
-      setInputBuffer('');
+      setInputBuffer((b) => b.slice(cursorPos));
+      setCursorPos(0);
       return;
     }
 
-    // Ctrl+W — delete word
+    // Ctrl+W — delete previous word (respects cursor)
     if (key.ctrl && (input === 'w' || input === '\x17')) {
-      setInputBuffer((b) => b.replace(/\S+\s*$/, ''));
+      const newPos = prevWordStart(inputBuffer, cursorPos);
+      setInputBuffer((b) => b.slice(0, newPos) + b.slice(cursorPos));
+      setCursorPos(newPos);
       return;
     }
 
-    // Arrow up/down — navigate slash suggestions or followup chips
+    // Ctrl+F / rightArrow — move cursor right
+    if ((key.ctrl && (input === 'f' || input === '\x06')) ||
+        (key.rightArrow && !slashSuggestions.length && !followups.length)) {
+      setCursorPos((p) => Math.min(p + 1, inputBufferRef.current.length));
+      return;
+    }
+
+    // Ctrl+B / leftArrow — move cursor left
+    if ((key.ctrl && (input === 'b' || input === '\x02')) ||
+        (key.leftArrow && !slashSuggestions.length && !followups.length)) {
+      setCursorPos((p) => Math.max(p - 1, 0));
+      return;
+    }
+
+    // Alt+F / Meta+right — forward one word
+    if ((key.meta && key.rightArrow) || input === '\x1bf') {
+      setCursorPos((p) => nextWordEnd(inputBufferRef.current, p));
+      return;
+    }
+
+    // Alt+B / Meta+left — back one word
+    if ((key.meta && key.leftArrow) || input === '\x1bb') {
+      setCursorPos((p) => prevWordStart(inputBufferRef.current, p));
+      return;
+    }
+
+    // Arrow up/down — navigate slash suggestions, followup chips, or input history
     if (key.upArrow) {
       if (slashSuggestions.length) {
         setSlashIndex((i) => (i - 1 + slashSuggestions.length) % slashSuggestions.length);
       } else if (followups.length) {
         setFollowupIndex((i) => (i - 1 + followups.length) % followups.length);
+      } else {
+        // Input history navigation
+        if (historyIndex === -1) {
+          setSavedInput(inputBuffer);
+          setHistoryIndex(0);
+          const entry = inputHistory[0] ?? '';
+          setInputBuffer(entry);
+          setCursorPos(entry.length);
+        } else {
+          const next = Math.min(historyIndex + 1, inputHistory.length - 1);
+          setHistoryIndex(next);
+          const entry = inputHistory[next] ?? '';
+          setInputBuffer(entry);
+          setCursorPos(entry.length);
+        }
       }
       return;
     }
@@ -243,6 +421,19 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         setSlashIndex((i) => (i + 1) % slashSuggestions.length);
       } else if (followups.length) {
         setFollowupIndex((i) => (i + 1) % followups.length);
+      } else if (historyIndex >= 0) {
+        // Input history navigation downward
+        const next = historyIndex - 1;
+        if (next < 0) {
+          setHistoryIndex(-1);
+          setInputBuffer(savedInput);
+          setCursorPos(savedInput.length);
+        } else {
+          setHistoryIndex(next);
+          const entry = inputHistory[next] ?? '';
+          setInputBuffer(entry);
+          setCursorPos(entry.length);
+        }
       }
       return;
     }
@@ -255,23 +446,33 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       setFollowupIndex((i) => (i - 1 + followups.length) % followups.length); return;
     }
 
-    // Escape — clear suggestions
+    // Escape — clear suggestions / exit history mode
     if (key.escape) {
-      setFollowupsState([]); setFollowupIndex(0); return;
+      if (historyIndex >= 0) {
+        setHistoryIndex(-1);
+        setInputBuffer(savedInput);
+        setCursorPos(savedInput.length);
+      } else {
+        setFollowupsState([]); setFollowupIndex(0);
+      }
+      return;
     }
 
-    // Regular character
+    // Regular character — insert at cursor position
     if (input && !key.ctrl && !key.meta) {
-      setInputBuffer((b) => b + input);
+      setInputBuffer((b) => b.slice(0, cursorPos) + input + b.slice(cursorPos));
+      setCursorPos((p) => p + input.length);
     }
   });
 
   // ─── Footer bar content ───────────────────────────────────────────────────
   const tokenPart = tokenCount > 0 ? `  ·  ~${Math.round(tokenCount / 1000)}k ctx` : '';
   const branchPart = appState.branch ? `  \uE0A0 ${appState.branch}` : '';
+  const modeBadge = ` [${mode}]`;
   const footerRight = `${appState.model}${tokenPart}`;
   const footerLeft = appState.cwd + branchPart;
-  const footerGap = Math.max(1, cols - footerLeft.length - footerRight.length - 2);
+  const modeColor = mode === 'ask' ? colors.success : mode === 'plan' ? colors.brand : colors.warning;
+  const footerGap = Math.max(1, cols - footerLeft.length - modeBadge.length - footerRight.length - 2);
 
   const spinnerIcon = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length] ?? '⠋';
 
@@ -288,9 +489,9 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       >
         {(item) =>
           item.type === 'header' ? (
-            <AppHeader key="header" {...appState} />
+            <AppHeader key="header" {...appState} mode={mode} />
           ) : (
-            <HistoryItem key={item.id} message={item.msg} terminalWidth={cols} />
+            <HistoryItem key={item.id} message={item.msg} terminalWidth={cols} showReasoning={showReasoning} />
           )
         }
       </Static>
@@ -382,12 +583,19 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         <Text color={colors.accent}>{'▄'.repeat(cols)}</Text>
       </Box>
       <Box paddingX={1}>
-        {busy
-          ? <Text color={colors.warning}>{'◆ '}</Text>
-          : <Text bold color={colors.success}>{'❯ '}</Text>
-        }
-        <Text>{inputBuffer}</Text>
-        {!busy && <Text inverse>{' '}</Text>}
+        {busy ? (
+          <Text color={colors.warning}>{'◆ '}</Text>
+        ) : (
+          <Text bold color={colors.success}>{'❯ '}</Text>
+        )}
+        <Text>{inputBuffer.slice(0, cursorPos)}</Text>
+        {!busy ? (
+          <Text inverse>{inputBuffer[cursorPos] ?? ' '}</Text>
+        ) : null}
+        <Text>{inputBuffer.slice(cursorPos + (busy ? 0 : 1))}</Text>
+        {!inputBuffer && !busy && (
+          <Text dimColor>Enter @ to mention files or / for commands…</Text>
+        )}
         {busy && <Text dimColor>{' (working…)'}</Text>}
       </Box>
       <Box>
@@ -397,6 +605,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       {/* ═══ STATUS FOOTER ══════════════════════════════════════════════════ */}
       <Box paddingX={1}>
         <Text color={colors.muted}>{footerLeft}</Text>
+        <Text color={modeColor}>{modeBadge}</Text>
         <Text>{' '.repeat(Math.max(0, footerGap))}</Text>
         <Text color={colors.muted}>{footerRight}</Text>
       </Box>

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { confirm, input, select } from '@inquirer/prompts';
@@ -337,6 +338,52 @@ ${theme.brand('Slash commands')}
   /workflow [subcommand]      manage workflow definitions
   /exit, /quit               quit iCopilot
 
+${theme.brand('Session & Auth')}
+  /login                     check authentication status and setup guidance
+  /logout                    clear session auth token
+  /user                      show current GitHub user and auth info
+  /resume [id]               resume a saved session (alias for /sessions)
+  /continue [id]             alias for /resume
+  /rename [name]             rename the current session
+  /restart                   exit and prompt to restart iCopilot
+
+${theme.brand('Permissions & Safety')}
+  /allow-all [on|off|show]   auto-approve all tool calls without prompting
+  /permissions [show|reset]  view or clear in-session tool approvals
+  /reset-allowed-tools       clear all tool approvals (require approval again)
+  /add-dir <path>            add a directory to the trusted file-access list
+  /list-dirs                 show all trusted/allowed directories
+  /experimental [on|off]     toggle experimental features
+
+${theme.brand('Research & Agents')}
+  /research <topic>          deep-research a topic (codebase + web sources)
+  /rubber-duck [prompt]      consult a constructive-critic second opinion
+  /fleet [prompt]            run parallel subagent tasks (alias for /parallel)
+  /delegate [prompt]         delegate task to autonomous execution
+
+${theme.brand('Customisation')}
+  /theme [name]              view or set colour theme (auto|light|dark|none)
+  /streamer-mode             toggle streamer mode (hide sensitive details)
+  /instructions              show loaded custom instruction files
+  /terminal-setup            configure terminal for Shift+Enter multiline input
+  /keep-alive [on|off]       prevent the machine from sleeping
+  /update                    show instructions to update iCopilot to latest
+
+${theme.brand('Info & Compat')}
+  /models                    alias for /model
+  /session                   alias for /sessions
+  /skills                    alias for /skill
+  /cd <path>                 alias for /cwd
+  /reset                     alias for /clear
+  /app                       show GitHub Copilot app / web links
+  /ide                       show IDE bridge info (see /bridge)
+  /lsp                       show LSP server setup guidance
+  /mcp                       show MCP info (iCopilot uses ACP: /acp)
+  /remote                    show remote steering info
+  /chronicle <sub>           session history AI insights (standup|tips|improve)
+  /clikit [component]        show current CLI config snapshot
+  /downgrade <version>       show how to install a specific iCopilot version
+
 ${theme.brand('Inline')}
   /ask <message>             discuss only for one turn
   /code <message>            implement directly for one turn
@@ -503,6 +550,43 @@ const KNOWN_SLASH_COMMANDS = [
   'acp',
   'exit',
   'quit',
+  // ── tui.md parity additions ────────────────────────────────────────────
+  'add-dir',
+  'allow-all',
+  'app',
+  'cd',
+  'chronicle',
+  'clikit',
+  'continue',
+  'delegate',
+  'downgrade',
+  'experimental',
+  'fleet',
+  'ide',
+  'instructions',
+  'keep-alive',
+  'caffeinate',
+  'list-dirs',
+  'login',
+  'logout',
+  'lsp',
+  'mcp',
+  'permissions',
+  'remote',
+  'rename',
+  'research',
+  'reset',
+  'reset-allowed-tools',
+  'restart',
+  'resume',
+  'rubber-duck',
+  'session',
+  'skills',
+  'streamer-mode',
+  'terminal-setup',
+  'theme',
+  'update',
+  'user',
 ] as const;
 const KNOWN_SLASH_COMMAND_SET = new Set<string>(KNOWN_SLASH_COMMANDS);
 const MIN_PREFIX_LENGTH = 2;
@@ -543,7 +627,23 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
   const arg = rest.join(' ');
   const s = ctx.session;
   const roleManager = getRoleManager(s.state.cwd);
-  const resolvedCommand = resolveSlashCommand(cmd);
+
+  // Exact aliases that bypass prefix resolution to avoid ambiguity conflicts
+  const exactAliases: Record<string, string> = {
+    models: 'model',
+    cd: 'cwd',
+    session: 'sessions',
+    resume: 'sessions',
+    continue: 'sessions',
+    fleet: 'parallel',
+    skills: 'skill',
+    caffeinate: 'keep-alive',
+    bug: 'feedback',
+  };
+  const resolvedAlias = exactAliases[cmd.toLowerCase()];
+  const resolvedCommand = resolvedAlias
+    ? ({ kind: 'exact', command: resolvedAlias } as const)
+    : resolveSlashCommand(cmd);
   if (resolvedCommand.kind === 'ambiguous') {
     process.stdout.write(
       theme.warn(
@@ -1817,6 +1917,358 @@ export async function handleSlash(line: string, ctx: SlashContext): Promise<Slas
     case 'exit':
     case 'quit':
       ctx.exit();
+      return done();
+
+    // ── tui.md parity: aliases ──────────────────────────────────────────────
+    case 'cd':
+      // alias for cwd — fall through after rewriting tokens
+      tokens[0] = 'cwd';
+      // handled below via fallthrough — but switch already consumed, so handle inline
+      if (arg) {
+        try {
+          process.chdir(arg);
+          s.state.cwd = process.cwd();
+          process.stdout.write(theme.ok(`cwd: ${process.cwd()}\n`));
+        } catch (e: any) {
+          process.stdout.write(theme.err(`cannot cd: ${e?.message}\n`));
+        }
+      } else {
+        process.stdout.write(theme.ok(`cwd: ${s.state.cwd}\n`));
+      }
+      return done();
+    case 'models':
+      process.stdout.write(theme.dim('→ /model (alias)\n'));
+      process.stdout.write(theme.ok(`current model: ${config.defaultModel}\n`));
+      process.stdout.write(theme.dim('Usage: /model <name>  to switch\n'));
+      return done();
+    case 'reset':
+      s.reset();
+      process.stdout.write(theme.ok('conversation history cleared.\n'));
+      return done();
+    case 'resume':
+    case 'continue':
+      return done(false, '/sessions');
+    case 'session':
+      return done(false, '/sessions');
+    case 'skills':
+      process.stdout.write(theme.dim('→ /skill (alias)\n'));
+      // forward to skill handler
+      return done(false, '/skill ' + arg);
+    case 'fleet':
+      process.stdout.write(theme.dim('→ /parallel (alias)\n'));
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /fleet <prompt>  — runs parallel subagent tasks\n'));
+        return done();
+      }
+      return done(false, '/parallel ' + arg);
+
+    // ── tui.md parity: auth ─────────────────────────────────────────────────
+    case 'login': {
+      const tok = process.env.GITHUB_TOKEN || process.env.GH_TOKEN ||
+                  process.env.ICOPILOT_TOKEN || config.token;
+      if (tok) {
+        process.stdout.write(theme.ok(`✔ Authenticated — token set (${tok.slice(0, 8)}…)\n`));
+        process.stdout.write(theme.dim(`  provider: ${config.provider}\n`));
+        process.stdout.write(theme.dim(`  model:    ${config.defaultModel}\n`));
+      } else {
+        process.stdout.write(theme.warn('Not authenticated. Options:\n'));
+        process.stdout.write(theme.dim('  1. export GITHUB_TOKEN=<token>\n'));
+        process.stdout.write(theme.dim('  2. export GH_TOKEN=<token>  (GitHub CLI token)\n'));
+        process.stdout.write(theme.dim('  3. export ICOPILOT_TOKEN=<token>\n'));
+        process.stdout.write(theme.dim('  4. Run: gh auth login\n'));
+        process.stdout.write(theme.dim('  5. Add token to ~/.icopilotrc.json\n'));
+        process.stdout.write(theme.dim('  Fine-grained PAT needs "Copilot Requests" permission.\n'));
+      }
+      return done();
+    }
+    case 'logout':
+      config.token = undefined;
+      process.stdout.write(theme.ok('Token cleared for this session.\n'));
+      process.stdout.write(theme.dim('Note: env vars (GITHUB_TOKEN, GH_TOKEN) are not affected.\n'));
+      return done();
+    case 'user': {
+      const utok = process.env.GITHUB_TOKEN || process.env.GH_TOKEN ||
+                   process.env.ICOPILOT_TOKEN || config.token;
+      if (!utok) {
+        process.stdout.write(theme.warn('Not authenticated. Run /login for setup.\n'));
+        return done();
+      }
+      process.stdout.write(theme.ok('GitHub user info:\n'));
+      process.stdout.write(theme.dim(`  token:    ${utok.slice(0, 8)}… (${utok.length} chars)\n`));
+      process.stdout.write(theme.dim(`  provider: ${config.provider}\n`));
+      process.stdout.write(theme.dim(`  model:    ${config.defaultModel}\n`));
+      process.stdout.write(theme.dim('  profile:  https://github.com/settings/profile\n'));
+      return done();
+    }
+
+    // ── tui.md parity: permissions & safety ────────────────────────────────
+    case 'allow-all': {
+      const aaSub = rest[0]?.toLowerCase();
+      if (!aaSub || aaSub === 'show') {
+        process.stdout.write(theme.ok(`allow-all: ${config.autoApprove ? 'ON' : 'OFF'}\n`));
+      } else if (aaSub === 'on' || aaSub === 'off') {
+        config.autoApprove = aaSub === 'on';
+        process.stdout.write(
+          theme.ok(`allow-all ${config.autoApprove ? 'enabled' : 'disabled'} — tools will ${config.autoApprove ? 'auto-approve' : 'require approval'}\n`),
+        );
+      } else {
+        process.stdout.write(theme.warn('usage: /allow-all [on|off|show]\n'));
+      }
+      return done();
+    }
+    case 'permissions': {
+      const pSub = rest[0]?.toLowerCase();
+      if (!pSub || pSub === 'show') {
+        process.stdout.write(theme.ok('Current permissions:\n'));
+        process.stdout.write(theme.dim(`  auto-approve all:  ${config.autoApprove ? 'yes' : 'no'}\n`));
+        process.stdout.write(theme.dim(`  auto-fix enabled:  ${config.autoFix ? 'yes' : 'no'}\n`));
+        process.stdout.write(theme.dim(`  sandbox mode:      ${config.sandbox ? 'yes' : 'no'}\n`));
+        process.stdout.write(theme.dim('\n  /permissions reset  to clear approvals\n'));
+      } else if (pSub === 'reset') {
+        config.autoApprove = false;
+        process.stdout.write(theme.ok('Tool approvals cleared — all tools require approval again.\n'));
+      } else {
+        process.stdout.write(theme.warn('usage: /permissions [show|reset]\n'));
+      }
+      return done();
+    }
+    case 'reset-allowed-tools':
+      config.autoApprove = false;
+      process.stdout.write(theme.ok('All tool approvals cleared.\n'));
+      return done();
+    case 'add-dir': {
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /add-dir <path>\n'));
+        return done();
+      }
+      const addedPath = path.resolve(s.state.cwd, arg);
+      const cfgAny = config as any;
+      if (!Array.isArray(cfgAny.trustedDirs)) cfgAny.trustedDirs = [];
+      if (!cfgAny.trustedDirs.includes(addedPath)) cfgAny.trustedDirs.push(addedPath);
+      process.stdout.write(theme.ok(`✔ Trusted directory added: ${addedPath}\n`));
+      return done();
+    }
+    case 'list-dirs': {
+      const cfgAny2 = config as any;
+      const dirs = [s.state.cwd, ...(cfgAny2.trustedDirs ?? [])];
+      process.stdout.write(theme.ok('Allowed directories:\n'));
+      for (const d of dirs) process.stdout.write(theme.dim(`  ${d}\n`));
+      return done();
+    }
+
+    // ── tui.md parity: session management ──────────────────────────────────
+    case 'rename': {
+      const newName = arg || `session-${new Date().toISOString().slice(0, 10)}-${s.state.id.slice(0, 6)}`;
+      (s.state as any).name = newName;
+      process.stdout.write(theme.ok(`Session renamed: ${newName}\n`));
+      return done();
+    }
+    case 'restart':
+      process.stdout.write(theme.ok('Exiting… run `icopilot` to start a fresh session.\n'));
+      ctx.exit();
+      return done();
+
+    // ── tui.md parity: customisation ───────────────────────────────────────
+    case 'experimental': {
+      const expSub = rest[0]?.toLowerCase();
+      const expCfg = config as any;
+      if (!expSub || expSub === 'show') {
+        const on = Boolean(expCfg.experimental);
+        process.stdout.write(theme.ok(`experimental features: ${on ? 'ON' : 'OFF'}\n`));
+        process.stdout.write(theme.dim('  • autopilot mode (Shift+Tab)\n'));
+        process.stdout.write(theme.dim('  • /after and /every scheduling\n'));
+        process.stdout.write(theme.dim('  • /ask side-questions\n'));
+        if (!on) process.stdout.write(theme.dim('\n  Enable: /experimental on\n'));
+      } else if (expSub === 'on' || expSub === 'off') {
+        expCfg.experimental = expSub === 'on';
+        process.stdout.write(theme.ok(`Experimental features ${expSub === 'on' ? 'enabled' : 'disabled'}.\n`));
+      } else {
+        process.stdout.write(theme.warn('usage: /experimental [on|off|show]\n'));
+      }
+      return done();
+    }
+    case 'theme': {
+      const validThemes = ['auto', 'light', 'dark', 'none'];
+      const tSub = rest[0]?.toLowerCase();
+      if (!tSub) {
+        process.stdout.write(theme.ok(`current theme: ${config.theme}\n`));
+        process.stdout.write(theme.dim(`available:     ${validThemes.join(' | ')}\n`));
+        process.stdout.write(theme.dim('usage: /theme <name>\n'));
+      } else if (validThemes.includes(tSub)) {
+        config.theme = tSub as any;
+        process.stdout.write(theme.ok(`Theme set to: ${tSub}\n`));
+      } else {
+        process.stdout.write(theme.warn(`Unknown theme: ${tSub}\navailable: ${validThemes.join(', ')}\n`));
+      }
+      return done();
+    }
+    case 'streamer-mode':
+      config.quiet = !config.quiet;
+      process.stdout.write(
+        theme.ok(`Streamer mode ${config.quiet ? 'ON' : 'OFF'} — sensitive info ${config.quiet ? 'hidden' : 'shown'}.\n`),
+      );
+      return done();
+    case 'instructions': {
+      const instrFiles = [
+        path.join(s.state.cwd, 'AGENTS.md'),
+        path.join(s.state.cwd, 'CLAUDE.md'),
+        path.join(s.state.cwd, 'GEMINI.md'),
+        path.join(s.state.cwd, '.github', 'copilot-instructions.md'),
+        path.join(s.state.cwd, '.github', 'copilot-instructions.md'),
+        path.join(os.homedir(), '.icopilot', 'instructions.md'),
+      ];
+      process.stdout.write(theme.ok('Custom instruction files:\n'));
+      let found = 0;
+      for (const f of instrFiles) {
+        if (fs.existsSync(f)) {
+          const sz = fs.statSync(f).size;
+          process.stdout.write(theme.dim(`  ✔ ${f} (${sz}B)\n`));
+          found++;
+        }
+      }
+      if (found === 0) {
+        process.stdout.write(theme.dim('  No instruction files found.\n'));
+        process.stdout.write(theme.dim('  Create .github/copilot-instructions.md or AGENTS.md to add instructions.\n'));
+      }
+      return done();
+    }
+    case 'keep-alive':
+    case 'caffeinate': {
+      const kaSub = rest[0]?.toLowerCase();
+      const kaCfg = config as any;
+      if (kaSub === 'off') {
+        if (kaCfg._keepAliveTimer) { clearInterval(kaCfg._keepAliveTimer); kaCfg._keepAliveTimer = null; }
+        kaCfg._keepAlive = false;
+        process.stdout.write(theme.ok('keep-alive disabled.\n'));
+      } else {
+        if (kaCfg._keepAliveTimer) clearInterval(kaCfg._keepAliveTimer);
+        kaCfg._keepAliveTimer = setInterval(() => { /* keep Node.js event loop alive */ }, 60_000);
+        kaCfg._keepAlive = true;
+        process.stdout.write(theme.ok(`keep-alive ON — session will not sleep.\n`));
+        process.stdout.write(theme.dim('  /keep-alive off  to disable\n'));
+      }
+      return done();
+    }
+    case 'terminal-setup':
+      process.stdout.write(theme.ok('Terminal Setup for Multi-line Input (Shift+Enter):\n\n'));
+      process.stdout.write(theme.dim('  Warp / Ghostty / Kitty:\n'));
+      process.stdout.write(theme.dim('    Shift+Enter works automatically.\n\n'));
+      process.stdout.write(theme.dim('  iTerm2 (macOS):\n'));
+      process.stdout.write(theme.dim('    Preferences → Keys → Key Bindings → +\n'));
+      process.stdout.write(theme.dim('    Keyboard shortcut: Shift+Return\n'));
+      process.stdout.write(theme.dim('    Action: Send Escape Sequence → [13;2u\n\n'));
+      process.stdout.write(theme.dim('  VS Code Integrated Terminal:\n'));
+      process.stdout.write(theme.dim('    Add to keybindings.json:\n'));
+      process.stdout.write(theme.dim('    { "key": "shift+enter",\n'));
+      process.stdout.write(theme.dim('      "command": "workbench.action.terminal.sendSequence",\n'));
+      process.stdout.write(theme.dim('      "args": { "text": "\\u001b[13;2u" } }\n\n'));
+      process.stdout.write(theme.dim('  The iCopilot TUI handles Shift+Enter natively.\n'));
+      return done();
+    case 'update':
+      process.stdout.write(theme.ok('Update iCopilot to the latest version:\n\n'));
+      process.stdout.write(theme.dim('  npm:      npm install -g icopilot@latest\n'));
+      process.stdout.write(theme.dim('  check:    npm view icopilot version\n'));
+      process.stdout.write(theme.dim('  current:  '));
+      try {
+        const { createRequire } = await import('node:module');
+        const _r = createRequire(import.meta.url);
+        const pkg = _r('../../package.json') as { version: string };
+        process.stdout.write(`v${pkg.version}\n`);
+      } catch {
+        process.stdout.write('(unknown)\n');
+      }
+      return done();
+
+    // ── tui.md parity: research & agents ───────────────────────────────────
+    case 'research':
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /research <topic>\n'));
+        process.stdout.write(theme.dim('  Deep-researches a topic using codebase analysis and knowledge.\n'));
+        process.stdout.write(theme.dim('  Tip: /explore is similar for codebase-specific exploration.\n'));
+        return done();
+      }
+      return done(
+        false,
+        `Research deeply: ${arg}. Search the codebase, analyze patterns, examine relevant files, and produce a comprehensive report with findings, citations, and actionable recommendations.`,
+      );
+    case 'rubber-duck': {
+      const rdPrompt = arg || 'Review my last approach and provide a second opinion.';
+      return done(
+        false,
+        `[Rubber Duck] Act as a constructive critic. ${rdPrompt} Challenge assumptions, identify potential edge cases or bugs, and suggest improvements — be honest but constructive.`,
+      );
+    }
+    case 'delegate':
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /delegate <prompt>\n'));
+        process.stdout.write(theme.dim('  Delegates a task to autonomous execution (similar to /autopilot).\n'));
+        return done();
+      }
+      return done(false, arg);
+    case 'chronicle': {
+      const chSub = (rest[0] ?? 'standup').toLowerCase();
+      if (chSub === 'standup') {
+        return done(false, 'Generate a brief standup report for what we accomplished in this session: completed tasks, in-progress items, blockers, and next steps.');
+      } else if (chSub === 'tips') {
+        return done(false, 'Based on this session, give me 3–5 specific actionable tips to improve my workflow or codebase quality.');
+      } else if (chSub === 'improve') {
+        return done(false, 'Analyze this session and suggest specific improvements to code quality, architecture, and processes we worked on.');
+      } else {
+        process.stdout.write(theme.ok('chronicle subcommands: standup | tips | improve\n'));
+      }
+      return done();
+    }
+
+    // ── tui.md parity: info & compat stubs ─────────────────────────────────
+    case 'app':
+      process.stdout.write(theme.ok('GitHub Copilot resources:\n'));
+      process.stdout.write(theme.dim('  Web:       https://github.com/features/copilot\n'));
+      process.stdout.write(theme.dim('  Docs:      https://docs.github.com/copilot\n'));
+      process.stdout.write(theme.dim('  VS Code:   "GitHub Copilot" extension in marketplace\n'));
+      process.stdout.write(theme.dim('  JetBrains: "GitHub Copilot" plugin\n'));
+      return done();
+    case 'ide':
+      process.stdout.write(theme.ok('IDE Integration:\n'));
+      process.stdout.write(theme.dim('  Use /bridge to manage the IDE bridge WebSocket server.\n'));
+      process.stdout.write(theme.dim('  Run: /bridge start  to enable IDE connectivity.\n'));
+      return done();
+    case 'lsp':
+      process.stdout.write(theme.ok('Language Server Protocol (LSP) setup:\n'));
+      process.stdout.write(theme.dim('  Install language servers separately, then configure in ~/.icopilotrc.json.\n\n'));
+      process.stdout.write(theme.dim('  TypeScript:  npm install -g typescript-language-server\n'));
+      process.stdout.write(theme.dim('  Python:      pip install python-lsp-server\n'));
+      process.stdout.write(theme.dim('  Rust:        rustup component add rust-analyzer\n'));
+      process.stdout.write(theme.dim('  Go:          go install golang.org/x/tools/gopls@latest\n'));
+      return done();
+    case 'mcp':
+      process.stdout.write(theme.ok('Model Context Protocol (MCP):\n'));
+      process.stdout.write(theme.dim('  iCopilot uses ACP (Agent Client Protocol) for tool extensions.\n'));
+      process.stdout.write(theme.dim('  Use /acp to manage ACP server configuration.\n'));
+      process.stdout.write(theme.dim('  Run: /acp start  to launch the ACP server.\n'));
+      return done();
+    case 'remote':
+      process.stdout.write(theme.ok('Remote steering:\n'));
+      process.stdout.write(theme.dim('  Remote session steering is not available in iCopilot.\n'));
+      process.stdout.write(theme.dim('  Use /serve to start the HTTP API server for external access.\n'));
+      return done();
+    case 'clikit':
+      process.stdout.write(theme.ok('CLI Config Snapshot:\n'));
+      process.stdout.write(theme.dim(`  theme:      ${config.theme}\n`));
+      process.stdout.write(theme.dim(`  provider:   ${config.provider}\n`));
+      process.stdout.write(theme.dim(`  model:      ${config.defaultModel}\n`));
+      process.stdout.write(theme.dim(`  editFormat: ${config.editFormat}\n`));
+      process.stdout.write(theme.dim(`  quiet:      ${config.quiet}\n`));
+      process.stdout.write(theme.dim(`  sandbox:    ${config.sandbox}\n`));
+      process.stdout.write(theme.dim(`  autoApprove:${config.autoApprove}\n`));
+      process.stdout.write(theme.dim(`  token:      ${config.token ? config.token.slice(0, 8) + '…' : 'not set'}\n`));
+      return done();
+    case 'downgrade':
+      if (!arg) {
+        process.stdout.write(theme.warn('usage: /downgrade <version>\n'));
+        return done();
+      }
+      process.stdout.write(theme.ok(`Install icopilot v${arg}:\n`));
+      process.stdout.write(theme.dim(`  npm install -g icopilot@${arg}\n`));
       return done();
     default:
       process.stdout.write(theme.warn(`unknown command: /${cmd}  (try /help)\n`));

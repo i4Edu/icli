@@ -8,6 +8,7 @@ export interface HistoryMessage {
   id: string;
   role: MessageRole;
   content: string;
+  reasoning?: string;  // optional thinking/reasoning text from the model
 }
 
 function SpeakerLabel({ role }: { role: MessageRole }): React.ReactElement {
@@ -33,12 +34,16 @@ function SpeakerLabel({ role }: { role: MessageRole }): React.ReactElement {
 interface HistoryItemProps {
   message: HistoryMessage;
   terminalWidth: number;
+  showReasoning: boolean;
 }
 
 export function HistoryItem({
   message,
   terminalWidth,
+  showReasoning,
 }: HistoryItemProps): React.ReactElement {
+  const hasReasoning = message.role === 'copilot' && Boolean(message.reasoning);
+
   return (
     <Box flexDirection="column" width={terminalWidth}>
       <Box>
@@ -47,6 +52,28 @@ export function HistoryItem({
       <Box paddingX={1}>
         <SpeakerLabel role={message.role} />
       </Box>
+
+      {/* Reasoning block — only for copilot messages with reasoning content */}
+      {hasReasoning && !showReasoning && (
+        <Box paddingX={2} paddingBottom={0}>
+          <Text color={colors.accent}>{'▶ '}</Text>
+          <Text dimColor>{'Thinking… '}</Text>
+          <Text dimColor color={colors.muted}>{'(Ctrl+T to expand)'}</Text>
+        </Box>
+      )}
+      {hasReasoning && showReasoning && (
+        <Box flexDirection="column" paddingX={2} paddingBottom={1} borderStyle="single" borderColor={colors.accent} borderLeft={true} borderRight={false} borderTop={false} borderBottom={false}>
+          <Box>
+            <Text color={colors.accent}>{'▼ '}</Text>
+            <Text dimColor bold>{'Thinking'}</Text>
+            <Text dimColor>{' (Ctrl+T to collapse)'}</Text>
+          </Box>
+          <Box paddingLeft={1}>
+            <Text dimColor>{message.reasoning}</Text>
+          </Box>
+        </Box>
+      )}
+
       {message.content ? (
         <Box paddingX={2} paddingBottom={1}>
           <Text color={message.role === 'error' ? colors.error : undefined}>

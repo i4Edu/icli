@@ -16,6 +16,8 @@ import { config } from '../config.js';
 import { App, type AppCallbacks, type AppState, type TuiHandle } from '../ui/ink/App.js';
 import { theme } from '../ui/theme.js';
 
+type TuiMode = 'ask' | 'plan' | 'autopilot';
+
 const _require = createRequire(import.meta.url);
 const VERSION: string = (_require('../../package.json') as { version: string }).version;
 
@@ -94,10 +96,12 @@ export async function runTui(
     cwd,
     version: VERSION,
   };
+  (appState as any).initialMode = initialMode;
 
   let handle: TuiHandle | null = null;
   let currentAbort: AbortController | null = null;
   let busy = false;
+  let currentMode: TuiMode = (initialMode as TuiMode) ?? 'ask';
   const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
   let msgSeq = 0;
   const nextId = () => `msg-${++msgSeq}`;
@@ -106,6 +110,41 @@ export async function runTui(
   let inkInstance: ReturnType<typeof render> | null = null;
 
   const handleLine = async (line: string, scheduled = false): Promise<void> => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    // ── Shell bypass: lines starting with ! run directly even when busy ───
+    if (trimmed.startsWith('!') && !scheduled) {
+      const shellCmd = trimmed.slice(1).trim();
+      if (!shellCmd) return;
+      handle?.addCompleted({ id: nextId(), role: 'user', content: line });
+      handle?.setBusy(true);
+      try {
+        const { execSync } = await import('node:child_process');
+        const output = execSync(shellCmd, {
+          cwd: session.state.cwd,
+          encoding: 'utf8',
+          timeout: 30_000,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        handle?.addCompleted({
+          id: nextId(),
+          role: 'info',
+          content: output.trim() || '(no output)',
+        });
+      } catch (err: any) {
+        const msg = err?.stdout?.trim() || err?.stderr?.trim() || err?.message || String(err);
+        handle?.addCompleted({
+          id: nextId(),
+          role: 'error',
+          content: msg || 'Shell command failed',
+        });
+      } finally {
+        handle?.setBusy(false);
+      }
+      return;
+    }
+
     if (busy) {
       pendingInputs.push({ line, scheduled });
       handle?.notify(
@@ -114,9 +153,6 @@ export async function runTui(
       );
       return;
     }
-
-    const trimmed = line.trim();
-    if (!trimmed) return;
 
     busy = true;
     currentAbort = new AbortController();
@@ -237,6 +273,18 @@ export async function runTui(
       }
     },
     onExit: () => { inkInstance?.unmount(); },
+  };
+  (callbacks as any).onModeChange = (mode: TuiMode) => {
+    currentMode = mode;
+    const sessionMode = mode === 'autopilot' ? 'ask' : mode;
+    if (session.state.mode !== sessionMode) {
+      try { (session.state as any).mode = sessionMode; } catch { /* read-only */ }
+    }
+    if (mode === 'autopilot') {
+      (session.state as any).autopilotEnabled = true;
+    } else {
+      (session.state as any).autopilotEnabled = false;
+    }
   };
 
   inkInstance = render(
