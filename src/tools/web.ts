@@ -20,18 +20,32 @@ const DEFAULT_MAX_BYTES = 200_000;
 const TIMEOUT_MS = 10_000;
 
 export function loadPolicy(): WebFetchPolicy {
+  // ICOPILOT_WEB_ALLOW=* enables all web fetch. ICOPILOT_WEB_ALLOW=host1,host2
+  // whitelists specific hosts. The policy file overrides env vars when present.
+  const envAllow = process.env.ICOPILOT_WEB_ALLOW;
+  const envDefault: Partial<WebFetchPolicy> = envAllow
+    ? envAllow.trim() === '*'
+      ? { defaultAllow: true }
+      : { allow: envAllow.split(',').map((h) => h.trim()).filter(Boolean), defaultAllow: false }
+    : {};
+
   const policyPath = path.join(os.homedir(), '.icopilot', 'web-policy.json');
-  if (!fs.existsSync(policyPath)) return { ...DEFAULT_POLICY };
+  if (!fs.existsSync(policyPath)) {
+    return { allow: [], deny: [], defaultAllow: false, ...envDefault };
+  }
 
   try {
     const parsed = JSON.parse(fs.readFileSync(policyPath, 'utf8')) as Partial<WebFetchPolicy>;
     return {
-      allow: Array.isArray(parsed.allow) ? parsed.allow.filter(isString) : [],
+      allow: Array.isArray(parsed.allow) ? parsed.allow.filter(isString) : (envDefault.allow ?? []),
       deny: Array.isArray(parsed.deny) ? parsed.deny.filter(isString) : [],
-      defaultAllow: typeof parsed.defaultAllow === 'boolean' ? parsed.defaultAllow : false,
+      defaultAllow:
+        typeof parsed.defaultAllow === 'boolean'
+          ? parsed.defaultAllow
+          : (envDefault.defaultAllow ?? false),
     };
   } catch {
-    return { ...DEFAULT_POLICY };
+    return { allow: [], deny: [], defaultAllow: false, ...envDefault };
   }
 }
 
