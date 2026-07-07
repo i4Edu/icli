@@ -468,11 +468,12 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
   // ─── Footer bar content ───────────────────────────────────────────────────
   const tokenPart = tokenCount > 0 ? `  ·  ~${Math.round(tokenCount / 1000)}k ctx` : '';
   const branchPart = appState.branch ? `  \uE0A0 ${appState.branch}` : '';
-  const modeBadge = ` [${mode}]`;
+  const modeLabel = mode === 'ask' ? ' ASK ' : mode === 'plan' ? ' PLAN ' : ' AUTO ';
   const footerRight = `${appState.model}${tokenPart}`;
   const footerLeft = appState.cwd + branchPart;
   const modeColor = mode === 'ask' ? colors.success : mode === 'plan' ? colors.brand : colors.warning;
-  const footerGap = Math.max(1, cols - footerLeft.length - modeBadge.length - footerRight.length - 2);
+  const footerGap = Math.max(1, cols - footerLeft.length - modeLabel.length - footerRight.length - 2);
+  const promptSymbol = mode === 'autopilot' ? '⚡' : mode === 'plan' ? '◈' : '❯';
 
   const spinnerIcon = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length] ?? '⠋';
 
@@ -483,15 +484,15 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       {/* ═══ FROZEN HISTORY (Static prints once, stacks upward) ════════════ */}
       <Static
         items={[
-          { id: '__header__', type: 'header' as const },
-          ...completedHistory.map((m) => ({ id: m.id, type: 'msg' as const, msg: m })),
+          { id: '__header__', type: 'header' as const, turnNum: 0 },
+          ...completedHistory.map((m, i) => ({ id: m.id, type: 'msg' as const, msg: m, turnNum: i + 1 })),
         ]}
       >
         {(item) =>
           item.type === 'header' ? (
             <AppHeader key="header" {...appState} mode={mode} />
           ) : (
-            <HistoryItem key={item.id} message={item.msg} terminalWidth={cols} showReasoning={showReasoning} />
+            <HistoryItem key={item.id} message={item.msg} terminalWidth={cols} showReasoning={showReasoning} turnNum={item.turnNum} />
           )
         }
       </Static>
@@ -504,7 +505,8 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
           </Box>
           <Box paddingX={1}>
             <Text bold color={colors.copilot}>{'● '}</Text>
-            <Text bold>Copilot</Text>
+            <Text bold color={colors.copilot}>Copilot</Text>
+            <Text color={colors.muted}>{`  (${appState.model})`}</Text>
           </Box>
           {liveContent.trim() ? (
             <Box paddingX={2} paddingBottom={busy ? 0 : 1}>
@@ -513,8 +515,8 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
           ) : null}
           {busy && (
             <Box paddingX={2} paddingBottom={1}>
-              <Text color={colors.muted}>{`${spinnerIcon} `}</Text>
-              <Text dimColor>Thinking…</Text>
+              <Text color={colors.copilot}>{`${spinnerIcon} `}</Text>
+              <Text dimColor>{'thinking…'}</Text>
             </Box>
           )}
         </Box>
@@ -586,7 +588,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         {busy ? (
           <Text color={colors.warning}>{'◆ '}</Text>
         ) : (
-          <Text bold color={colors.success}>{'❯ '}</Text>
+          <Text bold color={modeColor}>{`${promptSymbol} `}</Text>
         )}
         <Text>{inputBuffer.slice(0, cursorPos)}</Text>
         {!busy ? (
@@ -594,7 +596,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
         ) : null}
         <Text>{inputBuffer.slice(cursorPos + (busy ? 0 : 1))}</Text>
         {!inputBuffer && !busy && (
-          <Text dimColor>Enter @ to mention files or / for commands…</Text>
+          <Text dimColor>{'Ask anything, @ to attach, / for commands…'}</Text>
         )}
         {busy && <Text dimColor>{' (working…)'}</Text>}
       </Box>
@@ -605,7 +607,7 @@ export function App({ appState, callbacks, registerHandle }: AppProps): React.Re
       {/* ═══ STATUS FOOTER ══════════════════════════════════════════════════ */}
       <Box paddingX={1}>
         <Text color={colors.muted}>{footerLeft}</Text>
-        <Text color={modeColor}>{modeBadge}</Text>
+        <Text bold color={modeColor} inverse>{modeLabel}</Text>
         <Text>{' '.repeat(Math.max(0, footerGap))}</Text>
         <Text color={colors.muted}>{footerRight}</Text>
       </Box>

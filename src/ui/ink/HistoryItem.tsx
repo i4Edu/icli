@@ -9,17 +9,22 @@ export interface HistoryMessage {
   role: MessageRole;
   content: string;
   reasoning?: string;  // optional thinking/reasoning text from the model
+  model?: string;      // model that generated this response
 }
 
-function SpeakerLabel({ role }: { role: MessageRole }): React.ReactElement {
+function SpeakerLabel({ role, model }: { role: MessageRole; model?: string }): React.ReactElement {
   switch (role) {
     case 'user':
-      return <Text bold color={colors.user}>You</Text>;
+      return (
+        <Box>
+          <Text bold color={colors.user}>{'You'}</Text>
+        </Box>
+      );
     case 'copilot':
       return (
         <Box>
-          <Text bold color={colors.copilot}>{'● '}</Text>
-          <Text bold>Copilot</Text>
+          <Text bold color={colors.copilot}>{'● Copilot'}</Text>
+          {model && <Text color={colors.muted}>{`  (${model})`}</Text>}
         </Box>
       );
     case 'error':
@@ -35,23 +40,47 @@ interface HistoryItemProps {
   message: HistoryMessage;
   terminalWidth: number;
   showReasoning: boolean;
+  turnNum?: number;
 }
 
 export function HistoryItem({
   message,
   terminalWidth,
   showReasoning,
+  turnNum,
 }: HistoryItemProps): React.ReactElement {
   const hasReasoning = message.role === 'copilot' && Boolean(message.reasoning);
+  const isUser = message.role === 'user';
+
+  // Separator line with optional turn number
+  const sepLabel = turnNum != null ? `#${turnNum}` : '';
+  const sepLineLen = Math.max(0, terminalWidth - sepLabel.length);
 
   return (
     <Box flexDirection="column" width={terminalWidth}>
+      {/* Separator with turn number */}
       <Box>
-        <Text color={colors.separator}>{'─'.repeat(terminalWidth)}</Text>
+        {sepLabel ? (
+          <>
+            <Text color={colors.separator}>{'─'.repeat(Math.max(0, sepLineLen - 1))}</Text>
+            <Text color={colors.muted} dimColor>{sepLabel}</Text>
+          </>
+        ) : (
+          <Text color={colors.separator}>{'─'.repeat(terminalWidth)}</Text>
+        )}
       </Box>
+
+      {/* Speaker label */}
       <Box paddingX={1}>
-        <SpeakerLabel role={message.role} />
+        <SpeakerLabel role={message.role} model={message.model} />
       </Box>
+
+      {/* User messages: indented with left border */}
+      {isUser && message.content ? (
+        <Box paddingX={2} paddingBottom={1} borderStyle="single" borderColor={colors.user} borderLeft={true} borderRight={false} borderTop={false} borderBottom={false}>
+          <Text color={colors.user}>{message.content}</Text>
+        </Box>
+      ) : null}
 
       {/* Reasoning block — only for copilot messages with reasoning content */}
       {hasReasoning && !showReasoning && (
@@ -74,7 +103,8 @@ export function HistoryItem({
         </Box>
       )}
 
-      {message.content ? (
+      {/* Copilot/error/info message content */}
+      {!isUser && message.content ? (
         <Box paddingX={2} paddingBottom={1}>
           <Text color={message.role === 'error' ? colors.error : undefined}>
             {message.content}
