@@ -14,7 +14,6 @@ import { runTurn } from './turn.js';
 import { hookManager } from '../hooks/lifecycle.js';
 import { config } from '../config.js';
 import { App, type AppCallbacks, type AppState, type TuiHandle } from '../ui/ink/App.js';
-import type { HistoryMessage } from '../ui/ink/HistoryItem.js';
 import { theme } from '../ui/theme.js';
 
 const _require = createRequire(import.meta.url);
@@ -78,7 +77,6 @@ export async function runTui(
   const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
   const providerLabel = config.provider || 'github';
 
-  // Resolve git branch.
   let gitBranch = '';
   try {
     const git = simpleGit(session.state.cwd);
@@ -102,15 +100,17 @@ export async function runTui(
   let busy = false;
   const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
   let msgSeq = 0;
-
   const nextId = () => `msg-${++msgSeq}`;
+
+  // ── inkInstance forward-declared so handleLine can reference it ───────────
+  let inkInstance: ReturnType<typeof render> | null = null;
 
   const handleLine = async (line: string, scheduled = false): Promise<void> => {
     if (busy) {
       pendingInputs.push({ line, scheduled });
-      handle?.pushNotification(
+      handle?.notify(
         scheduled ? `(system) queued: ${line}` : 'Still working — input queued.',
-        'yellow',
+        'warn',
       );
       return;
     }
@@ -121,8 +121,8 @@ export async function runTui(
     busy = true;
     currentAbort = new AbortController();
 
-    // Add user message to history.
-    handle?.appendMessage({
+    // Add frozen user message to Static history.
+    handle?.addCompleted({
       id: nextId(),
       role: scheduled ? 'system' : 'user',
       content: line,
@@ -130,11 +130,10 @@ export async function runTui(
     handle?.setBusy(true);
 
     const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
-    let lastOutput = '';
+    let plainAccumulator = '';
 
-    // Intercept stdout to capture model output for followups + history.
+    // Intercept stdout: stream chunks into the live (non-Static) panel.
     const originalWrite = process.stdout.write.bind(process.stdout) as typeof process.stdout.write;
-    let capturedContent = '';
 
     const interceptWrite = (
       chunk: Uint8Array | string,
@@ -142,17 +141,15 @@ export async function runTui(
       cb?: (err?: Error | null) => void,
     ): boolean => {
       const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-      capturedContent += text;
-      lastOutput += stripAnsi(text);
-      // Update the live Copilot message while streaming.
-      handle?.updateLastMessage(stripAnsi(capturedContent).trimEnd());
+      const plain = stripAnsi(text);
+      plainAccumulator += plain;
+      // Push each chunk to the live panel so it streams in real-time.
+      handle?.appendLive(plain);
       if (typeof encodingOrCb === 'function') {
         return (originalWrite as (chunk: Uint8Array | string, cb?: (err?: Error | null) => void) => boolean)(chunk, encodingOrCb);
       }
       return (originalWrite as (chunk: Uint8Array | string, encoding?: BufferEncoding, cb?: (err?: Error | null) => void) => boolean)(
-        chunk,
-        encodingOrCb as BufferEncoding | undefined,
-        cb,
+        chunk, encodingOrCb as BufferEncoding | undefined, cb,
       );
     };
 
@@ -164,7 +161,7 @@ export async function runTui(
         abort: currentAbort,
         metrics,
         schedulePrompt: (prompt) => void handleLine(prompt, true),
-        exit: () => { inkInstance.unmount(); },
+        exit: () => { inkInstance?.unmount(); },
       });
 
       if (!slash.consumed) {
@@ -209,7 +206,7 @@ export async function runTui(
           sessionId: session.state.id,
           message: e?.message || String(err),
         });
-        handle?.appendMessage({
+        handle?.addCompleted({
           id: nextId(),
           role: 'error',
           content: e?.message || String(err),
@@ -220,9 +217,11 @@ export async function runTui(
       currentAbort = null;
       busy = false;
 
+      // Move live content to frozen history, clear the live panel.
+      handle?.finishLive(plainAccumulator.trimEnd());
       handle?.setBusy(false);
       handle?.setTokenCount(session.tokenUsage());
-      handle?.setFollowups(extractFollowups(lastOutput));
+      handle?.setFollowups(extractFollowups(plainAccumulator));
 
       const next = pendingInputs.shift();
       if (next) void handleLine(next.line, next.scheduled);
@@ -234,16 +233,13 @@ export async function runTui(
     onCancel: () => {
       if (currentAbort && !currentAbort.signal.aborted) {
         currentAbort.abort();
-        handle?.pushNotification('Turn cancelled.', 'yellow');
+        handle?.notify('Turn cancelled.', 'warn');
       }
     },
-    onExit: () => {
-      inkInstance.unmount();
-    },
+    onExit: () => { inkInstance?.unmount(); },
   };
 
-  // Mount Ink app.
-  const inkInstance = render(
+  inkInstance = render(
     React.createElement(App, {
       appState,
       callbacks,

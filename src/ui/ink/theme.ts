@@ -1,12 +1,13 @@
 /** Semantic colour tokens for the Ink TUI. */
 export const colors = {
-  accent: '#7C3AED',    // magenta-purple — prompt glyph, separator
-  brand: '#58A6FF',     // blue — iCopilot CLI title
-  success: '#3FB950',   // green
-  warning: '#D29922',   // amber
-  error: '#F85149',     // red
-  muted: '#8B949E',     // grey — metadata, dim text
-  separator: '#30363D', // dark grey — horizontal rules
-  user: '#58A6FF',      // blue — user speaker label
-  copilot: '#A371F7',   // purple — copilot speaker label
+  accent:    '#A371F7',   // purple  — separators, copilot bullet
+  brand:     '#58A6FF',   // blue    — iCopilot CLI title
+  success:   '#3FB950',   // green   — prompt glyph ❯, success
+  warning:   '#D29922',   // amber   — warnings
+  error:     '#F85149',   // red     — errors
+  muted:     '#8B949E',   // grey    — metadata, dim text
+  separator: '#30363D',   // dark    — turn dividers
+  user:      '#58A6FF',   // blue    — "You" label
+  copilot:   '#A371F7',   // purple  — "● Copilot" label
+  slash:     '#E3B341',   // gold    — slash command highlight
 };
