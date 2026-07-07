@@ -1,478 +1,86 @@
 import readline from 'node:readline';
-import { Writable } from 'node:stream';
+import os from 'node:os';
 import simpleGit from 'simple-git';
 import { loadAliases, resolveAlias } from '../commands/alias-cmd.js';
 import { MetricsCollector } from '../commands/metrics-cmd.js';
 import { handleSlash } from '../commands/slash.js';
 import { Session } from '../session/session.js';
-import {
-  altScreenEnter,
-  altScreenExit,
-  clear,
-  hideCursor,
-  showCursor,
-  size,
-} from '../ui/screen.js';
-import {
-  renderHero,
-  renderStatusDock,
-  magentaSeparator,
-  renderFooter,
-  renderHeaderBar,
-  renderContextPanel,
-  composeColumns,
-  renderFollowups,
-} from '../ui/tui-layout.js';
-import { safeUnicode } from '../ui/theme.js';
+import { showCursor } from '../ui/screen.js';
+import { Spinner } from '../ui/spinner.js';
+import { safeUnicode, theme } from '../ui/theme.js';
 import { handlePostTurnContextBudget } from './auto-compact.js';
 import { backgroundTaskManager } from './background.js';
 import { runAutopilot } from './autopilot.js';
 import { runTurn } from './turn.js';
 import { hookManager } from '../hooks/lifecycle.js';
+import { config } from '../config.js';
 
 const VERSION = '1.3.0';
-const FRAME_MS = 33;
-const CREDIT_BUDGET = 1000;
 
-type StdoutWrite = typeof process.stdout.write;
+// ─── ANSI helpers ────────────────────────────────────────────────────────────
 
-export async function runTui(
-  initialMode: 'ask' | 'plan' = 'ask',
-  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' | 'reason' } = {},
-): Promise<void> {
-  const session = new Session({ mode: initialMode });
-  await session.initializeGitContext();
-  await hookManager.emit('sessionStart', {
-    sessionId: session.state.id,
-    cwd: session.state.cwd,
-    mode: session.state.mode,
-    model: session.state.model,
-  });
-  const metrics = new MetricsCollector();
-  const originalWrite = process.stdout.write.bind(process.stdout) as StdoutWrite;
-  const writeRaw = (text: string) => {
-    originalWrite(text);
-  };
+const RESET = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const CYAN = '\x1b[36m';
+const MAGENTA = '\x1b[35m';
+const GREEN = '\x1b[32m';
+const GRAY = '\x1b[90m';
+const BLUE = '\x1b[34m';
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+const stripAnsi = (s: string) => s.replace(ANSI_RE, '');
+const visW = (s: string) => stripAnsi(s).length;
 
-  const silentOutput = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback();
-    },
-  }) as Writable & { columns?: number };
-  silentOutput.columns = size().cols;
-
-  let chat = '';
-  let running = true;
-  let busy = false;
-  let dirty = true;
-  let cleaned = false;
-  let frame: NodeJS.Timeout | undefined;
-  let currentAbort: AbortController | null = null;
-  const recentCommands: string[] = [];
-  let followups: string[] = [];
-  let followupIndex = 0;
-  let lastTurnOutput = '';
-  let gitBranch = '';
-  let branchInFlight = false;
-  let lastCwd = session.state.cwd;
-  const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
-
-  // Resolve the current git branch once (and on cwd change) for the status dock.
-  // A simple in-flight guard avoids overlapping lookups racing to set gitBranch.
-  const refreshBranch = () => {
-    if (branchInFlight) return;
-    branchInFlight = true;
-    void (async () => {
-      try {
-        const git = simpleGit(session.state.cwd);
-        if (await git.checkIsRepo()) {
-          gitBranch = (await git.revparse(['--abbrev-ref', 'HEAD'])).trim();
-          markDirty();
-        }
-      } catch {
-        /* not a git repo — leave the branch blank */
-      } finally {
-        branchInFlight = false;
-      }
-    })();
-  };
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: silentOutput,
-    terminal: true,
-  });
-
-  const markDirty = () => {
-    dirty = true;
-  };
-
-  const cleanup = () => {
-    if (cleaned) return;
-    cleaned = true;
-    running = false;
-    if (currentAbort && !currentAbort.signal.aborted) currentAbort.abort();
-    process.stdout.write = originalWrite;
-    process.stdout.off('resize', onResize);
-    process.off('SIGINT', onSigint);
-    process.stdin.off('keypress', onKeypress);
-    if (frame) clearInterval(frame);
-    rl.close();
-    if (process.stdin.isTTY) process.stdin.setRawMode(false);
-    showCursor();
-    clear();
-    altScreenExit();
-  };
-
-  const onSigint = () => {
-    cleanup();
-    process.exit(0);
-  };
-
-  const onResize = () => {
-    silentOutput.columns = size().cols;
-    markDirty();
-  };
-
-  const render = () => {
-    if (!dirty) return;
-    dirty = false;
-    const { rows, cols } = size();
-
-    // Refresh branch if cwd changed since the last render.
-    if (session.state.cwd !== lastCwd) {
-      lastCwd = session.state.cwd;
-      refreshBranch();
-    }
-
-    // Absolute row anchors (1-indexed for ANSI cursor positioning):
-    //   row 1                 → header bar (title + status cluster)
-    //   rows 2..dockRow-1     → split view: left output stream │ right context panel
-    //   dockRow               → status dock (locked 3 rows above the bottom)
-    //   dockRow + 1           → follow-up chips (or magenta boundary)
-    //   dockRow + 2           → input dock
-    //   rows (bottom)         → persistent footer
-    const headerRow = 1;
-    const chatTop = 2;
-    // The status dock is locked exactly 3 rows above the absolute bottom, so the
-    // four bottom rows are: dock, follow-ups/separator, input dock, footer.
-    const dockRow = Math.max(chatTop, rows - 3);
-    const separatorRow = Math.min(dockRow + 1, rows);
-    const inputRow = Math.min(dockRow + 2, rows);
-    const footerRow = Math.min(dockRow + 3, rows);
-    const chatBottom = dockRow - 1;
-    const chatHeight = Math.max(1, chatBottom - chatTop + 1);
-
-    // Column geometry: left output stream takes the bulk, the contextual panel
-    // claims a slim fixed-ish right column (3 cols reserved for " │ ").
-    const rightWidth = Math.max(18, Math.min(34, Math.floor(cols * 0.3)));
-    const leftWidth = Math.max(20, cols - rightWidth - 3);
-
-    writeRaw('\x1b[2J\x1b[H');
-
-    const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
-
-    // Row 1 — header bar.
-    writeRaw(`\x1b[${headerRow};1H`);
-    writeRaw(
-      renderHeaderBar(
-        { online: !busy, mode: session.state.mode, model: modelShort, sessionId: session.state.id },
-        cols,
-      ),
-    );
-
-    // Split view — left output/input stream, right contextual panel.
-    const showHero = !chat.trim();
-    const leftSource = showHero
-      ? heroCanvas(session, leftWidth)
-      : wrapLines(chat.trimEnd(), Math.max(1, leftWidth));
-    const leftLines = leftSource.slice(-chatHeight);
-
-    const rightLines = renderContextPanel(
-      {
-        sessionId: session.state.id,
-        model: modelShort,
-        mode: session.state.mode,
-        cwd: session.state.cwd,
-        branch: gitBranch,
-        recentCommands,
-      },
-      rightWidth,
-      chatHeight,
-    );
-
-    const splitRows = composeColumns(leftLines, rightLines, leftWidth, rightWidth, chatHeight);
-    for (let i = 0; i < chatHeight; i++) {
-      writeRaw(`\x1b[${chatTop + i};1H`);
-      writeRaw(splitRows[i] ?? '');
-    }
-
-    // Status dock — left: cwd + branch, right: live consumption metrics.
-    writeRaw(`\x1b[${dockRow};1H`);
-    writeRaw(statusDock(session, gitBranch, cols, busy));
-
-    // Follow-up chips line (falls back to the magenta boundary when empty).
-    writeRaw(`\x1b[${separatorRow};1H`);
-    if (busy) {
-      const thinkLabel = ' ◆ Copilot is thinking… ';
-      const sideLen = Math.max(0, Math.floor((cols - thinkLabel.length) / 2));
-      writeRaw(
-        '\x1b[35m' +
-          '─'.repeat(sideLen) +
-          thinkLabel +
-          '─'.repeat(Math.max(0, cols - sideLen - thinkLabel.length)) +
-          '\x1b[0m',
-      );
-    } else if (followups.length) {
-      writeRaw('\x1b[2K');
-      writeRaw(renderFollowups(followups, followupIndex, cols));
-    } else {
-      writeRaw(magentaSeparator(cols));
-    }
-
-    // Input dock — a single dedicated line bracket below the separator.
-    writeRaw(`\x1b[${inputRow};1H`);
-    const promptIcon = busy ? '\x1b[33m◆\x1b[0m' : '\x1b[32m❯\x1b[0m';
-    const buffer = (rl.line || '').replace(/\t/g, '');
-    writeRaw('\x1b[2K');
-    writeRaw(padToCols(`${promptIcon} ${buffer}`, cols));
-
-    // Absolute bottom row — persistent footer legend.
-    writeRaw(`\x1b[${footerRow};1H`);
-    writeRaw(renderFooter(cols));
-  };
-
-  const appendCaptured = (chunk: unknown) => {
-    const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-    const plain = stripAnsi(text);
-    chat += plain;
-    lastTurnOutput += plain;
-    markDirty();
-  };
-
-  const captureStdout = () => {
-    process.stdout.write = ((chunk: any, encoding?: any, cb?: any) => {
-      appendCaptured(chunk);
-      if (typeof encoding === 'function') encoding();
-      if (typeof cb === 'function') cb();
-      return true;
-    }) as StdoutWrite;
-  };
-
-  const releaseStdout = () => {
-    process.stdout.write = originalWrite;
-  };
-
-  const handleLine = async (line: string, scheduled = false) => {
-    if (busy) {
-      pendingInputs.push({ line, scheduled });
-      chat += scheduled
-        ? `\n(system) queued scheduled prompt: ${line}\n`
-        : '\n(system) still working; prompt queued.\n';
-      markDirty();
-      return;
-    }
-
-    const trimmed = line.trim();
-    if (!trimmed) return;
-
-    if (!scheduled) {
-      recentCommands.push(trimmed);
-      if (recentCommands.length > 20) recentCommands.shift();
-    }
-
-    busy = true;
-    currentAbort = new AbortController();
-    lastTurnOutput = '';
-    const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
-    chat += `\n${scheduled ? '⏱' : '❯'} ${line}\n`;
-    markDirty();
-
-    try {
-      captureStdout();
-      const slash = await handleSlash(resolvedLine, {
-        session,
-        abort: currentAbort,
-        metrics,
-        schedulePrompt: (prompt) => void handleLine(prompt, true),
-        exit: () => {
-          running = false;
-        },
-      });
-      if (!slash.consumed) {
-        const forwardInput = slash.forwardInput ?? resolvedLine;
-        const trimmedForwardInput = forwardInput.trim();
-        if (trimmedForwardInput.endsWith('&')) {
-          const goal = trimmedForwardInput.slice(0, -1).trim();
-          if (!goal) {
-            process.stdout.write('\nusage: <prompt> &\n');
-          } else {
-            const id = backgroundTaskManager.startTask(goal);
-            process.stdout.write(`\n↳ started background task ${id.slice(0, 8)} for: ${goal}\n`);
-          }
-          return;
-        }
-
-        const explicitTurnMode = (
-          slash as { turnMode?: 'ask' | 'code' | 'architect' | 'reason' | null }
-        ).turnMode;
-        const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
-
-        if (session.state.autopilotEnabled && !effectiveTurnMode) {
-          await runAutopilot(forwardInput, {
-            session,
-            signal: currentAbort.signal,
-          });
-        } else {
-          await runTurn({
-            session,
-            userInput: forwardInput,
-            metrics,
-            signal: currentAbort.signal,
-            turnMode: effectiveTurnMode ?? undefined,
-          });
-        }
-        await handlePostTurnContextBudget(session, currentAbort.signal);
-      }
-    } catch (err: any) {
-      if (err?.name !== 'AbortError' && !currentAbort.signal.aborted) {
-        await hookManager.emit('errorOccurred', {
-          scope: 'tui',
-          sessionId: session.state.id,
-          message: err?.message || String(err),
-        });
-        chat += `\nerror: ${err?.message || err}\n`;
-      }
-    } finally {
-      releaseStdout();
-      currentAbort = null;
-      busy = false;
-      followups = extractFollowups(lastTurnOutput);
-      followupIndex = 0;
-      markDirty();
-      const next = pendingInputs.shift();
-      if (next) void handleLine(next.line, next.scheduled);
-      if (!running) cleanup();
-    }
-  };
-
-  readline.emitKeypressEvents(process.stdin, rl);
-  if (process.stdin.isTTY) process.stdin.setRawMode(true);
-  process.stdout.on('resize', onResize);
-  process.on('SIGINT', onSigint);
-  rl.on('line', (line) => {
-    if (!line.trim() && followups.length) {
-      const idx = ((followupIndex % followups.length) + followups.length) % followups.length;
-      const choice = followups[idx];
-      followups = [];
-      followupIndex = 0;
-      void handleLine(choice);
-      return;
-    }
-    void handleLine(line);
-  });
-  rl.on('close', () => {
-    if (running) cleanup();
-  });
-  const onKeypress = (_ch: unknown, key: readline.Key | undefined) => {
-    // Ctrl+N / Ctrl+P cycle the inline follow-up chips; Esc clears them.
-    if (key?.ctrl && key.name === 'n' && followups.length) {
-      followupIndex = (followupIndex + 1) % followups.length;
-    } else if (key?.ctrl && key.name === 'p' && followups.length) {
-      followupIndex = (followupIndex - 1 + followups.length) % followups.length;
-    } else if (key?.name === 'escape') {
-      followups = [];
-      followupIndex = 0;
-    }
-    markDirty();
-  };
-  process.stdin.on('keypress', onKeypress);
-
-  altScreenEnter();
-  hideCursor();
-  clear();
-  // An empty timeline makes the renderer show the hero/branding canvas (with its
-  // tip bulletins) until the first turn produces conversation output.
-  chat = '';
-  refreshBranch();
-
-  frame = setInterval(render, FRAME_MS);
-  try {
-    await new Promise<void>((resolve) => {
-      const wait = setInterval(() => {
-        if (!running) {
-          clearInterval(wait);
-          resolve();
-        }
-      }, 50);
-    });
-  } finally {
-    if (running) cleanup();
-    await hookManager.emit('sessionEnd', {
-      sessionId: session.state.id,
-      cwd: session.state.cwd,
-      mode: session.state.mode,
-      model: session.state.model,
-    });
-  }
+function hRule(cols: number, color = GRAY): string {
+  return `${color}${'─'.repeat(Math.max(0, cols))}${RESET}`;
 }
 
-function heroCanvas(session: Session, cols: number): string[] {
-  const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
-  return renderHero(
-    {
-      version: VERSION,
-      provider: 'GitHub Models',
-      experimental: '/experimental [Active]',
-      tips: [
-        'Tip: Run /doctor to diagnose your environment configuration and tool availability.',
-        'Tool access is determined by your configured role and policy settings.',
-        `Active model: ${modelShort}. Type /help for commands or @ to target files.`,
-      ],
-    },
-    cols,
+function shortenHome(p: string): string {
+  const h = os.homedir();
+  return p === h || p.startsWith(h + '/') ? '~' + p.slice(h.length) : p;
+}
+
+function padRight(s: string, w: number): string {
+  const v = visW(s);
+  return v >= w ? s : s + ' '.repeat(w - v);
+}
+
+// ─── Welcome header ──────────────────────────────────────────────────────────
+
+function printWelcome(model: string, provider: string, branch: string): void {
+  const cols = process.stdout.columns || 80;
+  const cwd = shortenHome(process.cwd());
+  const branchPart = branch
+    ? `  ${GRAY}${safeUnicode ? '\uE0A0' : 'git:'} ${branch}${RESET}`
+    : '';
+
+  process.stdout.write('\n');
+  process.stdout.write(hRule(cols, MAGENTA) + '\n');
+  process.stdout.write(
+    `  ${BOLD}${CYAN}iCopilot CLI${RESET}  ${DIM}v${VERSION}${RESET}  ${GRAY}·${RESET}  ` +
+      `${BOLD}${model}${RESET}  ${GRAY}·${RESET}  ${BLUE}${provider}${RESET}\n`,
   );
+  process.stdout.write(`  ${GRAY}${cwd}${branchPart}${RESET}\n`);
+  process.stdout.write(
+    `  ${DIM}${GRAY}/help${RESET}${DIM} commands · ${RESET}${GRAY}@file${RESET}` +
+      `${DIM} context · ${RESET}${GRAY}Ctrl+C${RESET}${DIM} quit${RESET}\n`,
+  );
+  process.stdout.write(hRule(cols, MAGENTA) + '\n\n');
 }
 
-function statusDock(session: Session, branch: string, cols: number, busy: boolean): string {
-  const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
-  // Nerd-font git branch glyph (U+F02A2) when supported, plain label otherwise.
-  const branchIcon = safeUnicode ? '\u{F02A2} ' : 'git:';
-  const branchLabel = branch ? ` [${branchIcon}${branch}]` : '';
-  const left = `${session.state.cwd}${branchLabel}`;
-  const used = Math.min(CREDIT_BUDGET, Math.ceil(session.tokenUsage() / 1000));
-  const working = busy ? ' \x1b[33m◆ WORKING\x1b[0m  │ ' : '';
-  const right = `${working}Usage: ${used}/${CREDIT_BUDGET} credits  │  ${modelShort}`;
-  return renderStatusDock(left, right, cols);
-}
-
-function wrapLines(text: string, width: number): string[] {
-  const out: string[] = [];
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine || ' ';
-    for (let i = 0; i < line.length; i += width) {
-      out.push(line.slice(i, i + width));
-    }
-  }
-  return out.length ? out : [''];
-}
-
-function padToCols(text: string, cols: number): string {
-  const clipped = text.length > cols ? text.slice(0, cols) : text;
-  return clipped + ' '.repeat(Math.max(0, cols - clipped.length));
-}
+// ─── Follow-up chips ─────────────────────────────────────────────────────────
 
 function cleanLabel(s: string): string {
-  // For markdown links like [label](ca://s?q=…), use only the link text.
   const link = s.match(/\[([^\]]+)\]\([^)]*\)/);
   const base = link ? link[1] : s;
-  return base.replace(/[`*_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 32);
+  return base
+    .replace(/[`*_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 40);
 }
 
-/**
- * Derive selectable follow-up actions from a completed turn's output. Prefers a
- * markdown "Next steps" list, falling back to inline `[chip]` style suggestions.
- */
 function extractFollowups(text: string): string[] {
   if (!text) return [];
   const out: string[] = [];
@@ -495,7 +103,6 @@ function extractFollowups(text: string): string[] {
     }
   }
   if (out.length) return out;
-
   const chip = /\[([^\]\n]{2,40})\]/g;
   let match: RegExpExecArray | null;
   while ((match = chip.exec(text)) !== null && out.length < 4) {
@@ -505,7 +112,296 @@ function extractFollowups(text: string): string[] {
   return out;
 }
 
-function stripAnsi(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '');
+function printFollowups(chips: string[], activeIndex: number): void {
+  if (!chips.length) return;
+  const cols = process.stdout.columns || 80;
+  const active = ((activeIndex % chips.length) + chips.length) % chips.length;
+  const parts = chips.map((c, i) =>
+    i === active ? `${BOLD}${GREEN}[${c}]${RESET}` : `${GRAY}[${c}]${RESET}`,
+  );
+  const line = `  ${DIM}Next:${RESET}  ` + parts.join('  ');
+  const hint = `  ${DIM}↵ run  Ctrl+N/P cycle  Esc dismiss${RESET}`;
+  process.stdout.write(
+    '\n' + (visW(line) > cols ? stripAnsi(line).slice(0, cols) : line) + '\n',
+  );
+  process.stdout.write(hint + '\n');
+}
+
+// ─── Status footer after each turn ───────────────────────────────────────────
+
+function printStatusLine(model: string, tokens: number): void {
+  const cols = process.stdout.columns || 80;
+  const right = `${GRAY}${model}  ·  ~${Math.round(tokens / 1000)}k ctx${RESET}`;
+  process.stdout.write(padRight('', Math.max(0, cols - visW(right))) + right + '\n');
+}
+
+// ─── Main TUI ────────────────────────────────────────────────────────────────
+
+export async function runTui(
+  initialMode: 'ask' | 'plan' = 'ask',
+  opts: { defaultTurnMode?: 'ask' | 'code' | 'architect' | 'reason' } = {},
+): Promise<void> {
+  const session = new Session({ mode: initialMode });
+  await session.initializeGitContext();
+  await hookManager.emit('sessionStart', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    mode: session.state.mode,
+    model: session.state.model,
+  });
+
+  const metrics = new MetricsCollector();
+  const modelShort = session.state.model.replace('openai/', '').replace('github/', '');
+  const providerLabel = config.provider || 'github';
+
+  // Resolve git branch once at startup.
+  let gitBranch = '';
+  try {
+    const git = simpleGit(session.state.cwd);
+    if (await git.checkIsRepo()) {
+      gitBranch = (await git.revparse(['--abbrev-ref', 'HEAD'])).trim();
+    }
+  } catch {
+    /* not a git repo */
+  }
+
+  printWelcome(modelShort, providerLabel, gitBranch);
+
+  let running = true;
+  let busy = false;
+  let followups: string[] = [];
+  let followupIndex = 0;
+  let currentAbort: AbortController | null = null;
+  const pendingInputs: Array<{ line: string; scheduled: boolean }> = [];
+  const spinner = new Spinner();
+
+  // readline uses process.stdout directly — no silent sink, no alt-screen.
+  readline.emitKeypressEvents(process.stdin);
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
+    prompt: '',
+  });
+
+  const showPrompt = () => {
+    if (!running) return;
+    process.stdout.write(`${GREEN}❯${RESET} `);
+  };
+
+  // ── Handle each user turn ──────────────────────────────────────────────
+  const handleLine = async (line: string, scheduled = false): Promise<void> => {
+    if (busy) {
+      pendingInputs.push({ line, scheduled });
+      process.stdout.write(
+        `  ${GRAY}${scheduled ? '(system) queued:' : 'Still working — queued:'} ${line}${RESET}\n`,
+      );
+      return;
+    }
+
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      // Empty Enter while followups exist → run active chip.
+      if (followups.length) {
+        const idx = ((followupIndex % followups.length) + followups.length) % followups.length;
+        const choice = followups[idx];
+        followups = [];
+        followupIndex = 0;
+        void handleLine(choice);
+        return;
+      }
+      showPrompt();
+      return;
+    }
+
+    busy = true;
+    currentAbort = new AbortController();
+    followups = [];
+    followupIndex = 0;
+
+    // Echo the user message.
+    const cols = process.stdout.columns || 80;
+    process.stdout.write('\n' + hRule(cols, GRAY) + '\n');
+    const speaker = scheduled
+      ? `${GRAY}⏱ System${RESET}`
+      : `${BOLD}${BLUE}You${RESET}`;
+    process.stdout.write(`${speaker}\n${line}\n`);
+    process.stdout.write(hRule(cols, GRAY) + '\n\n');
+
+    // "● Copilot" header before streaming response.
+    process.stdout.write(`${BOLD}${MAGENTA}●${RESET} ${BOLD}Copilot${RESET}\n`);
+    spinner.start('Thinking…');
+
+    const resolvedLine = resolveAlias(line, loadAliases()) ?? line;
+    let lastOutput = '';
+
+    // Intercept stdout to harvest followups while letting output flow through.
+    const originalWrite = process.stdout.write.bind(process.stdout) as typeof process.stdout.write;
+    const interceptWrite = (
+      chunk: Uint8Array | string,
+      encodingOrCb?: BufferEncoding | ((err?: Error | null) => void),
+      cb?: (err?: Error | null) => void,
+    ): boolean => {
+      const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+      lastOutput += stripAnsi(text);
+      if (typeof encodingOrCb === 'function') {
+        return (
+          originalWrite as (
+            chunk: Uint8Array | string,
+            cb?: (err?: Error | null) => void,
+          ) => boolean
+        )(chunk, encodingOrCb);
+      }
+      return (
+        originalWrite as (
+          chunk: Uint8Array | string,
+          encoding?: BufferEncoding,
+          cb?: (err?: Error | null) => void,
+        ) => boolean
+      )(chunk, encodingOrCb as BufferEncoding | undefined, cb);
+    };
+
+    try {
+      process.stdout.write = interceptWrite as typeof process.stdout.write;
+
+      const slash = await handleSlash(resolvedLine, {
+        session,
+        abort: currentAbort,
+        metrics,
+        schedulePrompt: (prompt) => void handleLine(prompt, true),
+        exit: () => {
+          running = false;
+        },
+      });
+
+      if (!slash.consumed) {
+        const forwardInput = slash.forwardInput ?? resolvedLine;
+        const trimmedForward = forwardInput.trim();
+
+        if (trimmedForward.endsWith('&')) {
+          const goal = trimmedForward.slice(0, -1).trim();
+          if (!goal) {
+            process.stdout.write('usage: <prompt> &\n');
+          } else {
+            const id = backgroundTaskManager.startTask(goal);
+            process.stdout.write(
+              `${theme.ok('✔')} background task ${id.slice(0, 8)}: ${goal}\n`,
+            );
+          }
+        } else {
+          const explicitTurnMode = (
+            slash as { turnMode?: 'ask' | 'code' | 'architect' | 'reason' | null }
+          ).turnMode;
+          const effectiveTurnMode = explicitTurnMode ?? opts.defaultTurnMode;
+
+          if (session.state.autopilotEnabled && !effectiveTurnMode) {
+            await runAutopilot(forwardInput, { session, signal: currentAbort.signal });
+          } else {
+            await runTurn({
+              session,
+              userInput: forwardInput,
+              metrics,
+              signal: currentAbort.signal,
+              turnMode: effectiveTurnMode ?? undefined,
+            });
+          }
+          await handlePostTurnContextBudget(session, currentAbort.signal);
+        }
+      }
+
+      process.stdout.write = originalWrite;
+      spinner.stop(true);
+    } catch (err: unknown) {
+      process.stdout.write = originalWrite;
+      spinner.stop(false);
+      const e = err as { name?: string; message?: string };
+      if (e?.name !== 'AbortError' && !currentAbort?.signal.aborted) {
+        await hookManager.emit('errorOccurred', {
+          scope: 'tui',
+          sessionId: session.state.id,
+          message: e?.message || String(err),
+        });
+        process.stdout.write(`\n${theme.err('✖')} ${e?.message || String(err)}\n`);
+      }
+    } finally {
+      currentAbort = null;
+      busy = false;
+
+      followups = extractFollowups(lastOutput);
+      if (followups.length) printFollowups(followups, followupIndex);
+
+      const cols2 = process.stdout.columns || 80;
+      process.stdout.write('\n' + hRule(cols2, GRAY) + '\n');
+      printStatusLine(modelShort, session.tokenUsage());
+      process.stdout.write('\n');
+
+      const next = pendingInputs.shift();
+      if (next) {
+        void handleLine(next.line, next.scheduled);
+      } else if (!running) {
+        rl.close();
+      } else {
+        showPrompt();
+      }
+    }
+  };
+
+  // ── Keypress: navigation + Ctrl+C ─────────────────────────────────────
+  if (process.stdin.isTTY) process.stdin.setRawMode(true);
+
+  process.stdin.on('keypress', (_ch: unknown, key: readline.Key | undefined) => {
+    if (!key) return;
+    if (key.ctrl && key.name === 'c') {
+      if (busy && currentAbort && !currentAbort.signal.aborted) {
+        currentAbort.abort();
+        process.stdout.write(`\n${theme.warn('⚠')}  Turn cancelled.\n\n`);
+        return;
+      }
+      running = false;
+      rl.close();
+      showCursor();
+      process.stdout.write('\n');
+      process.exit(0);
+    }
+    if (key.ctrl && key.name === 'n' && followups.length) {
+      followupIndex = (followupIndex + 1) % followups.length;
+      printFollowups(followups, followupIndex);
+    } else if (key.ctrl && key.name === 'p' && followups.length) {
+      followupIndex = (followupIndex - 1 + followups.length) % followups.length;
+      printFollowups(followups, followupIndex);
+    } else if (key.name === 'escape') {
+      followups = [];
+      followupIndex = 0;
+    }
+  });
+
+  rl.on('line', (line) => void handleLine(line));
+  rl.on('close', () => {
+    running = false;
+    showCursor();
+  });
+
+  showPrompt();
+
+  // Wait until session ends.
+  await new Promise<void>((resolve) => {
+    const done = () => resolve();
+    rl.once('close', done);
+    const poll = setInterval(() => {
+      if (!running && !busy) {
+        clearInterval(poll);
+        rl.off('close', done);
+        resolve();
+      }
+    }, 100);
+    void poll;
+  });
+
+  await hookManager.emit('sessionEnd', {
+    sessionId: session.state.id,
+    cwd: session.state.cwd,
+    mode: session.state.mode,
+    model: session.state.model,
+  });
 }
